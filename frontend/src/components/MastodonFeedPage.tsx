@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { mastodon, type MastoStatus, type Me } from "../lib/api";
 
@@ -10,12 +10,38 @@ export function MastodonFeedPage({ me }: { me: Me }) {
   const [kind, setKind] = useState<Kind>("home");
   const [tagInput, setTagInput] = useState("astronomy");
   const [activeTag, setActiveTag] = useState("astronomy");
+  // Author filter is only relevant for Local — reset when leaving that tab.
+  const [authorFilter, setAuthorFilter] = useState<string>("");
+  useEffect(() => {
+    if (kind !== "public") setAuthorFilter("");
+  }, [kind]);
 
   const timeline = useQuery({
     queryKey: ["mastodon-timeline", kind, kind === "hashtag" ? activeTag : ""],
     queryFn: () => mastodon.timeline(kind, kind === "hashtag" ? activeTag : ""),
     refetchInterval: 60_000,
   });
+
+  // Unique accounts present in the currently-loaded statuses; surface
+  // them as a dropdown on Local. Sorted by display name (case-insensitive).
+  const localAuthors = useMemo(() => {
+    if (kind !== "public" || !timeline.data) return [];
+    const byAcct = new Map<string, MastoStatus["account"]>();
+    for (const s of timeline.data.items) {
+      if (!byAcct.has(s.account.acct)) byAcct.set(s.account.acct, s.account);
+    }
+    return [...byAcct.values()].sort((a, b) =>
+      (a.display_name || a.acct)
+        .toLowerCase()
+        .localeCompare((b.display_name || b.acct).toLowerCase()),
+    );
+  }, [timeline.data, kind]);
+
+  const visibleItems = useMemo(() => {
+    if (!timeline.data) return [];
+    if (kind !== "public" || !authorFilter) return timeline.data.items;
+    return timeline.data.items.filter((s) => s.account.acct === authorFilter);
+  }, [timeline.data, kind, authorFilter]);
 
   void me;
 
@@ -74,6 +100,39 @@ export function MastodonFeedPage({ me }: { me: Me }) {
         </form>
       )}
 
+      {kind === "public" && localAuthors.length > 0 && (
+        <div className="flex items-center gap-2 text-sm">
+          <label className="text-slate-400 text-xs" htmlFor="masto-author">
+            {t("mastodon.filterAuthor")}
+          </label>
+          <select
+            id="masto-author"
+            value={authorFilter}
+            onChange={(e) => setAuthorFilter(e.target.value)}
+            data-testid="masto-author-select"
+            className="bg-slate-950 ring-1 ring-slate-700 focus:ring-indigo-500 rounded-md px-2 py-1.5 text-slate-100 outline-none text-sm min-w-[14rem]"
+          >
+            <option value="">
+              {t("mastodon.allAuthors")} ({localAuthors.length})
+            </option>
+            {localAuthors.map((a) => (
+              <option key={a.acct} value={a.acct}>
+                {(a.display_name || a.acct).slice(0, 40)} (@{a.acct})
+              </option>
+            ))}
+          </select>
+          {authorFilter && (
+            <button
+              type="button"
+              onClick={() => setAuthorFilter("")}
+              className="text-xs text-slate-400 hover:text-slate-200"
+            >
+              {t("common.cancel")}
+            </button>
+          )}
+        </div>
+      )}
+
       {timeline.isLoading && (
         <p className="text-slate-500 text-sm">{t("common.loading")}</p>
       )}
@@ -90,9 +149,16 @@ export function MastodonFeedPage({ me }: { me: Me }) {
       {timeline.isSuccess && timeline.data.items.length === 0 && !timeline.data.detail && (
         <p className="text-slate-500 text-sm">{t("mastodon.empty")}</p>
       )}
+      {kind === "public" &&
+        authorFilter &&
+        visibleItems.length === 0 &&
+        timeline.data &&
+        timeline.data.items.length > 0 && (
+          <p className="text-slate-500 text-sm">{t("mastodon.noByAuthor")}</p>
+        )}
 
       <ul className="space-y-3">
-        {timeline.data?.items.map((s) => (
+        {visibleItems.map((s) => (
           <StatusCard key={s.id} status={s} />
         ))}
       </ul>

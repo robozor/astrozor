@@ -302,6 +302,9 @@
     "empty": "No statuses in this tab.",
     "tagPlaceholder": "astronomy",
     "applyTag": "Apply",
+    "filterAuthor": "Author:",
+    "allAuthors": "All authors",
+    "noByAuthor": "This author hasn't posted in the current batch.",
     "kind": {
       "home": "Home",
       "hashtag": "Hashtag",

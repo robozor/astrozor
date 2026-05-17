@@ -302,6 +302,9 @@
     "empty": "Žádné statusy v této záložce.",
     "tagPlaceholder": "astronomy",
     "applyTag": "Použít",
+    "filterAuthor": "Autor:",
+    "allAuthors": "Všichni autoři",
+    "noByAuthor": "Tento autor v aktuální dávce nic neposlal.",
     "kind": {
       "home": "Domů",
       "hashtag": "Hashtag",
