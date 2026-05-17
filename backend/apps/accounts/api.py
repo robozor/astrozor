@@ -222,7 +222,31 @@ def update_profile(request: HttpRequest, payload: ProfilePatch):
     return 200, {"user": _user_out(user), "profile": _profile_out(user)}
 
 
-# ---- OAuth (GitHub, Google later, Mastodon later) ----
+# ---- OAuth (GitHub, Google, Mastodon) ----
+
+
+@router.get("/auth/providers")
+def list_oauth_providers(request: HttpRequest):  # noqa: ARG001
+    """Tell the frontend which OAuth providers this instance has usable.
+
+    Defined BEFORE /auth/{provider}/start so the path doesn't match the
+    catch-all parameter pattern.
+    """
+    from .oauth import GitHubProvider, GoogleProvider, OAuthError
+
+    out: dict[str, bool] = {}
+    for name, cls in (
+        ("github", GitHubProvider),
+        ("google", GoogleProvider),
+    ):
+        try:
+            out[name] = cls().is_configured
+        except OAuthError:
+            out[name] = False
+    # Mastodon is per-instance dynamic — handled separately, not at the
+    # platform level.
+    out["mastodon"] = False
+    return out
 
 
 _SAFE_FROM = {"map", "settings", "articles"}
@@ -253,7 +277,10 @@ def oauth_start(request: HttpRequest, provider: str, **kwargs):
     state = new_state()
     request.session[f"oauth_state_{provider}"] = state
     request.session[f"oauth_from_{provider}"] = from_page
-    return HttpResponseRedirect(p.authorize_url(state))
+    # Remember the host we're on so the callback can reconstruct the same
+    # redirect_uri (must match what we sent to the provider).
+    request.session[f"oauth_host_{provider}"] = request.get_host()
+    return HttpResponseRedirect(p.authorize_url(state, request=request))
 
 
 @router.get("/auth/{provider}/callback")
@@ -273,7 +300,7 @@ def oauth_callback(request: HttpRequest, provider: str, code: str = "", state: s
         return HttpResponseRedirect(f"/?oauth_error=no_code&from={from_page}")
 
     try:
-        token = p.exchange_code(code)
+        token = p.exchange_code(code, request=request)
         profile = p.fetch_profile(token)
     except OAuthError as e:
         return HttpResponseRedirect(

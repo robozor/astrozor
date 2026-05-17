@@ -109,6 +109,8 @@ export const auth = {
     api.post<{ status: string; detail: string }>("/auth/magic-link", { email }),
   resendVerification: () =>
     api.post<{ status: string; detail: string }>("/auth/resend-verification"),
+  oauthProviders: () =>
+    api.get<{ github: boolean; google: boolean; mastodon: boolean }>("/auth/providers"),
   patchProfile: (patch: ProfilePatch) => api.patch<Me>("/accounts/profile", patch),
   listIdentities: () => api.get<Identity[]>("/accounts/identities"),
   disconnectIdentity: (id: string) => api.del<void>(`/accounts/identities/${id}`),

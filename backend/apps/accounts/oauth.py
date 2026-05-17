@@ -43,7 +43,17 @@ def _env(key: str, default: str = "") -> str:
     return value
 
 
-def callback_url(provider: str) -> str:
+def callback_url(provider: str, request=None) -> str:
+    """Compute the OAuth callback URL.
+
+    Prefer the current request's Host header (so users can access the app via
+    `http://localhost` to satisfy Google's redirect-URI requirements) and fall
+    back to settings.PUBLIC_BASE_URL.
+    """
+    if request is not None:
+        scheme = "https" if request.is_secure() else "http"
+        host = request.get_host()
+        return f"{scheme}://{host}/api/v1/auth/{provider}/callback"
     base = getattr(settings, "PUBLIC_BASE_URL", "http://astrozor.localhost").rstrip("/")
     return f"{base}/api/v1/auth/{provider}/callback"
 
@@ -77,17 +87,17 @@ class GitHubProvider:
     def is_configured(self) -> bool:
         return bool(self.client_id and self.client_secret)
 
-    def authorize_url(self, state: str) -> str:
+    def authorize_url(self, state: str, request=None) -> str:
         params = {
             "client_id": self.client_id,
-            "redirect_uri": callback_url(self.name),
+            "redirect_uri": callback_url(self.name, request=request),
             "scope": "read:user user:email",
             "state": state,
             "allow_signup": "true",
         }
         return f"{self.authorize_endpoint}?{urlencode(params)}"
 
-    def exchange_code(self, code: str) -> str:
+    def exchange_code(self, code: str, request=None) -> str:
         with httpx.Client(timeout=15.0) as client:
             r = client.post(
                 self.token_endpoint,
@@ -95,7 +105,7 @@ class GitHubProvider:
                     "client_id": self.client_id,
                     "client_secret": self.client_secret,
                     "code": code,
-                    "redirect_uri": callback_url(self.name),
+                    "redirect_uri": callback_url(self.name, request=request),
                 },
                 headers={"Accept": "application/json"},
             )
@@ -169,10 +179,10 @@ class GoogleProvider:
     def is_configured(self) -> bool:
         return bool(self.client_id and self.client_secret)
 
-    def authorize_url(self, state: str) -> str:
+    def authorize_url(self, state: str, request=None) -> str:
         params = {
             "client_id": self.client_id,
-            "redirect_uri": callback_url(self.name),
+            "redirect_uri": callback_url(self.name, request=request),
             "response_type": "code",
             "scope": "openid email profile",
             "access_type": "online",
@@ -181,7 +191,7 @@ class GoogleProvider:
         }
         return f"{self.authorize_endpoint}?{urlencode(params)}"
 
-    def exchange_code(self, code: str) -> str:
+    def exchange_code(self, code: str, request=None) -> str:
         with httpx.Client(timeout=15.0) as client:
             r = client.post(
                 self.token_endpoint,
@@ -190,7 +200,7 @@ class GoogleProvider:
                     "client_secret": self.client_secret,
                     "code": code,
                     "grant_type": "authorization_code",
-                    "redirect_uri": callback_url(self.name),
+                    "redirect_uri": callback_url(self.name, request=request),
                 },
                 headers={"Accept": "application/json"},
             )

@@ -145,6 +145,11 @@ function ConnectedAccounts() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const identities = useQuery({ queryKey: ["identities"], queryFn: auth.listIdentities });
+  const providers = useQuery({
+    queryKey: ["oauth-providers"],
+    queryFn: auth.oauthProviders,
+    staleTime: 5 * 60 * 1000,
+  });
   const disconnect = useMutation({
     mutationFn: (id: string) => auth.disconnectIdentity(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["identities"] }),
@@ -152,6 +157,7 @@ function ConnectedAccounts() {
 
   const connected: Record<string, Identity | undefined> = {};
   for (const i of identities.data ?? []) connected[i.provider] = i;
+  const configured = providers.data ?? { github: false, google: false, mastodon: false };
 
   return (
     <Card>
@@ -161,18 +167,21 @@ function ConnectedAccounts() {
           provider="github"
           label="GitHub"
           identity={connected.github}
+          configured={configured.github}
           onDisconnect={(id) => disconnect.mutate(id)}
         />
         <ProviderRow
           provider="google"
           label="Google"
           identity={connected.google}
+          configured={configured.google}
           onDisconnect={(id) => disconnect.mutate(id)}
         />
         <ProviderRow
           provider="mastodon"
           label="Mastodon"
           identity={connected.mastodon}
+          configured={configured.mastodon}
           onDisconnect={(id) => disconnect.mutate(id)}
         />
       </div>
@@ -189,11 +198,13 @@ function ProviderRow({
   provider,
   label,
   identity,
+  configured,
   onDisconnect,
 }: {
   provider: "github" | "google" | "mastodon";
   label: string;
   identity?: Identity;
+  configured: boolean;
   onDisconnect: (id: string) => void;
 }) {
   const { t } = useTranslation();
@@ -217,16 +228,22 @@ function ProviderRow({
       </div>
     );
   }
-  // Mastodon doesn't have a working backend provider yet (B-4).
-  if (provider === "mastodon") {
+  // Provider not configured on this instance — show a disabled row with a hint.
+  if (!configured) {
+    const badge = provider === "mastodon" ? "B-4" : provider === "google" ? "B-3" : "B-1";
+    const hintKey =
+      provider === "mastodon" ? "auth.oauth.comingSoon" : "auth.oauth.notConfiguredHint";
     return (
-      <div className="flex items-center justify-between bg-slate-950 ring-1 ring-slate-800 rounded-md px-3 py-2 text-sm opacity-60">
+      <div
+        title={t("auth.oauth.notConfiguredHint")}
+        className="flex items-center justify-between bg-slate-950 ring-1 ring-slate-800 rounded-md px-3 py-2 text-sm opacity-60 cursor-not-allowed"
+      >
         <div>
           <span className="text-slate-600 mr-2">○</span>
           <strong>{label}</strong>
-          <span className="text-slate-500 ml-2">{t("auth.oauth.comingSoon")}</span>
+          <span className="text-slate-500 ml-2">{t(hintKey)}</span>
         </div>
-        <span className="text-xs text-slate-600">B-4</span>
+        <span className="text-xs text-slate-600">{badge}</span>
       </div>
     );
   }
