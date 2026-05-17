@@ -102,7 +102,11 @@ function ArticleCard({ article, onOpen }: { article: ArticleListItem; onOpen: ()
           <h3 className="text-lg font-medium">{article.title}</h3>
           <span className="text-xs text-slate-500 font-mono">{article.language.toUpperCase()}</span>
         </div>
-        {article.summary && <p className="text-sm text-slate-300 mt-1">{article.summary}</p>}
+        {article.summary && (
+          <p className="text-sm text-slate-300 mt-1 whitespace-pre-line line-clamp-4">
+            {article.summary}
+          </p>
+        )}
         <div className="mt-2 text-xs text-slate-500 flex items-center gap-3">
           <span>{article.author_display_name}</span>
           {date && <span>· {date}</span>}
@@ -417,12 +421,12 @@ function ArticleEditor({
           placeholder={t("articles.editor.titlePlaceholder")}
           className="w-full bg-slate-950 ring-1 ring-slate-700 focus:ring-slate-500 rounded-md px-3 py-2 text-slate-100 outline-none text-lg"
         />
-        <input
-          type="text"
+        <textarea
           value={summary}
           onChange={(e) => setSummary(e.target.value)}
           placeholder={t("articles.editor.summaryPlaceholder")}
-          className="w-full bg-slate-950 ring-1 ring-slate-700 focus:ring-slate-500 rounded-md px-3 py-2 text-slate-100 outline-none text-sm"
+          rows={4}
+          className="w-full bg-slate-950 ring-1 ring-slate-700 focus:ring-slate-500 rounded-md px-3 py-2 text-slate-100 outline-none text-sm resize-y min-h-[6rem] max-h-[18rem] overflow-auto"
         />
         {hydrated ? (
           <MarkdownEditor
