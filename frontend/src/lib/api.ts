@@ -95,3 +95,40 @@ export const meta = {
   healthz: () => api.get<{ status: string; version: string; database: string }>("/healthz"),
   readyz: () => api.get<{ status: string; version: string; database: string }>("/readyz"),
 };
+
+// ---- Places ----
+
+export type Place = {
+  id: string;
+  slug: string;
+  name: string;
+  kind:
+    | "observatory_public"
+    | "observatory_private"
+    | "spot_permanent"
+    | "spot_temporary";
+  status: string;
+  description: string;
+  lat: number;
+  lon: number;
+  elevation_m: number | null;
+  address: string;
+  website: string;
+  contact: string;
+  opening_hours: string;
+  bortle_class: number | null;
+  valid_from: string | null;
+  valid_to: string | null;
+};
+
+export const places = {
+  list: (params?: { bbox?: string; kind?: string; q?: string }) => {
+    const search = new URLSearchParams();
+    if (params?.bbox) search.set("bbox", params.bbox);
+    if (params?.kind) search.set("kind", params.kind);
+    if (params?.q) search.set("q", params.q);
+    const qs = search.toString();
+    return api.get<{ count: number; items: Place[] }>(`/places${qs ? "?" + qs : ""}`);
+  },
+  get: (slug: string) => api.get<Place>(`/places/${slug}`),
+};

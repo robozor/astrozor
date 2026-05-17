@@ -8,6 +8,7 @@ This directory captures **non-trivial decisions** made during autonomous develop
 - [ADR-002 — Tier 0 publishing (no server-side user code execution)](./ADR-002-tier-0-publishing.md)
 - [ADR-003 — Email is not a notification channel](./ADR-003-no-email-notifications.md)
 - [ADR-004 — CSRF strategy: SameSite=Lax cookies, no API CSRF tokens](./ADR-004-csrf-strategy.md)
+- [ADR-005 — PostGIS + PMTiles deferred to Krok 3.x; OSM raster + float lat/lon in MVP](./ADR-005-postgis-deferred.md)
 
 ## Conventions
 

@@ -6,6 +6,31 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-05-17
+
+### Added — Krok 3: Map + Places (read-only)
+- `apps/places` Django app with `Place` model (UUID, slug, kind discriminator, lat/lon as float — see ADR-005 — status, description, lat/lon, elevation, address, contact, opening hours, Bortle class, valid_from/valid_to for temporary places).
+- Place kinds: `observatory_public`, `observatory_private`, `spot_permanent`, `spot_temporary`.
+- API endpoints:
+  - `GET /api/v1/places?bbox=lon_min,lat_min,lon_max,lat_max&kind=...&q=...&limit=...`
+  - `GET /api/v1/places/{slug}`
+- Seed command `python manage.py seed_places` populates 15 well-known CR observatories and spots (Štefánikova, Brno, Plzeň, Ondřejov, Valašské Meziříčí, Hradec Králové, Karlovy Vary, Vsetín, Úpice, Jindřichův Hradec, Sedlčany + 4 dark-sky spots). Idempotent (upsert by slug).
+- Frontend `MapView` component (MapLibre GL via `react-map-gl/maplibre`):
+  - OSM raster tile background (ADR-005 — PMTiles deferred).
+  - Color-coded markers per kind.
+  - Slide-in detail panel with full place info on marker click.
+- Translation keys `places.*` in both `cs.json` and `en.json`.
+- 3 Playwright tests for Krok 3 acceptance.
+- ADR-005 — PostGIS + PMTiles deferred to Krok 3.x. Trade-offs and migration path documented.
+
+### Changed
+- Authenticated home view now renders MapView prominently with a compact profile/logout strip below.
+- Step badge updated to "Krok 3".
+
+### Deferred (tech debt)
+- T-1 PostGIS migration of Place lat/lon to `geography(POINT, 4326)`.
+- T-2 PMTiles Europe bootstrap (download Protomaps Daily build, serve via Caddy/MinIO).
+
 ## [0.2.0] — 2026-05-17
 
 ### Added — Krok 2: i18n + Weblate scaffold

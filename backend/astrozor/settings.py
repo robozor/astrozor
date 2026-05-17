@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     # Astrozor apps
     "apps.core",
     "apps.accounts",
+    "apps.places",
 ]
 
 AUTH_USER_MODEL = "accounts.User"

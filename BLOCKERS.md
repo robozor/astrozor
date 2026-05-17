@@ -71,6 +71,24 @@ When the autonomous developer needs something from the human that cannot be self
 
 ---
 
+## Technical debt (NOT maintainer-blocked, but tracked here for visibility)
+
+#### T-1 — PostGIS migration of Place model *(deferred from Krok 3)*
+
+**What:** Migrate `Place.lat/lon` from `FloatField` to `geography(POINT, 4326)` so we can do `ST_Within`, `ST_Distance` queries efficiently.
+**Trigger:** When place count grows past a few thousand OR when "places near me" feature is needed.
+**Steps:** Add GDAL/GEOS to `Dockerfile.python`, enable `django.contrib.gis`, data migration to populate the new column, switch API filter to spatial.
+**Reference:** ADR-005.
+
+#### T-2 — PMTiles Europe bootstrap *(deferred from Krok 3)*
+
+**What:** Replace dev OSM raster tiles with self-hosted PMTiles (Europe extract from Protomaps Daily builds).
+**Trigger:** When OSM tile usage policy becomes a concern (~production traffic) or when offline / self-host pure setup is required.
+**Steps:** Download `europe.pmtiles` (~700 MB), upload to MinIO, configure Caddy byte-range serving, add `pmtiles` MapLibre plugin to frontend, update style to use `pmtiles://` protocol.
+**Reference:** ADR-005, runbook `docs/runbook/map-update.md` (to be written).
+
+---
+
 ## Resolved blockers
 
 (none yet)

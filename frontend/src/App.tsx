@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ApiError, auth, type Me } from "./lib/api";
 import { SUPPORTED_LANGUAGES, type LanguageCode } from "./i18n";
+import { MapView } from "./components/MapView";
 
 export function App() {
   const queryClient = useQueryClient();
@@ -27,14 +28,23 @@ export function App() {
     }
   }, [me.isSuccess, me.data?.profile.language, i18n]);
 
+  if (isAuthed) {
+    return (
+      <main className="min-h-screen p-4 sm:p-6">
+        <div className="max-w-6xl mx-auto bg-slate-900/60 ring-1 ring-slate-800 rounded-2xl p-4 sm:p-6 backdrop-blur">
+          <Header isAuthed={true} />
+          <AuthenticatedView me={me.data} onLogout={() => logout.mutate()} />
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen flex items-center justify-center p-6">
       <div className="max-w-xl w-full bg-slate-900/60 ring-1 ring-slate-800 rounded-2xl p-8 backdrop-blur">
-        <Header isAuthed={!!isAuthed} />
+        <Header isAuthed={false} />
         {me.isLoading ? (
           <Spinner />
-        ) : isAuthed ? (
-          <AuthenticatedView me={me.data} onLogout={() => logout.mutate()} />
         ) : (
           <UnauthenticatedView onAuthed={() => queryClient.invalidateQueries({ queryKey: ["me"] })} />
         )}
@@ -52,7 +62,7 @@ function Header({ isAuthed }: { isAuthed: boolean }) {
       </span>
       <h1 className="text-2xl font-semibold tracking-tight">{t("common.brand")}</h1>
       <span className="ml-auto text-xs px-2 py-1 rounded-full bg-slate-800 text-slate-300">
-        {t("common.krok")} 2
+        {t("common.krok")} 3
       </span>
       <LanguageSwitcher isAuthed={isAuthed} />
     </div>
@@ -259,22 +269,30 @@ function AuthenticatedView({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const { t } = useTranslation();
   return (
     <div className="space-y-4">
-      <div>
-        <p className="text-sm text-slate-400">{t("auth.loggedInAs")}</p>
-        <p className="font-medium">{me.user.display_name}</p>
-        <p className="text-xs text-slate-500">{me.user.email}</p>
-        <p className="text-xs text-slate-500 mt-1">
-          {t("auth.label.email")} {me.user.email_verified ? t("auth.emailVerified") : t("auth.emailUnverified")}
-        </p>
+      <MapView />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="md:col-span-2">
+          <p className="text-xs text-slate-400">{t("auth.loggedInAs")}</p>
+          <p className="font-medium">{me.user.display_name}</p>
+          <p className="text-xs text-slate-500">{me.user.email}</p>
+          <p className="text-xs text-slate-500 mt-1">
+            {t("auth.label.email")} {me.user.email_verified ? t("auth.emailVerified") : t("auth.emailUnverified")}
+          </p>
+          <div className="mt-3">
+            <ProfilePreview profile={me.profile} />
+          </div>
+        </div>
+        <div className="flex items-end">
+          <button
+            type="button"
+            onClick={onLogout}
+            data-testid="logout-button"
+            className="w-full bg-slate-800 hover:bg-slate-700 text-slate-100 rounded-md py-2 text-sm font-medium ring-1 ring-slate-700 transition"
+          >
+            {t("auth.button.logout")}
+          </button>
+        </div>
       </div>
-      <ProfilePreview profile={me.profile} />
-      <button
-        type="button"
-        onClick={onLogout}
-        className="w-full bg-slate-800 hover:bg-slate-700 text-slate-100 rounded-md py-2 text-sm font-medium ring-1 ring-slate-700 transition"
-      >
-        {t("auth.button.logout")}
-      </button>
     </div>
   );
 }

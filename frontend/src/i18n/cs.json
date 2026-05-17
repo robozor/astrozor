@@ -45,5 +45,20 @@
     "timezone": "Timezone",
     "locationVisibility": "Viditelnost polohy",
     "storage": "Storage"
+  },
+  "places": {
+    "countSuffix": "míst",
+    "kind": {
+      "observatory_public": "Veřejná hvězdárna",
+      "observatory_private": "Soukromá hvězdárna",
+      "spot_permanent": "Trvalé stanoviště",
+      "spot_temporary": "Dočasné místo"
+    },
+    "field": {
+      "lat": "Šířka",
+      "lon": "Délka",
+      "elevation": "Nadmořská výška",
+      "bortle": "Bortle"
+    }
   }
 }

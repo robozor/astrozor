@@ -45,5 +45,20 @@
     "timezone": "Timezone",
     "locationVisibility": "Location visibility",
     "storage": "Storage"
+  },
+  "places": {
+    "countSuffix": "places",
+    "kind": {
+      "observatory_public": "Public observatory",
+      "observatory_private": "Private observatory",
+      "spot_permanent": "Permanent spot",
+      "spot_temporary": "Temporary spot"
+    },
+    "field": {
+      "lat": "Latitude",
+      "lon": "Longitude",
+      "elevation": "Elevation",
+      "bortle": "Bortle"
+    }
   }
 }
