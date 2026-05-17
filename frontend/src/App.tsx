@@ -105,8 +105,8 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
   }, []);
 
   return (
-    <main className="min-h-screen p-4 sm:p-6">
-      <div className="max-w-6xl mx-auto bg-slate-900/60 ring-1 ring-slate-800 rounded-2xl p-4 sm:p-6 backdrop-blur">
+    <main className="min-h-screen p-2 sm:p-3">
+      <div className="w-full bg-slate-900/60 ring-1 ring-slate-800 rounded-xl p-3 sm:p-4 backdrop-blur">
         {flash && (
           <div
             data-testid="flash"

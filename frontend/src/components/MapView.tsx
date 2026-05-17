@@ -42,7 +42,7 @@ export function MapView({ me }: { me?: Me | null } = {}) {
   );
 
   return (
-    <div className="relative w-full h-[65vh] rounded-xl overflow-hidden ring-1 ring-slate-700">
+    <div className="relative w-full h-[calc(100vh-9rem)] min-h-[400px] rounded-xl overflow-hidden ring-1 ring-slate-700">
       <Map
         mapStyle={OSM_STYLE}
         initialViewState={initialViewState}
