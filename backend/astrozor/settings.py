@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     "apps.feeds",
     "apps.projects",
     "apps.events",
+    "apps.citizen",
 ]
 
 AUTH_USER_MODEL = "accounts.User"

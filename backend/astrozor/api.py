@@ -8,6 +8,7 @@ from ninja.security import django_auth
 
 from apps.accounts.api import router as accounts_router
 from apps.chat.api import router as chat_router
+from apps.citizen.api import router as citizen_router
 from apps.core.api import router as core_router
 from apps.events.api import router as events_router
 from apps.feeds.api import router as feeds_router
@@ -35,6 +36,7 @@ api.add_router("", publishing_router)
 api.add_router("", feeds_router)
 api.add_router("", projects_router)
 api.add_router("", events_router)
+api.add_router("", citizen_router)
 
 
 # CSRF token endpoint kept for Django admin form usage / future hardening
