@@ -251,28 +251,35 @@ function AddRepoForm({ projectSlug }: { projectSlug: string }) {
   });
 
   return (
-    <form
-      className="mt-3 flex gap-2"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (fullName.trim()) add.mutate();
-      }}
-    >
-      <input
-        value={fullName}
-        onChange={(e) => setFullName(e.target.value)}
-        placeholder="owner/repo"
-        className="flex-1 bg-slate-950 ring-1 ring-slate-700 focus:ring-slate-500 rounded-md px-3 py-2 text-sm text-slate-100 outline-none transition"
-        data-testid="repo-add-input"
-      />
-      <button
-        type="submit"
-        disabled={add.isPending || !fullName.trim()}
-        className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 text-white text-sm px-3 py-2 rounded-md transition"
+    <div className="mt-3">
+      <form
+        className="flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (fullName.trim()) add.mutate();
+        }}
       >
-        {add.isPending ? "…" : t("projects.repos.add")}
-      </button>
-    </form>
+        <input
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          placeholder="owner/repo"
+          className="flex-1 bg-slate-950 ring-1 ring-slate-700 focus:ring-slate-500 rounded-md px-3 py-2 text-sm text-slate-100 outline-none transition"
+          data-testid="repo-add-input"
+        />
+        <button
+          type="submit"
+          disabled={add.isPending || !fullName.trim()}
+          className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 text-white text-sm px-3 py-2 rounded-md transition"
+        >
+          {add.isPending ? "…" : t("projects.repos.add")}
+        </button>
+      </form>
+      {add.error && (
+        <p className="text-xs text-rose-400 mt-2" data-testid="repo-add-error">
+          {(add.error as Error).message}
+        </p>
+      )}
+    </div>
   );
 }
 

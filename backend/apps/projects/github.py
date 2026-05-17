@@ -20,11 +20,11 @@ logger = logging.getLogger(__name__)
 GH_API = "https://api.github.com"
 
 
-def _headers() -> dict[str, str]:
+def _headers(token: str | None = None) -> dict[str, str]:
     h = {"Accept": "application/vnd.github+json", "User-Agent": "Astrozor/0.x"}
-    token = os.environ.get("GITHUB_TOKEN")
-    if token:
-        h["Authorization"] = f"Bearer {token}"
+    effective = token or os.environ.get("GITHUB_TOKEN")
+    if effective:
+        h["Authorization"] = f"Bearer {effective}"
     return h
 
 
@@ -35,6 +35,25 @@ def _parse_iso(s: str | None) -> datetime | None:
         return datetime.fromisoformat(s.replace("Z", "+00:00"))
     except ValueError:
         return None
+
+
+def _resolve_user_token(user) -> str | None:
+    """Return the user's GitHub OAuth access_token if they have a connected
+    Identity, else None (caller falls back to anonymous or env token).
+    """
+    if not user or not getattr(user, "is_authenticated", False):
+        return None
+    try:
+        from apps.accounts.models import Identity
+
+        ident = (
+            Identity.objects.filter(user=user, provider="github")
+            .exclude(access_token="")
+            .first()
+        )
+    except Exception:
+        return None
+    return ident.access_token if ident else None
 
 
 def fetch_repo_metadata(repo: GHRepo, user=None) -> dict:
