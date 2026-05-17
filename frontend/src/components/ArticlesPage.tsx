@@ -381,11 +381,16 @@ function ArticleEditor({
           placeholder={t("articles.editor.summaryPlaceholder")}
           className="w-full bg-slate-950 ring-1 ring-slate-700 focus:ring-slate-500 rounded-md px-3 py-2 text-slate-100 outline-none text-sm"
         />
-        <MarkdownEditor
-          markdown={contentMd}
-          onChange={setContentMd}
-          placeholder="Začni psát článek…"
-        />
+        {hydrated ? (
+          <MarkdownEditor
+            key={editSlug ?? "new"}
+            markdown={contentMd}
+            onChange={setContentMd}
+            placeholder="Začni psát článek…"
+          />
+        ) : (
+          <p className="text-slate-500 text-sm">{t("common.loading")}</p>
+        )}
       </div>
 
       <div className="mt-4 flex gap-2">
