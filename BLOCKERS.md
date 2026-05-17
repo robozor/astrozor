@@ -37,16 +37,11 @@ Frontend has "Sign in with GitHub" button in unauth view. Profile UI for connect
 **How to resolve:** Umísti do `seed-data/cas/places.csv` nebo dej URL ke stažení.
 **Workaround:** Krok 3 dokončím s vygenerovanou ukázkou 15 hvězdáren (reálné polohy známých hvězdáren ČR — z veřejných údajů). Tvá data nahradí seed když je dodáš.
 
-#### B-3 — Google OAuth credentials *(blocks full Krok 1 acceptance)*
+#### ~~B-3 — Google OAuth~~ — **resolved 2026-05-17**
 
-**What:** Google Cloud project + OAuth 2.0 client.
-**How to resolve:**
-1. https://console.cloud.google.com/apis/credentials
-2. Create project `Astrozor (dev)` → OAuth client ID → Web application
-3. Authorized redirect URIs: `http://astrozor.localhost/api/v1/auth/google/callback`
-4. Add to `.env` as `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`
+Google OAuth client registered. Redirect URI is `http://localhost/api/v1/auth/google/callback` (Google rejects `astrozor.localhost` in its console form; `localhost` is allowed). Callback URL on backend is dynamic from the request Host header, so opening the app on `http://localhost` keeps cookies consistent through the OAuth round-trip.
 
-**Workaround:** Stejné jako B-1 — email-only auth funguje, Google OAuth doplníme.
+Re-uses the same Identity / access_token machinery as B-1. Settings page shows Google as clickable "Connect Google" once `/auth/providers` reports it configured.
 
 #### B-4 — Mastodon OAuth registration *(blocks Krok 13)*
 
