@@ -50,7 +50,31 @@ export function DiscordPrefsSection({ hasWebhook }: { hasWebhook: boolean }) {
       enabled: boolean;
       filters: Record<string, unknown>;
     }) => discordPrefs.upsert(args.kind, { enabled: args.enabled, filters: args.filters }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["discord-prefs"] }),
+    // Optimistic update: flip the local cache immediately on click so the
+    // checkbox responds the instant the user clicks, regardless of the
+    // mutation's network latency. Roll back on error.
+    onMutate: async (args) => {
+      await qc.cancelQueries({ queryKey: ["discord-prefs"] });
+      const prev = qc.getQueryData<DiscordPref[]>(["discord-prefs"]) ?? [];
+      const others = prev.filter((p) => p.kind !== args.kind);
+      const existing = prev.find((p) => p.kind === args.kind);
+      const next: DiscordPref[] = [
+        ...others,
+        {
+          id: existing?.id ?? "optimistic",
+          kind: args.kind,
+          enabled: args.enabled,
+          filters: args.filters,
+          updated_at: new Date().toISOString(),
+        },
+      ];
+      qc.setQueryData(["discord-prefs"], next);
+      return { prev };
+    },
+    onError: (_err, _args, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["discord-prefs"], ctx.prev);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["discord-prefs"] }),
   });
 
   return (
