@@ -209,6 +209,12 @@ export type MapInfraOut = {
     status_message: string;
     job_id: string;
     available: boolean;
+    latest: {
+      url: string;
+      key: string;
+      size_bytes: number;
+      uploaded: string | null;
+    } | null;
   };
   photon: {
     url: string;

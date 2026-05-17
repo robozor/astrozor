@@ -144,7 +144,9 @@
       "download": "Stáhnout",
       "refresh": "Obnovit",
       "downloading": "Stahuje se…",
-      "backToOsm": "Přepnout zpět na OSM"
+      "backToOsm": "Přepnout zpět na OSM",
+      "latestAvailable": "Nejnovější dostupný build:",
+      "useLatest": "Použít"
     },
     "photon": {
       "title": "Photon (search backend)",

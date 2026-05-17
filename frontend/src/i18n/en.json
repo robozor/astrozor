@@ -144,7 +144,9 @@
       "download": "Download",
       "refresh": "Refresh",
       "downloading": "Downloading…",
-      "backToOsm": "Switch back to OSM"
+      "backToOsm": "Switch back to OSM",
+      "latestAvailable": "Latest available build:",
+      "useLatest": "Use"
     },
     "photon": {
       "title": "Photon (search backend)",

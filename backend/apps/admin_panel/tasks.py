@@ -40,6 +40,22 @@ def download_pmtiles(self):
     tmp_path: Path | None = None
 
     try:
+        # Auto-resolve to the newest Protomaps Daily build if user left
+        # the source URL blank.
+        source_url = infra.pmtiles_source_url
+        if not source_url:
+            with httpx.Client(timeout=10.0) as client:
+                idx = client.get("https://build-metadata.protomaps.dev/builds.json")
+            idx.raise_for_status()
+            builds = idx.json()
+            if not builds:
+                raise RuntimeError("Protomaps build index is empty")
+            source_url = f"https://build.protomaps.com/{builds[-1]['key']}"
+            MapInfra.objects.filter(pk=1).update(
+                pmtiles_source_url=source_url,
+                pmtiles_status_message=f"Auto-picked latest build: {builds[-1]['key']}",
+            )
+
         target.parent.mkdir(parents=True, exist_ok=True)
         tmp_fd, tmp_name = tempfile.mkstemp(dir=target.parent, suffix=".part")
         os.close(tmp_fd)
@@ -47,7 +63,7 @@ def download_pmtiles(self):
 
         with httpx.stream(
             "GET",
-            infra.pmtiles_source_url,
+            source_url,
             timeout=httpx.Timeout(connect=30.0, read=600.0, write=600.0, pool=30.0),
             follow_redirects=True,
         ) as r:

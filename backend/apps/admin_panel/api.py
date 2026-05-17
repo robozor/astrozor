@@ -8,11 +8,44 @@ admin section instead of falling back to Django's stock admin pages.
 
 from __future__ import annotations
 
+import logging
+
+import httpx
+from django.core.cache import cache
 from django.http import HttpRequest
 from ninja import Router, Schema
 
 from .models import MapInfra
 from .tasks import download_pmtiles, import_photon
+
+log = logging.getLogger(__name__)
+
+PROTOMAPS_INDEX_URL = "https://build-metadata.protomaps.dev/builds.json"
+PROTOMAPS_BUILD_URL = "https://build.protomaps.com/{key}"
+
+
+def _latest_protomaps_build() -> dict | None:
+    """Return the newest Protomaps Daily build entry, cached 1 h.
+
+    Shape: {key: "20260517.pmtiles", size: 115..., uploaded: "ISO"}
+    """
+    cached = cache.get("protomaps:latest")
+    if cached is not None:
+        return cached
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            r = client.get(PROTOMAPS_INDEX_URL)
+        if r.status_code != 200:
+            return None
+        builds = r.json()
+        if not isinstance(builds, list) or not builds:
+            return None
+        latest = builds[-1]
+        cache.set("protomaps:latest", latest, 3600)
+        return latest
+    except Exception as e:  # noqa: BLE001
+        log.warning("Protomaps build index fetch failed: %s", e)
+        return None
 
 router = Router(tags=["admin"])
 
@@ -26,6 +59,7 @@ def _require_staff(request: HttpRequest) -> bool:
 
 
 def _infra_out(m: MapInfra) -> dict:
+    latest = _latest_protomaps_build()
     return {
         "pmtiles": {
             "path": m.pmtiles_path,
@@ -36,6 +70,16 @@ def _infra_out(m: MapInfra) -> dict:
             "status_message": m.pmtiles_status_message,
             "job_id": m.pmtiles_job_id,
             "available": m.pmtiles_size_bytes > 0 and m.pmtiles_status != MapInfra.JobStatus.ERROR,
+            "latest": (
+                {
+                    "url": PROTOMAPS_BUILD_URL.format(key=latest["key"]),
+                    "key": latest["key"],
+                    "size_bytes": latest.get("size", 0),
+                    "uploaded": latest.get("uploaded"),
+                }
+                if latest
+                else None
+            ),
         },
         "photon": {
             "url": m.photon_url,

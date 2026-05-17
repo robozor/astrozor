@@ -34,8 +34,12 @@ class MapInfra(models.Model):
     )
     pmtiles_source_url = models.URLField(
         max_length=500,
-        default="https://build.protomaps.com/20260301.pmtiles",
-        help_text="Protomaps Daily build URL — update to the latest date when refreshing",
+        default="",
+        blank=True,
+        help_text=(
+            "Protomaps Daily build URL. Leave blank to auto-pick the latest "
+            "from https://build-metadata.protomaps.dev/builds.json"
+        ),
     )
     pmtiles_size_bytes = models.BigIntegerField(default=0)
     pmtiles_last_update = models.DateTimeField(null=True, blank=True)

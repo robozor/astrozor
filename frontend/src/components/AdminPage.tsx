@@ -127,6 +127,30 @@ function PmtilesCard({ data }: { data: MapInfraOut }) {
         />
       </label>
 
+      {data.pmtiles.latest && (
+        <div className="bg-slate-900/60 ring-1 ring-slate-800 rounded-md px-2 py-1.5 flex items-center justify-between gap-2 text-xs">
+          <div className="min-w-0">
+            <p className="text-slate-300">
+              {t("admin.pmtiles.latestAvailable")}{" "}
+              <span className="font-mono text-slate-100">{data.pmtiles.latest.key}</span>
+            </p>
+            <p className="text-slate-500 text-[11px]">
+              {(data.pmtiles.latest.size_bytes / 1024 ** 3).toFixed(1)} GB ·{" "}
+              {data.pmtiles.latest.uploaded
+                ? new Date(data.pmtiles.latest.uploaded).toLocaleDateString()
+                : ""}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSourceUrl(data.pmtiles.latest!.url)}
+            className="shrink-0 bg-slate-800 hover:bg-slate-700 text-slate-100 px-2 py-1 rounded-md ring-1 ring-slate-700 text-[11px]"
+          >
+            {t("admin.pmtiles.useLatest")}
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-2 pt-2">
         <button
           type="button"
