@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     "apps.citizen",
     "apps.publishing_api",
     "apps.uploads",
+    "apps.geocoding",
 ]
 
 AUTH_USER_MODEL = "accounts.User"

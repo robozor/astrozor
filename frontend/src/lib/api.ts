@@ -166,6 +166,34 @@ export const uploads = {
   },
 };
 
+// ---- Geocoding (Nominatim proxy) ----
+
+export type GeocodeHit = {
+  place_id: number;
+  display_name: string;
+  lat: string;
+  lon: string;
+  boundingbox?: [string, string, string, string];
+  type?: string;
+};
+
+export type GeocodeResponse = {
+  items: GeocodeHit[];
+  cached: boolean;
+  detail?: string;
+};
+
+export const geocoding = {
+  search: (q: string, limit = 6, lang = "cs,en") => {
+    const search = new URLSearchParams({
+      q,
+      limit: String(limit),
+      lang,
+    });
+    return api.get<GeocodeResponse>(`/geocode?${search.toString()}`);
+  },
+};
+
 export const meta = {
   healthz: () => api.get<{ status: string; version: string; database: string }>("/healthz"),
   readyz: () => api.get<{ status: string; version: string; database: string }>("/readyz"),

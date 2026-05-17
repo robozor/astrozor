@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -9,7 +9,15 @@ import {
   type MapStyle,
 } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { places, subscriptions, type Me, type Place } from "../lib/api";
+import {
+  geocoding,
+  places,
+  subscriptions,
+  ApiError,
+  type GeocodeHit,
+  type Me,
+  type Place,
+} from "../lib/api";
 import { MapMarker } from "./MapMarker";
 import { PlaceDetailPanel } from "./PlaceDetailPanel";
 
@@ -105,14 +113,6 @@ const ALL_KINDS: Place["kind"][] = [
 
 type StateFilter = "all" | "active" | "subscribed";
 
-type NominatimHit = {
-  place_id: number;
-  display_name: string;
-  lat: string;
-  lon: string;
-  boundingbox?: [string, string, string, string];
-  type?: string;
-};
 
 export function MapView({ me }: { me?: Me | null } = {}) {
   const mapRef = useRef<MapRef | null>(null);
@@ -129,6 +129,14 @@ export function MapView({ me }: { me?: Me | null } = {}) {
   const [selected, setSelected] = useState<Place | null>(null);
 
   const [styleKey, setStyleKey] = useState<StyleKey>("osm");
+  const [tileWarning, setTileWarning] = useState<string | null>(null);
+  // Track per-style error counts so we don't fall back on a single hiccup
+  const errorCountRef = useRef<Record<StyleKey, number>>({
+    osm: 0,
+    dark: 0,
+    satellite: 0,
+    topo: 0,
+  });
   const [enabledKinds, setEnabledKinds] = useState<Set<Place["kind"]>>(
     () => new Set(ALL_KINDS),
   );
@@ -153,6 +161,39 @@ export function MapView({ me }: { me?: Me | null } = {}) {
 
   const handleFly = (lat: number, lon: number, zoom = 12) => {
     mapRef.current?.flyTo({ center: [lon, lat], zoom, duration: 1200 });
+  };
+
+  // Tile-source rate-limit guard: if MapLibre reports repeated tile fetch
+  // failures (HTTP 429 / 403 / network) from the current style, switch
+  // back to OSM and show a warning. MapLibre's `error` event surfaces
+  // tile load failures with status codes; we count them per-style and
+  // tolerate a few before reacting.
+  useEffect(() => {
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    const onError = (e: { error?: { status?: number; url?: string } }) => {
+      const status = e.error?.status;
+      if (status !== 429 && status !== 403) return;
+      const k = styleKey;
+      errorCountRef.current[k] = (errorCountRef.current[k] ?? 0) + 1;
+      if (errorCountRef.current[k] >= 3 && k !== "osm") {
+        setTileWarning(
+          `${k.toUpperCase()} tile server is throttling (HTTP ${status}). Falling back to OSM.`,
+        );
+        setStyleKey("osm");
+      }
+    };
+    map.on("error", onError);
+    return () => {
+      map.off("error", onError);
+    };
+  }, [styleKey]);
+
+  // Reset error count + warning when user manually picks a new style
+  const handleStyleChange = (k: StyleKey) => {
+    errorCountRef.current[k] = 0;
+    setTileWarning(null);
+    setStyleKey(k);
   };
 
   return (
@@ -194,12 +235,30 @@ export function MapView({ me }: { me?: Me | null } = {}) {
         />
       )}
 
+      {tileWarning && (
+        <div
+          data-testid="map-tile-warning"
+          className="absolute top-3 right-12 bg-amber-950/90 ring-1 ring-amber-700/60 rounded-md px-3 py-1.5 text-xs text-amber-200 backdrop-blur max-w-md"
+          role="status"
+        >
+          ⚠ {tileWarning}
+          <button
+            type="button"
+            onClick={() => setTileWarning(null)}
+            aria-label="Dismiss"
+            className="ml-2 text-amber-300 hover:text-amber-100"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <ControlPanel
         visibleCount={visiblePlaces.length}
         totalCount={placesQuery.data?.count ?? 0}
         loading={placesQuery.isLoading}
         styleKey={styleKey}
-        onStyleChange={setStyleKey}
+        onStyleChange={handleStyleChange}
         enabledKinds={enabledKinds}
         onKindToggle={(k) =>
           setEnabledKinds((prev) => {
@@ -381,31 +440,33 @@ function KindSwatch({ kind }: { kind: Place["kind"] }) {
 function SearchBox({ onPick }: { onPick: (lat: number, lon: number, zoom?: number) => void }) {
   const { t } = useTranslation();
   const [q, setQ] = useState("");
-  const [hits, setHits] = useState<NominatimHit[]>([]);
+  const [hits, setHits] = useState<GeocodeHit[]>([]);
   const [pending, setPending] = useState(false);
   const [open, setOpen] = useState(false);
+  const [rateLimitHint, setRateLimitHint] = useState<string | null>(null);
   const debounceRef = useRef<number | null>(null);
 
-  function runSearch(query: string) {
+  async function runSearch(query: string) {
     if (!query.trim()) {
       setHits([]);
       return;
     }
     setPending(true);
-    const url = new URL("https://nominatim.openstreetmap.org/search");
-    url.searchParams.set("q", query);
-    url.searchParams.set("format", "json");
-    url.searchParams.set("addressdetails", "0");
-    url.searchParams.set("limit", "6");
-    url.searchParams.set("accept-language", "cs,en");
-    fetch(url.toString(), { headers: { "Accept": "application/json" } })
-      .then((r) => r.json())
-      .then((data: NominatimHit[]) => {
-        setHits(Array.isArray(data) ? data : []);
-        setOpen(true);
-      })
-      .catch(() => setHits([]))
-      .finally(() => setPending(false));
+    setRateLimitHint(null);
+    try {
+      const r = await geocoding.search(query, 6, "cs,en");
+      setHits(r.items);
+      setOpen(true);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 429) {
+        setRateLimitHint(e.detail);
+        setHits([]);
+      } else {
+        setHits([]);
+      }
+    } finally {
+      setPending(false);
+    }
   }
 
   function onInput(v: string) {
@@ -414,7 +475,7 @@ function SearchBox({ onPick }: { onPick: (lat: number, lon: number, zoom?: numbe
     debounceRef.current = window.setTimeout(() => runSearch(v), 350);
   }
 
-  function pickHit(h: NominatimHit) {
+  function pickHit(h: GeocodeHit) {
     const lat = parseFloat(h.lat);
     const lon = parseFloat(h.lon);
     if (Number.isFinite(lat) && Number.isFinite(lon)) {
@@ -441,6 +502,14 @@ function SearchBox({ onPick }: { onPick: (lat: number, lon: number, zoom?: numbe
         />
         {pending && (
           <span className="absolute right-2 top-1.5 text-slate-500 text-xs">…</span>
+        )}
+        {rateLimitHint && (
+          <p
+            className="mt-1 text-[11px] text-amber-300"
+            data-testid="mapctl-search-ratelimited"
+          >
+            ⚠ {rateLimitHint}
+          </p>
         )}
         {open && hits.length > 0 && (
           <ul className="absolute z-10 mt-1 left-0 right-0 max-h-60 overflow-auto bg-slate-900 ring-1 ring-slate-700 rounded shadow-xl">
