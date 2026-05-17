@@ -193,7 +193,7 @@ def publish_article(request: HttpRequest, slug: str):
     a.status = Article.Status.PUBLISHED
     a.published_at = timezone.now()
     if not a.doi:
-        a.doi = mint_doi(a.id, a.title)
+        a.doi = mint_doi(a.id, a.title, user=a.author, description=a.summary)
     if a.content_md and not a.content_html:
         a.content_html = render_markdown(a.content_md)
     a.save()

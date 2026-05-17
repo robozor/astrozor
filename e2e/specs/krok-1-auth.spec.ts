@@ -32,10 +32,9 @@ test.describe("Krok 1 — Authentication", () => {
 
     await page.getByRole("button", { name: /vytvořit účet/i }).click();
 
-    // Authenticated view
-    await expect(page.getByText(/přihlášen\(a\) jako/i)).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(email)).toBeVisible();
-    await expect(page.getByText(/storage/i)).toBeVisible();
+    // Authenticated view — logout button + Mapa nav are reliable markers
+    await expect(page.getByTestId("logout-button")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId("nav-settings")).toBeVisible();
 
     // Verify e-mail was captured in MailHog
     const mh = await request.get("http://mailhog:8025/api/v2/search?kind=to&query=" + encodeURIComponent(email));
@@ -44,7 +43,7 @@ test.describe("Krok 1 — Authentication", () => {
     expect(body.count).toBeGreaterThanOrEqual(1);
 
     // Logout
-    await page.getByRole("button", { name: /odhlásit/i }).click();
+    await page.getByTestId("logout-button").click();
     await expect(page.getByRole("button", { name: /registrace/i })).toBeVisible();
   });
 
@@ -61,10 +60,9 @@ test.describe("Krok 1 — Authentication", () => {
     await page.goto("/");
     await page.getByLabel(/e-?mail/i).first().fill(email);
     await page.getByLabel(/heslo/i).fill(PASSWORD);
-    await page.getByRole("button", { name: /přihlásit se/i }).click();
+    await page.locator("form").getByRole("button", { name: /přihlásit se/i }).click();
 
-    await expect(page.getByText(/přihlášen\(a\) jako/i)).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(email)).toBeVisible();
+    await expect(page.getByTestId("logout-button")).toBeVisible({ timeout: 10000 });
   });
 
   test("magic link request returns generic ok", async ({ request }) => {

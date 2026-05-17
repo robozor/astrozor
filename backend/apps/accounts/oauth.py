@@ -146,7 +146,89 @@ class GitHubProvider:
         )
 
 
-def get_provider(name: str) -> GitHubProvider:
+# ---- Google ----
+
+
+class GoogleProvider:
+    name = "google"
+
+    def __init__(self) -> None:
+        self.client_id = _env("GOOGLE_OAUTH_CLIENT_ID")
+        self.client_secret = _env("GOOGLE_OAUTH_CLIENT_SECRET")
+        self.authorize_endpoint = _env(
+            "GOOGLE_OAUTH_AUTHORIZE_URL", "https://accounts.google.com/o/oauth2/v2/auth"
+        )
+        self.token_endpoint = _env(
+            "GOOGLE_OAUTH_TOKEN_URL", "https://oauth2.googleapis.com/token"
+        )
+        self.user_endpoint = _env(
+            "GOOGLE_OAUTH_USER_URL", "https://www.googleapis.com/oauth2/v3/userinfo"
+        )
+
+    @property
+    def is_configured(self) -> bool:
+        return bool(self.client_id and self.client_secret)
+
+    def authorize_url(self, state: str) -> str:
+        params = {
+            "client_id": self.client_id,
+            "redirect_uri": callback_url(self.name),
+            "response_type": "code",
+            "scope": "openid email profile",
+            "access_type": "online",
+            "prompt": "select_account",
+            "state": state,
+        }
+        return f"{self.authorize_endpoint}?{urlencode(params)}"
+
+    def exchange_code(self, code: str) -> str:
+        with httpx.Client(timeout=15.0) as client:
+            r = client.post(
+                self.token_endpoint,
+                data={
+                    "client_id": self.client_id,
+                    "client_secret": self.client_secret,
+                    "code": code,
+                    "grant_type": "authorization_code",
+                    "redirect_uri": callback_url(self.name),
+                },
+                headers={"Accept": "application/json"},
+            )
+        if r.status_code != 200:
+            raise OAuthError(
+                f"Google token exchange failed: HTTP {r.status_code}: {r.text[:200]}"
+            )
+        data = r.json()
+        token = data.get("access_token")
+        if not token:
+            raise OAuthError(f"Google token response missing access_token: {data}")
+        return token
+
+    def fetch_profile(self, access_token: str) -> OAuthProfile:
+        headers = {"Authorization": f"Bearer {access_token}"}
+        with httpx.Client(timeout=15.0) as client:
+            r = client.get(self.user_endpoint, headers=headers)
+        if r.status_code != 200:
+            raise OAuthError(f"Google /userinfo failed: HTTP {r.status_code}")
+        u = r.json()
+        email = u.get("email") or ""
+        if not email:
+            raise OAuthError("Google account has no email")
+        # Google explicitly reports email_verified — if missing or False, reject
+        if u.get("email_verified") is False:
+            raise OAuthError("Google account email is not verified")
+        return OAuthProfile(
+            provider="google",
+            provider_user_id=str(u.get("sub") or u.get("id") or ""),
+            email=email,
+            display_name=u.get("name") or email.split("@")[0],
+            avatar_url=u.get("picture") or "",
+        )
+
+
+def get_provider(name: str):
     if name == "github":
         return GitHubProvider()
+    if name == "google":
+        return GoogleProvider()
     raise OAuthError(f"Unknown OAuth provider: {name}")

@@ -14,7 +14,12 @@
     "or": "or",
     "oauth": {
       "signInGitHub": "Sign in with GitHub",
+      "signInGoogle": "Sign in with Google",
       "connectGitHub": "Connect GitHub account",
+      "connect_github": "Connect GitHub",
+      "connect_google": "Connect Google",
+      "connect_mastodon": "Connect Mastodon",
+      "notConnected": "not connected",
       "disconnect": "Disconnect",
       "noIdentities": "No external account connected.",
       "connectedAccounts": "Connected accounts",
@@ -57,6 +62,49 @@
     "timezone": "Timezone",
     "locationVisibility": "Location visibility",
     "storage": "Storage"
+  },
+  "nav": {
+    "map": "Map",
+    "settings": "Settings",
+    "articles": "Articles",
+    "feed": "Feed",
+    "logout": "Log out"
+  },
+  "settings": {
+    "title": "Account settings",
+    "subtitle": "Signed in as {{email}}",
+    "save": "Save",
+    "saved": "Saved",
+    "email": {
+      "verified": "Email verified.",
+      "notVerified": "Email is not verified.",
+      "devHint": "In dev, all verification e-mails are captured by MailHog (http://localhost:8025).",
+      "resent": "Verification e-mail resent."
+    },
+    "profile": {
+      "title": "Profile",
+      "displayName": "Display name",
+      "club": "Club / observatory",
+      "bio": "About me",
+      "equipment": "Equipment",
+      "locationVisibility": "Location visibility",
+      "visibility": {
+        "precise": "Precise GPS (default)",
+        "region": "Region (approximate)",
+        "hidden": "Hidden"
+      }
+    },
+    "integrations": {
+      "title": "External integrations (per-user)",
+      "discordWebhook": "Discord webhook URL",
+      "discordHint": "Paste a Discord webhook URL — notifications go here. Create in your Discord server: Channel Settings → Integrations → Webhooks.",
+      "zenodoToken": "Zenodo API token",
+      "zenodoStored": "(stored — paste a new value to change)",
+      "zenodoPlaceholder": "Paste token — we never display it back",
+      "zenodoSandbox": "Use Zenodo sandbox (test, recommended)",
+      "zenodoHint": "When you publish an article, the DOI is registered on your Zenodo account. Generate a token at",
+      "zenodoClear": "Clear token"
+    }
   },
   "places": {
     "countSuffix": "places",

@@ -52,6 +52,9 @@ def _profile_out(user: User) -> dict:
         "location_label": profile.location_label,
         "location_visibility": profile.location_visibility,
         "discord_webhook_url": profile.discord_webhook_url,
+        # Never echo the Zenodo token; UI shows only whether one is set
+        "has_zenodo_token": bool(profile.zenodo_token),
+        "zenodo_use_sandbox": profile.zenodo_use_sandbox,
         "storage_used_bytes": profile.storage_used_bytes,
         "storage_quota_bytes": profile.storage_quota_bytes,
         "onboarding_completed": profile.onboarding_completed,
@@ -291,6 +294,11 @@ def oauth_callback(request: HttpRequest, provider: str, code: str = "", state: s
             if profile.avatar_url:
                 user.profile.avatar_url = profile.avatar_url
             user.profile.save()
+        elif not user.email_verified:
+            # Email matched an existing local account — trust the provider's
+            # verification (GitHub/Google return only verified primary emails).
+            user.email_verified = True
+            user.save(update_fields=["email_verified"])
         identity = Identity.objects.create(
             user=user,
             provider=profile.provider,

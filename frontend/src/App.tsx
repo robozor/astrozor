@@ -4,6 +4,9 @@ import { useTranslation } from "react-i18next";
 import { ApiError, auth, type Me } from "./lib/api";
 import { SUPPORTED_LANGUAGES, type LanguageCode } from "./i18n";
 import { MapView } from "./components/MapView";
+import { SettingsPage } from "./components/SettingsPage";
+
+type Page = "map" | "settings" | "articles";
 
 export function App() {
   const queryClient = useQueryClient();
@@ -29,14 +32,7 @@ export function App() {
   }, [me.isSuccess, me.data?.profile.language, i18n]);
 
   if (isAuthed) {
-    return (
-      <main className="min-h-screen p-4 sm:p-6">
-        <div className="max-w-6xl mx-auto bg-slate-900/60 ring-1 ring-slate-800 rounded-2xl p-4 sm:p-6 backdrop-blur">
-          <Header isAuthed={true} />
-          <AuthenticatedView me={me.data} onLogout={() => logout.mutate()} />
-        </div>
-      </main>
-    );
+    return <AuthedApp me={me.data} onLogout={() => logout.mutate()} />;
   }
 
   return (
@@ -50,6 +46,74 @@ export function App() {
         )}
       </div>
     </main>
+  );
+}
+
+function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
+  const { t } = useTranslation();
+  const [page, setPage] = useState<Page>("map");
+  return (
+    <main className="min-h-screen p-4 sm:p-6">
+      <div className="max-w-6xl mx-auto bg-slate-900/60 ring-1 ring-slate-800 rounded-2xl p-4 sm:p-6 backdrop-blur">
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-3xl" aria-hidden>
+            ☆
+          </span>
+          <h1 className="text-2xl font-semibold tracking-tight">{t("common.brand")}</h1>
+          <nav className="flex items-center gap-1 ml-2">
+            <NavTab id="map" active={page === "map"} label={t("nav.map")} onClick={() => setPage("map")} />
+            <NavTab
+              id="settings"
+              active={page === "settings"}
+              label={t("nav.settings")}
+              onClick={() => setPage("settings")}
+            />
+          </nav>
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-xs text-slate-400 hidden sm:inline">{me.user.display_name}</span>
+            <LanguageSwitcher isAuthed={true} />
+            <button
+              type="button"
+              onClick={onLogout}
+              data-testid="logout-button"
+              className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-100 px-3 py-1.5 rounded-md ring-1 ring-slate-700 transition"
+            >
+              {t("nav.logout")}
+            </button>
+          </div>
+        </div>
+
+        {page === "map" && <AuthenticatedMapView me={me} />}
+        {page === "settings" && <SettingsPage me={me} />}
+      </div>
+    </main>
+  );
+}
+
+function NavTab({
+  id,
+  active,
+  label,
+  onClick,
+}: {
+  id: string;
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-testid={`nav-${id}`}
+      className={`text-sm px-3 py-1.5 rounded-md transition ${
+        active
+          ? "bg-slate-800 text-slate-100 ring-1 ring-slate-700"
+          : "text-slate-400 hover:text-slate-200"
+      }`}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -293,60 +357,27 @@ function MagicLinkForm() {
   );
 }
 
-// ---- Authenticated view ----
+// ---- Map page (authed) ----
 
-function AuthenticatedView({ me, onLogout }: { me: Me; onLogout: () => void }) {
+function AuthenticatedMapView({ me }: { me: Me }) {
   const { t } = useTranslation();
   return (
     <div className="space-y-4">
       <MapView />
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="md:col-span-2">
-          <p className="text-xs text-slate-400">{t("auth.loggedInAs")}</p>
-          <p className="font-medium">{me.user.display_name}</p>
-          <p className="text-xs text-slate-500">{me.user.email}</p>
-          <p className="text-xs text-slate-500 mt-1">
-            {t("auth.label.email")} {me.user.email_verified ? t("auth.emailVerified") : t("auth.emailUnverified")}
-          </p>
-          <div className="mt-3">
-            <ProfilePreview profile={me.profile} />
-          </div>
-        </div>
-        <div className="flex items-end">
-          <button
-            type="button"
-            onClick={onLogout}
-            data-testid="logout-button"
-            className="w-full bg-slate-800 hover:bg-slate-700 text-slate-100 rounded-md py-2 text-sm font-medium ring-1 ring-slate-700 transition"
-          >
-            {t("auth.button.logout")}
-          </button>
-        </div>
+      <div className="text-xs text-slate-500 flex items-center gap-3">
+        <span>
+          {t("auth.label.email")}{" "}
+          {me.user.email_verified ? (
+            <span className="text-emerald-400">{t("auth.emailVerified")}</span>
+          ) : (
+            <span className="text-amber-400">{t("auth.emailUnverified")}</span>
+          )}
+        </span>
+        <span>·</span>
+        <span>{me.profile.location_visibility}</span>
+        <span>·</span>
+        <span>{me.profile.language.toUpperCase()}</span>
       </div>
-    </div>
-  );
-}
-
-function ProfilePreview({ profile }: { profile: Me["profile"] }) {
-  const { t } = useTranslation();
-  return (
-    <dl className="grid grid-cols-2 gap-3 text-xs">
-      <Stat label={t("profile.language")} value={profile.language.toUpperCase()} />
-      <Stat label={t("profile.timezone")} value={profile.timezone_name} />
-      <Stat label={t("profile.locationVisibility")} value={profile.location_visibility} />
-      <Stat
-        label={t("profile.storage")}
-        value={`${(profile.storage_used_bytes / 1024 / 1024).toFixed(1)} / ${(profile.storage_quota_bytes / 1024 / 1024 / 1024).toFixed(0)} GB`}
-      />
-    </dl>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="bg-slate-950/60 ring-1 ring-slate-800 rounded-lg p-3">
-      <dt className="text-xs uppercase text-slate-500 tracking-wide">{label}</dt>
-      <dd className="mt-1 font-mono text-slate-200">{value}</dd>
     </div>
   );
 }

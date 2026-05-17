@@ -46,7 +46,8 @@ test.describe("Krok 2 — Internationalization", () => {
     await page.locator('input[type="password"]').fill(PASSWORD);
     await page.locator("form").getByRole("button", { name: /přihlásit se/i }).click();
 
-    await expect(page.getByText(/přihlášen\(a\) jako/i)).toBeVisible({ timeout: 10000 });
+    // Wait for authenticated layout
+    await expect(page.getByTestId("logout-button")).toBeVisible({ timeout: 10000 });
 
     // Now switch UI to EN — patches profile.language
     const patchPromise = page.waitForResponse(
@@ -57,7 +58,8 @@ test.describe("Krok 2 — Internationalization", () => {
     );
     await page.getByTestId("lang-en").click();
     await patchPromise;
-    await expect(page.getByText(/logged in as/i)).toBeVisible();
+    // After EN switch, nav label says "Map" not "Mapa"
+    await expect(page.getByTestId("nav-map")).toHaveText(/^map$/i);
 
     // Verify via API (use page request context so we share session)
     const me = await ctxRequest.get("/api/v1/auth/me");

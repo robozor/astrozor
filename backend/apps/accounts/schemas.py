@@ -67,6 +67,9 @@ class ProfileOut(Schema):
     location_label: str
     location_visibility: str
     discord_webhook_url: str
+    # Zenodo token never echoed back; UI shows masked state via has_zenodo_token
+    has_zenodo_token: bool
+    zenodo_use_sandbox: bool
     storage_used_bytes: int
     storage_quota_bytes: int
     onboarding_completed: bool
@@ -85,6 +88,8 @@ class ProfilePatch(Schema):
     location_label: str | None = None
     location_visibility: str | None = None
     discord_webhook_url: str | None = None
+    zenodo_token: str | None = None  # write-only; set empty string to clear
+    zenodo_use_sandbox: bool | None = None
     onboarding_completed: bool | None = None
 
 

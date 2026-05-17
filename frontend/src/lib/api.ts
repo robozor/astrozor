@@ -73,12 +73,31 @@ export type Profile = {
   location_label: string;
   location_visibility: "precise" | "region" | "hidden";
   discord_webhook_url: string;
+  has_zenodo_token: boolean;
+  zenodo_use_sandbox: boolean;
   storage_used_bytes: number;
   storage_quota_bytes: number;
   onboarding_completed: boolean;
 };
 
+export type Identity = {
+  id: string;
+  provider: "github" | "google" | "mastodon";
+  provider_user_id: string;
+  provider_username: string;
+  email: string;
+  display_name: string;
+  avatar_url: string;
+  has_token: boolean;
+  last_login_at: string | null;
+  created_at: string;
+};
+
 export type Me = { user: User; profile: Profile };
+
+export type ProfilePatch = Partial<Profile> & {
+  zenodo_token?: string;
+};
 
 export const auth = {
   signup: (email: string, password: string, display_name = "") =>
@@ -88,7 +107,11 @@ export const auth = {
   me: () => api.get<Me>("/auth/me"),
   magicLink: (email: string) =>
     api.post<{ status: string; detail: string }>("/auth/magic-link", { email }),
-  patchProfile: (patch: Partial<Profile>) => api.patch<Me>("/accounts/profile", patch),
+  resendVerification: () =>
+    api.post<{ status: string; detail: string }>("/auth/resend-verification"),
+  patchProfile: (patch: ProfilePatch) => api.patch<Me>("/accounts/profile", patch),
+  listIdentities: () => api.get<Identity[]>("/accounts/identities"),
+  disconnectIdentity: (id: string) => api.del<void>(`/accounts/identities/${id}`),
 };
 
 export const meta = {

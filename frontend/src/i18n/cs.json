@@ -14,7 +14,12 @@
     "or": "nebo",
     "oauth": {
       "signInGitHub": "Přihlásit se přes GitHub",
+      "signInGoogle": "Přihlásit se přes Google",
       "connectGitHub": "Připojit GitHub účet",
+      "connect_github": "Propojit GitHub",
+      "connect_google": "Propojit Google",
+      "connect_mastodon": "Propojit Mastodon",
+      "notConnected": "nepropojeno",
       "disconnect": "Odpojit",
       "noIdentities": "Žádný externí účet připojen.",
       "connectedAccounts": "Připojené účty",
@@ -57,6 +62,49 @@
     "timezone": "Timezone",
     "locationVisibility": "Viditelnost polohy",
     "storage": "Storage"
+  },
+  "nav": {
+    "map": "Mapa",
+    "settings": "Nastavení",
+    "articles": "Články",
+    "feed": "Feed",
+    "logout": "Odhlásit se"
+  },
+  "settings": {
+    "title": "Nastavení účtu",
+    "subtitle": "Přihlášen jako {{email}}",
+    "save": "Uložit",
+    "saved": "Uloženo",
+    "email": {
+      "verified": "E-mail ověřen.",
+      "notVerified": "E-mail není ověřen.",
+      "devHint": "V dev prostředí všechny ověřovací e-maily chodí do MailHogu (http://localhost:8025).",
+      "resent": "Ověřovací e-mail odeslán."
+    },
+    "profile": {
+      "title": "Profil",
+      "displayName": "Přezdívka",
+      "club": "Klub / hvězdárna",
+      "bio": "O mně",
+      "equipment": "Vybavení",
+      "locationVisibility": "Viditelnost polohy",
+      "visibility": {
+        "precise": "Přesné GPS (default)",
+        "region": "Region (přibližně)",
+        "hidden": "Skryto"
+      }
+    },
+    "integrations": {
+      "title": "Externí integrace (per-user)",
+      "discordWebhook": "Discord webhook URL",
+      "discordHint": "Vlož URL Discord webhooku — notifikace ti tam přijdou. Vytvoř ve svém Discord serveru: Channel Settings → Integrations → Webhooks.",
+      "zenodoToken": "Zenodo API token",
+      "zenodoStored": "(uloženo — vlož znovu pro změnu)",
+      "zenodoPlaceholder": "Vlož token — neukládáme jeho zobrazenou hodnotu",
+      "zenodoSandbox": "Použít Zenodo sandbox (test, doporučeno)",
+      "zenodoHint": "Při publikaci článku se DOI zaregistruje na tvůj Zenodo účet. Token vygeneruj na",
+      "zenodoClear": "Smazat token"
+    }
   },
   "places": {
     "countSuffix": "míst",

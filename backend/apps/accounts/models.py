@@ -77,6 +77,13 @@ class Profile(models.Model):
     )
     # Discord webhook (notification channel — see ADR-003)
     discord_webhook_url = models.URLField(blank=True)
+    # Per-user Zenodo token — when set, the user's published articles get
+    # DOIs minted on THEIR Zenodo account. When empty, falls back to the
+    # platform-level ZENODO_SANDBOX_TOKEN env (dev) or MOCK.
+    zenodo_token = models.CharField(max_length=200, blank=True)
+    zenodo_use_sandbox = models.BooleanField(
+        default=True, help_text="Use sandbox.zenodo.org instead of zenodo.org"
+    )
     # Storage usage tracking (F-Auth-8)
     storage_used_bytes = models.BigIntegerField(default=0)
     storage_quota_bytes = models.BigIntegerField(default=5 * 1024 * 1024 * 1024)  # 5 GiB

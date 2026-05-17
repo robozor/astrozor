@@ -125,7 +125,7 @@ def publish_article(request: HttpRequest, payload: PublishManifest):
         license=payload.license or "CC BY 4.0",
         published_at=timezone.now(),
     )
-    article.doi = mint_doi(article.id, article.title)
+    article.doi = mint_doi(article.id, article.title, user=api_token.user, description=article.summary)
     article.save(update_fields=["doi"])
 
     return 201, {
