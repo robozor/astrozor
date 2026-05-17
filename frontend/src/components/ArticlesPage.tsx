@@ -271,11 +271,15 @@ function ArticleEditor({
     enabled: isEdit,
   });
 
+  const NEW_TEMPLATE = "# Title\n\nWrite something **in Markdown**.\n";
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
-  const [contentMd, setContentMd] = useState(
-    isEdit ? "" : "# Title\n\nWrite something **in Markdown**.\n",
-  );
+  const [contentMd, setContentMd] = useState(isEdit ? "" : NEW_TEMPLATE);
+  // Baseline for the Diff view — the text we started from (either the
+  // template for new articles, or the last saved version for edits).
+  // Captured once at hydration, never updated mid-session so the diff
+  // keeps comparing against where we began.
+  const [baselineMd, setBaselineMd] = useState(isEdit ? "" : NEW_TEMPLATE);
   const [hydrated, setHydrated] = useState(!isEdit);
 
   // Hydrate form once when the existing article arrives
@@ -284,7 +288,9 @@ function ArticleEditor({
       const a = existing.data;
       setTitle(a.title);
       setSummary(a.summary);
-      setContentMd(a.content_md || "");
+      const md = a.content_md || "";
+      setContentMd(md);
+      setBaselineMd(md);
       setHydrated(true);
     }
   }, [isEdit, existing.isSuccess, existing.data, hydrated]);
@@ -385,6 +391,7 @@ function ArticleEditor({
           <MarkdownEditor
             key={editSlug ?? "new"}
             markdown={contentMd}
+            originalMarkdown={baselineMd}
             onChange={setContentMd}
             placeholder="Začni psát článek…"
           />

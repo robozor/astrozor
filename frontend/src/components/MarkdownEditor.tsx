@@ -32,6 +32,12 @@ import { useRef } from "react";
 
 type Props = {
   markdown: string;
+  /**
+   * Baseline for the Diff view. When omitted, the diff is meaningless
+   * (compares against empty string). Pass the last saved version of the
+   * document so the Diff toggle shows "what I changed since I started".
+   */
+  originalMarkdown?: string;
   onChange: (value: string) => void;
   placeholder?: string;
 };
@@ -42,7 +48,12 @@ type Props = {
  * backend pipeline (bleach sanitize → render_markdown → HTML) stays
  * unchanged.
  */
-export function MarkdownEditor({ markdown, onChange, placeholder }: Props) {
+export function MarkdownEditor({
+  markdown,
+  originalMarkdown,
+  onChange,
+  placeholder,
+}: Props) {
   const ref = useRef<MDXEditorMethods>(null);
   return (
     <div className="astrozor-mdx dark-theme dark-editor bg-slate-950 ring-1 ring-slate-700 rounded-md overflow-hidden">
@@ -75,7 +86,10 @@ export function MarkdownEditor({ markdown, onChange, placeholder }: Props) {
               "": "Plain text",
             },
           }),
-          diffSourcePlugin({ viewMode: "rich-text" }),
+          diffSourcePlugin({
+            viewMode: "rich-text",
+            diffMarkdown: originalMarkdown ?? markdown,
+          }),
           markdownShortcutPlugin(),
           toolbarPlugin({
             toolbarContents: () => (

@@ -134,3 +134,139 @@
   background: #1e293b;
   color: #f1f5f9;
 }
+
+/* Source mode (CodeMirror showing raw Markdown) — CodeMirror ships its
+   own light theme that ignores the editor's --baseBg, so override
+   directly on the cm-* primitives. Applies to the source view, the diff
+   merge view, and code blocks inside rich-text content. */
+.astrozor-mdx .cm-editor {
+  background: #020617 !important;
+  color: #e2e8f0 !important;
+}
+.astrozor-mdx .cm-scroller {
+  background: #020617 !important;
+  color: #e2e8f0 !important;
+  font-family: ui-monospace, "JetBrains Mono", "Fira Code", Menlo, monospace;
+}
+.astrozor-mdx .cm-content {
+  caret-color: #f1f5f9;
+}
+.astrozor-mdx .cm-cursor {
+  border-left-color: #f1f5f9 !important;
+}
+.astrozor-mdx .cm-gutters {
+  background: #0f172a !important;
+  color: #64748b !important;
+  border-right: 1px solid #1e293b !important;
+}
+.astrozor-mdx .cm-activeLine,
+.astrozor-mdx .cm-activeLineGutter {
+  background: #0f172a !important;
+}
+.astrozor-mdx .cm-selectionBackground,
+.astrozor-mdx .cm-content ::selection {
+  background: #1e3a8a !important;
+}
+.astrozor-mdx .cm-tooltip {
+  background: #0f172a !important;
+  color: #e2e8f0 !important;
+  border-color: #334155 !important;
+}
+
+/* Diff (merge) view — green/red strips on dark */
+.astrozor-mdx .cm-mergeView,
+.astrozor-mdx .cm-mergeView .cm-editor {
+  background: #020617 !important;
+}
+.astrozor-mdx .cm-changedLine {
+  background-color: rgba(251, 191, 36, 0.08) !important;
+}
+.astrozor-mdx .cm-deletedChunk {
+  background-color: rgba(244, 63, 94, 0.12) !important;
+}
+.astrozor-mdx .cm-insertedLine,
+.astrozor-mdx .cm-changedText {
+  background-color: rgba(16, 185, 129, 0.18) !important;
+}
+.astrozor-mdx .cm-deletedText {
+  background-color: rgba(244, 63, 94, 0.28) !important;
+  text-decoration: line-through;
+}
+
+/* Markdown syntax highlighting in source view */
+.astrozor-mdx .cm-line .tok-heading,
+.astrozor-mdx .cm-line .ͼ1 { color: #f9a8d4; }
+.astrozor-mdx .cm-line .tok-strong,
+.astrozor-mdx .cm-line .ͼ4 { color: #fbbf24; font-weight: 600; }
+.astrozor-mdx .cm-line .tok-emphasis { color: #fbbf24; font-style: italic; }
+.astrozor-mdx .cm-line .tok-link,
+.astrozor-mdx .cm-line .tok-url { color: #818cf8; }
+.astrozor-mdx .cm-line .tok-monospace,
+.astrozor-mdx .cm-line .tok-inlineCode { color: #34d399; }
+.astrozor-mdx .cm-line .tok-meta { color: #64748b; }
+
+/* Source/diff view wrappers — make sure their background isn't white */
+.astrozor-mdx [class*="_sourceView"],
+.astrozor-mdx [class*="_diffSourceWrapper"] {
+  background: #020617;
+  color: #e2e8f0;
+}
+
+/* ---- Global overrides ----
+ * MDXEditor hardcodes `--basePageBg: white` on the .mdxeditor base class
+ * and dark-theme doesn't override it. Anything that references this
+ * variable (select trigger, select dropdown, dialogs, edit-image
+ * toolbar, etc.) stays white. Patch the variable globally.
+ *
+ * Also: the BlockType / language / link-action popovers render inside a
+ * Radix Portal at document body level, OUTSIDE our `.astrozor-mdx`
+ * wrapper, so all scoped rules above can't reach them. Target them via
+ * the (unscoped) class-fragment attribute selectors — these class names
+ * are MDXEditor-specific so there's no collision risk.
+ */
+
+.mdxeditor,
+.dark-theme {
+  --basePageBg: #0f172a;       /* slate-900 — for trigger backgrounds */
+}
+
+[class*="_selectContainer"],
+[class*="_toolbarButtonDropdownContainer"],
+[class*="_toolbarCodeBlockLanguageSelectContent"] {
+  background-color: #0f172a !important;
+  color: #e2e8f0 !important;
+  border: 1px solid #334155;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
+}
+
+[class*="_selectItem"],
+[class*="_toolbarNodeKindSelectItem"] {
+  color: #e2e8f0 !important;
+}
+
+[class*="_selectItem"][data-highlighted],
+[class*="_selectItem"][data-state="checked"],
+[class*="_toolbarNodeKindSelectItem"][data-highlighted],
+[class*="_toolbarNodeKindSelectItem"][data-state="checked"] {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+}
+
+/* Link / image edit dialog popovers also live in the Radix portal */
+[class*="_dialogContent"],
+[class*="_dialogOverlay"] + [class*="_dialogContent"],
+[class*="_popupContainer"] {
+  background-color: #0f172a !important;
+  color: #e2e8f0 !important;
+  border: 1px solid #334155 !important;
+}
+
+[class*="_dialogInput"] {
+  background-color: #020617 !important;
+  color: #e2e8f0 !important;
+  border-color: #334155 !important;
+}
+
+[class*="_dialogTitle"] {
+  color: #f1f5f9 !important;
+}
