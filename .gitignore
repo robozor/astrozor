@@ -1,0 +1,22 @@
+# Requirements / planning documents — udržováno mimo Git (lokální workspace)
+requirements/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE / editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
