@@ -284,36 +284,63 @@ def mastodon_register(request: HttpRequest, payload: MastodonRegisterIn):
 def oauth_start(request: HttpRequest, provider: str, **kwargs):
     """Initiate OAuth flow: store state + 'from' in session, redirect to provider.
 
-    Accepts ?from=settings|map|articles to control where the callback lands
-    once OAuth completes.
+    For Mastodon, also expects ?instance=<base_url> — the instance must
+    already be registered (POST /auth/mastodon/register).
     """
     from_page = _safe_from(request.GET.get("from"))
+    instance_url = request.GET.get("instance") or None
     try:
-        p = get_provider(provider)
-    except OAuthError:
-        return HttpResponseRedirect(f"/?oauth_error=unknown_provider&from={from_page}")
+        p = get_provider(provider, instance_url=instance_url)
+    except OAuthError as e:
+        import logging
+
+        logging.getLogger(__name__).warning("oauth_start: get_provider failed: %s", e)
+        return HttpResponseRedirect(f"/?oauth_error={_slug(str(e))}&from={from_page}")
     if not p.is_configured:
         return HttpResponseRedirect(f"/?oauth_error=not_configured&from={from_page}")
 
     state = new_state()
     request.session[f"oauth_state_{provider}"] = state
     request.session[f"oauth_from_{provider}"] = from_page
-    # Remember the host we're on so the callback can reconstruct the same
-    # redirect_uri (must match what we sent to the provider).
+    # Remember the host so the callback reconstructs the same redirect_uri.
     request.session[f"oauth_host_{provider}"] = request.get_host()
+    if instance_url:
+        request.session[f"oauth_instance_{provider}"] = instance_url
     return HttpResponseRedirect(p.authorize_url(state, request=request))
 
 
+def _slug(s: str) -> str:
+    """Reduce arbitrary text to a URL-safe slug for error reasons."""
+    import re
+
+    return re.sub(r"[^a-zA-Z0-9_-]", "_", s)[:60] or "error"
+
+
 @router.get("/auth/{provider}/callback")
-def oauth_callback(request: HttpRequest, provider: str, code: str = "", state: str = ""):
-    """Provider redirects here with `code` and `state`. We exchange and log in."""
+def oauth_callback(
+    request: HttpRequest,
+    provider: str,
+    code: str = "",
+    state: str = "",
+    error: str = "",
+    error_description: str = "",
+):
+    """Provider redirects here with `code` and `state` (or `error`)."""
     from_page = _safe_from(request.session.pop(f"oauth_from_{provider}", None))
     instance_url = request.session.pop(f"oauth_instance_{provider}", None)
 
+    # Provider returned an error (e.g. user denied, or instance refused).
+    if error:
+        detail = _slug(error_description or error)
+        return HttpResponseRedirect(f"/?oauth_error={detail}&from={from_page}")
+
     try:
         p = get_provider(provider, instance_url=instance_url)
-    except OAuthError:
-        return HttpResponseRedirect(f"/?oauth_error=unknown_provider&from={from_page}")
+    except OAuthError as e:
+        import logging
+
+        logging.getLogger(__name__).warning("oauth_callback: get_provider failed: %s", e)
+        return HttpResponseRedirect(f"/?oauth_error={_slug(str(e))}&from={from_page}")
 
     expected = request.session.pop(f"oauth_state_{provider}", None)
     if not state or expected != state:
