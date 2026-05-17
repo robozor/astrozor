@@ -56,7 +56,10 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # Astrozor apps
     "apps.core",
+    "apps.accounts",
 ]
+
+AUTH_USER_MODEL = "accounts.User"
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -151,6 +154,26 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # ---- Misc ----
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# ---- E-mail (auth flows only — never notifications, per ADR-003) ----
+
+EMAIL_BACKEND = env("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = env("EMAIL_HOST", "mailhog")
+EMAIL_PORT = int(env("EMAIL_PORT", "1025"))
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", default=False)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", "")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", "Astrozor <noreply@astrozor.localhost>")
+
+# Public-facing URL used in e-mail links
+PUBLIC_BASE_URL = env("PUBLIC_BASE_URL", "http://astrozor.localhost")
+
+# ---- Sessions ----
+
+SESSION_COOKIE_NAME = "astrozor_sessionid"
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", default=False)
 
 # ---- Logging ----
 

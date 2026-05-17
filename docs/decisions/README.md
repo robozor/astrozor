@@ -7,6 +7,7 @@ This directory captures **non-trivial decisions** made during autonomous develop
 - [ADR-001 — Autonomous development model and decision authority](./ADR-001-autonomous-development.md)
 - [ADR-002 — Tier 0 publishing (no server-side user code execution)](./ADR-002-tier-0-publishing.md)
 - [ADR-003 — Email is not a notification channel](./ADR-003-no-email-notifications.md)
+- [ADR-004 — CSRF strategy: SameSite=Lax cookies, no API CSRF tokens](./ADR-004-csrf-strategy.md)
 
 ## Conventions
 

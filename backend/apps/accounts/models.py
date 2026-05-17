@@ -1,0 +1,134 @@
+"""User, Profile, EmailToken models for the accounts app."""
+
+from __future__ import annotations
+
+import secrets
+import uuid
+from datetime import timedelta
+
+from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
+from django.db import models
+from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
+
+from .managers import UserManager
+
+
+class User(AbstractBaseUser, PermissionsMixin):
+    """Astrozor user — email-based authentication, UUID primary key."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    email = models.EmailField(_("email address"), unique=True)
+    is_active = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=False)
+    email_verified = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS: list[str] = []
+
+    objects = UserManager()
+
+    class Meta:
+        db_table = "auth_user"
+        ordering = ["-created_at"]
+        verbose_name = _("user")
+        verbose_name_plural = _("users")
+
+    def __str__(self) -> str:
+        return self.email
+
+    @property
+    def display_name(self) -> str:
+        profile = getattr(self, "profile", None)
+        if profile and profile.display_name:
+            return profile.display_name
+        return self.email.split("@")[0]
+
+
+class Profile(models.Model):
+    """Extended user information."""
+
+    class Visibility(models.TextChoices):
+        PRECISE = "precise", _("Precise GPS")
+        REGION = "region", _("Region only")
+        HIDDEN = "hidden", _("Hidden")
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="profile",
+        primary_key=True,
+    )
+    display_name = models.CharField(max_length=80, blank=True)
+    bio = models.TextField(blank=True)
+    avatar_url = models.URLField(blank=True)
+    club = models.CharField(max_length=120, blank=True)
+    equipment = models.TextField(blank=True, help_text=_("Free-form list of telescopes / cameras"))
+    language = models.CharField(max_length=8, default="cs")
+    timezone_name = models.CharField(max_length=64, default="Europe/Prague")
+    # Location (default precise per Q6 decision; F-Auth-5)
+    location_lat = models.FloatField(null=True, blank=True)
+    location_lon = models.FloatField(null=True, blank=True)
+    location_label = models.CharField(max_length=160, blank=True)
+    location_visibility = models.CharField(
+        max_length=10, choices=Visibility.choices, default=Visibility.PRECISE
+    )
+    # Discord webhook (notification channel — see ADR-003)
+    discord_webhook_url = models.URLField(blank=True)
+    # Storage usage tracking (F-Auth-8)
+    storage_used_bytes = models.BigIntegerField(default=0)
+    storage_quota_bytes = models.BigIntegerField(default=5 * 1024 * 1024 * 1024)  # 5 GiB
+    onboarding_completed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "accounts_profile"
+
+    def __str__(self) -> str:
+        return f"Profile of {self.user.email}"
+
+
+def _generate_token() -> str:
+    return secrets.token_urlsafe(48)
+
+
+def _default_expiration() -> timezone.datetime:
+    return timezone.now() + timedelta(hours=24)
+
+
+class EmailToken(models.Model):
+    """One-time token sent via e-mail (magic link, verification, password reset)."""
+
+    class Purpose(models.TextChoices):
+        VERIFY = "verify", _("Email verification")
+        MAGIC_LINK = "magic_link", _("Magic link login")
+        RESET = "reset", _("Password reset")
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="email_tokens")
+    purpose = models.CharField(max_length=20, choices=Purpose.choices)
+    token = models.CharField(max_length=128, unique=True, default=_generate_token)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(default=_default_expiration)
+    consumed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "accounts_email_token"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "purpose"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.purpose} token for {self.user.email}"
+
+    @property
+    def is_valid(self) -> bool:
+        return self.consumed_at is None and self.expires_at > timezone.now()
+
+    def consume(self) -> None:
+        self.consumed_at = timezone.now()
+        self.save(update_fields=["consumed_at"])

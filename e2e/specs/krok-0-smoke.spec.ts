@@ -1,17 +1,19 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * Krok 0 acceptance test:
- * - The home page renders the placeholder with the title "Astrozor".
+ * Krok 0 regression smoke:
+ * - The home page renders SOMETHING (Astrozor heading).
  * - The API health check returns status "ok".
- * - The frontend successfully fetches /api/v1/healthz from the running stack.
+ * - The API readyz endpoint reports a working database connection.
+ *
+ * These tests stay valid across all Kroks — they verify the foundation
+ * (Docker stack, Caddy proxy, Django + Ninja API) is alive.
  */
 
-test.describe("Krok 0 — Docker stack smoke", () => {
+test.describe("Krok 0 — Foundation smoke", () => {
   test("home page renders Astrozor heading", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { name: /astrozor/i })).toBeVisible();
-    await expect(page.getByText(/Krok 0/i)).toBeVisible();
   });
 
   test("API healthz endpoint returns 200 OK", async ({ request }) => {
@@ -25,14 +27,6 @@ test.describe("Krok 0 — Docker stack smoke", () => {
     const response = await request.get("/api/v1/readyz");
     expect(response.status()).toBe(200);
     const json = await response.json();
-    expect(json.database).toMatch(/^(ok|error|skipped)/);
-  });
-
-  test("frontend shows API + Database status cards", async ({ page }) => {
-    await page.goto("/");
-    // Wait for TanStack Query to fetch /api/v1/healthz
-    await expect(page.getByText(/frontend/i).first()).toBeVisible();
-    await expect(page.getByText(/api/i).first()).toBeVisible();
-    await expect(page.getByText(/database/i).first()).toBeVisible();
+    expect(json.database).toBe("ok");
   });
 });

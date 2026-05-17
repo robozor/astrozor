@@ -78,6 +78,17 @@ services:
       retries: 10
     restart: unless-stopped
 
+  # MailHog — dev SMTP capture (auth e-mails only, per ADR-003)
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: astrozor-mailhog
+    expose:
+      - "1025"  # SMTP
+      - "8025"  # HTTP UI
+    ports:
+      - "8025:8025"  # Host access to MailHog UI for dev
+    restart: unless-stopped
+
   # ---- Application ----
   api:
     <<: *api-image

@@ -1,15 +1,11 @@
-"""Core API endpoints — health check and version info."""
+"""Core API router — health check and version info."""
 
 from __future__ import annotations
 
 from django.db import connection
-from ninja import NinjaAPI, Schema
+from ninja import Router, Schema
 
-api = NinjaAPI(
-    title="Astrozor API",
-    version="0.0.1",
-    description="Astrozor backend API",
-)
+router = Router(tags=["meta"])
 
 
 class HealthOut(Schema):
@@ -18,13 +14,13 @@ class HealthOut(Schema):
     database: str
 
 
-@api.get("/healthz", response=HealthOut, tags=["meta"])
+@router.get("/healthz", response=HealthOut)
 def healthz(request) -> dict[str, str]:  # noqa: ARG001
     """Liveness probe. Returns 200 if process is running."""
     return {"status": "ok", "version": "0.0.1", "database": "skipped"}
 
 
-@api.get("/readyz", response=HealthOut, tags=["meta"])
+@router.get("/readyz", response=HealthOut)
 def readyz(request) -> dict[str, str]:  # noqa: ARG001
     """Readiness probe. Verifies database connection."""
     db_status = "ok"
@@ -34,4 +30,8 @@ def readyz(request) -> dict[str, str]:  # noqa: ARG001
             cursor.fetchone()
     except Exception as exc:  # pragma: no cover
         db_status = f"error: {exc.__class__.__name__}"
-    return {"status": "ok" if db_status == "ok" else "degraded", "version": "0.0.1", "database": db_status}
+    return {
+        "status": "ok" if db_status == "ok" else "degraded",
+        "version": "0.0.1",
+        "database": db_status,
+    }
