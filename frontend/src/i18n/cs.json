@@ -260,6 +260,29 @@
       "zenodoClear": "Smazat token"
     }
   },
+  "map": {
+    "ctl": {
+      "title": "Mapa — ovládání",
+      "open": "Otevřít panel",
+      "close": "Zavřít",
+      "search": "Vyhledat místo",
+      "searchPlaceholder": "Město, obec, adresa…",
+      "kinds": "Druh místa",
+      "state": "Stav",
+      "stateOpt": {
+        "all": "Vše",
+        "active": "Aktivní",
+        "subscribed": "Sledované"
+      },
+      "layer": "Mapová vrstva",
+      "layerOpt": {
+        "osm": "OSM",
+        "dark": "Dark",
+        "satellite": "Satelit",
+        "topo": "Topo"
+      }
+    }
+  },
   "places": {
     "countSuffix": "míst",
     "kind": {

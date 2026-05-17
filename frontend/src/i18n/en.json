@@ -260,6 +260,29 @@
       "zenodoClear": "Clear token"
     }
   },
+  "map": {
+    "ctl": {
+      "title": "Map controls",
+      "open": "Open panel",
+      "close": "Close",
+      "search": "Find a place",
+      "searchPlaceholder": "City, town, address…",
+      "kinds": "Place kind",
+      "state": "State",
+      "stateOpt": {
+        "all": "All",
+        "active": "Active",
+        "subscribed": "Following"
+      },
+      "layer": "Map layer",
+      "layerOpt": {
+        "osm": "OSM",
+        "dark": "Dark",
+        "satellite": "Satellite",
+        "topo": "Topo"
+      }
+    }
+  },
   "places": {
     "countSuffix": "places",
     "kind": {
