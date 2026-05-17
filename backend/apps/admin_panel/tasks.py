@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
+import time
 from pathlib import Path
 
 import httpx
@@ -70,19 +71,40 @@ def download_pmtiles(self):
             r.raise_for_status()
             total = int(r.headers.get("content-length") or 0)
             written = 0
-            last_pct = -1
+            start_ts = time.monotonic()
+            last_report = start_ts
             with tmp_path.open("wb") as f:
                 for chunk in r.iter_bytes(chunk_size=4 * 1024 * 1024):
                     f.write(chunk)
                     written += len(chunk)
-                    if total:
-                        pct = int(written * 100 / total)
-                        if pct != last_pct:
-                            last_pct = pct
-                            # Persist progress every 1 % so admin UI can poll
-                            MapInfra.objects.filter(pk=1).update(
-                                pmtiles_status_message=f"Downloading… {pct}% ({written // (1024 * 1024)} / {total // (1024 * 1024)} MiB)"
-                            )
+                    now = time.monotonic()
+                    # Persist progress at most every 2 s — keeps the UI
+                    # responsive on multi-hour downloads without thrashing
+                    # the DB. 1 % of a 129 GB file is 1.3 GB, far too
+                    # coarse on its own.
+                    if now - last_report < 2.0:
+                        continue
+                    last_report = now
+                    elapsed = now - start_ts
+                    rate_mb_s = (written / 1024 / 1024) / elapsed if elapsed > 0 else 0
+                    pct_str = (
+                        f"{written * 100 / total:.1f}%" if total else "?"
+                    )
+                    if total and rate_mb_s > 0:
+                        eta_s = max(0, int((total - written) / (rate_mb_s * 1024 * 1024)))
+                        h, rem = divmod(eta_s, 3600)
+                        m, _s = divmod(rem, 60)
+                        eta_str = f" · ETA {h}h {m}m" if h else f" · ETA {m}m"
+                    else:
+                        eta_str = ""
+                    MapInfra.objects.filter(pk=1).update(
+                        pmtiles_status_message=(
+                            f"Downloading… {pct_str} "
+                            f"({written // (1024 * 1024)} / "
+                            f"{(total // (1024 * 1024)) if total else '?'} MiB) "
+                            f"at {rate_mb_s:.1f} MB/s{eta_str}"
+                        )
+                    )
 
         # Atomic swap
         tmp_path.replace(target)
