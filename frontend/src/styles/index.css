@@ -29,8 +29,39 @@ body {
 .article-html pre code { background: transparent; padding: 0; }
 .article-html blockquote { border-left: 3px solid rgb(71 85 105); padding-left: 1rem; color: rgb(148 163 184); margin: 1rem 0; }
 .article-html hr { border-color: rgb(30 41 59); margin: 1.5rem 0; }
-.article-html table { border-collapse: collapse; margin: 1rem 0; }
-.article-html th, .article-html td { border: 1px solid rgb(30 41 59); padding: 0.5rem 0.75rem; }
-.article-html th { background: rgb(15 23 42); color: rgb(241 245 249); }
+.article-html table {
+  border-collapse: collapse;
+  margin: 1.25rem 0;
+  width: auto;
+  max-width: 100%;
+  background: rgb(2 6 23);
+  border: 1px solid rgb(30 41 59);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+.article-html th, .article-html td {
+  border: 1px solid rgb(30 41 59);
+  padding: 0.5rem 0.85rem;
+  color: rgb(203 213 225);
+  text-align: left;
+  vertical-align: top;
+}
+.article-html th {
+  background: rgb(15 23 42);
+  color: rgb(241 245 249);
+  font-weight: 600;
+}
+.article-html tbody tr:nth-child(even) td { background: rgb(15 23 42 / 0.4); }
 .article-html img { max-width: 100%; height: auto; border-radius: 0.5rem; margin: 1rem 0; }
 .article-html strong { color: rgb(241 245 249); }
+.article-html del, .article-html s { color: rgb(148 163 184); text-decoration: line-through; }
+/* GFM task lists */
+.article-html ul.contains-task-list,
+.article-html li.task-list-item { list-style: none; }
+.article-html ul.contains-task-list { margin-left: 0.25rem; }
+.article-html li.task-list-item { padding-left: 0; }
+.article-html li.task-list-item > input[type="checkbox"] {
+  margin-right: 0.5rem;
+  transform: translateY(1px);
+  accent-color: rgb(99 102 241);
+}

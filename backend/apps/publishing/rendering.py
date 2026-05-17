@@ -1,30 +1,44 @@
 """Markdown → sanitized HTML.
 
 Bleach allowlist is more permissive than chat (we want headings, lists,
-code blocks, images). Inline event handlers and `<script>` are stripped.
+code blocks, images, tables, task lists). Inline event handlers and
+`<script>` are stripped.
 """
 
 from __future__ import annotations
 
 import bleach
 import markdown_it
+from mdit_py_plugins.tasklists import tasklists_plugin
 
-_md = markdown_it.MarkdownIt("commonmark", {"linkify": True, "breaks": False, "html": True})
+# gfm-like preset enables GFM tables, strikethrough, autolinks, etc.
+# tasklists_plugin adds `- [ ]` / `- [x]` checkbox support.
+_md = (
+    markdown_it.MarkdownIt("gfm-like", {"linkify": True, "breaks": False, "html": True})
+    .use(tasklists_plugin, enabled=True)
+)
 
 ARTICLE_ALLOWED_TAGS = [
     "h1", "h2", "h3", "h4", "h5", "h6",
-    "p", "br", "hr",
-    "b", "i", "em", "strong", "u", "s", "mark", "small",
+    "p", "br", "hr", "div", "span",
+    "b", "i", "em", "strong", "u", "s", "del", "mark", "small", "sub", "sup",
     "ul", "ol", "li",
     "blockquote", "pre", "code",
     "a", "img",
     "table", "thead", "tbody", "tr", "th", "td",
+    # Task-list checkboxes — rendered as <input type=checkbox disabled>
+    "input",
 ]
 ARTICLE_ALLOWED_ATTRS = {
     "a": ["href", "title", "rel"],
     "img": ["src", "alt", "title", "width", "height"],
-    "td": ["align"],
-    "th": ["align"],
+    "td": ["align", "colspan", "rowspan"],
+    "th": ["align", "colspan", "rowspan"],
+    "code": ["class"],
+    "pre": ["class"],
+    "li": ["class"],
+    # Sanitize tasklist checkboxes — strip everything except these
+    "input": ["type", "checked", "disabled", "class"],
 }
 
 # Restrict URL schemes
