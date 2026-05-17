@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     "apps.places",
     "apps.presence",
     "apps.chat",
+    "apps.notifications",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
