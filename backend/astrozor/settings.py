@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     "apps.notifications",
     "apps.publishing",
     "apps.feeds",
+    "apps.projects",
 ]
 
 AUTH_USER_MODEL = "accounts.User"

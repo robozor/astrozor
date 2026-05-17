@@ -13,6 +13,7 @@ from apps.feeds.api import router as feeds_router
 from apps.notifications.api import router as notifications_router
 from apps.places.api import router as places_router
 from apps.presence.api import router as presence_router
+from apps.projects.api import router as projects_router
 from apps.publishing.api import router as publishing_router
 
 api = NinjaAPI(
@@ -31,6 +32,7 @@ api.add_router("", chat_router)
 api.add_router("", notifications_router)
 api.add_router("", publishing_router)
 api.add_router("", feeds_router)
+api.add_router("", projects_router)
 
 
 # CSRF token endpoint kept for Django admin form usage / future hardening
