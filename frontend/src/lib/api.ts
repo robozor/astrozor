@@ -285,6 +285,15 @@ export type MastoStatus = {
     type: string;
     description: string;
   }[];
+  card: {
+    url: string;
+    title: string;
+    description: string;
+    image: string | null;
+    provider_name: string;
+    author_name: string;
+    type: string;
+  } | null;
   account: {
     acct: string;
     display_name: string;

@@ -53,6 +53,24 @@ def _status_out(s: dict) -> dict:
         }
         for m in (s.get("media_attachments") or [])
     ]
+    # Mastodon's OpenGraph "card" — fetched server-side from the first URL
+    # in the toot. Present when the linked page exposes og:title /
+    # og:description / og:image. None when the post has no URL, or when
+    # the upstream server hasn't fetched the card yet.
+    card_raw = s.get("card") or None
+    card = (
+        {
+            "url": card_raw.get("url") or "",
+            "title": card_raw.get("title") or "",
+            "description": card_raw.get("description") or "",
+            "image": card_raw.get("image") or None,
+            "provider_name": card_raw.get("provider_name") or "",
+            "author_name": card_raw.get("author_name") or "",
+            "type": card_raw.get("type") or "link",
+        }
+        if card_raw
+        else None
+    )
     return {
         "id": s.get("id"),
         "url": s.get("url"),
@@ -65,6 +83,7 @@ def _status_out(s: dict) -> dict:
         "replies_count": s.get("replies_count", 0),
         "tags": [t.get("name") for t in (s.get("tags") or [])],
         "media": media,
+        "card": card,
         "account": {
             "acct": account.get("acct"),
             "display_name": account.get("display_name"),

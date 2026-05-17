@@ -238,6 +238,40 @@ function StatusCard({ status }: { status: MastoStatus }) {
         </div>
       )}
 
+      {status.card && status.media.length === 0 && (
+        <a
+          href={status.card.url}
+          target="_blank"
+          rel="noopener"
+          className="block rounded-md overflow-hidden ring-1 ring-slate-800 hover:ring-slate-700 transition"
+          data-testid="masto-card"
+        >
+          {status.card.image && (
+            <img
+              src={status.card.image}
+              alt=""
+              className="w-full max-h-80 object-cover bg-slate-900"
+              loading="lazy"
+            />
+          )}
+          <div className="p-3 bg-slate-900/60">
+            {status.card.provider_name && (
+              <p className="text-[10px] uppercase tracking-wider text-slate-500 font-mono">
+                {status.card.provider_name}
+              </p>
+            )}
+            <p className="text-sm font-medium text-slate-100 mt-0.5">
+              {status.card.title}
+            </p>
+            {status.card.description && (
+              <p className="text-xs text-slate-400 mt-1 line-clamp-3">
+                {status.card.description}
+              </p>
+            )}
+          </div>
+        </a>
+      )}
+
       <div className="flex gap-4 text-xs text-slate-500">
         <span>↻ {status.reblogs_count}</span>
         <span>★ {status.favourites_count}</span>
