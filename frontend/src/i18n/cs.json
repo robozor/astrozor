@@ -5,6 +5,29 @@
     "krok": "Krok",
     "cancel": "Zrušit"
   },
+  "place": {
+    "subscribe": "Sledovat místo",
+    "subscribed": "Sleduješ",
+    "unsubscribe": "přestat sledovat",
+    "tab": {
+      "overview": "Přehled",
+      "chat": "Chat",
+      "presence": "Kdo je tu"
+    },
+    "chat": {
+      "empty": "Zatím žádné zprávy. Buď první.",
+      "placeholder": "Napiš zprávu…",
+      "loginToPost": "Pro psaní se přihlas."
+    },
+    "presence": {
+      "activeCount": "Aktuálně {{count}} aktivních check-inů",
+      "checkIn": "Check-in (4 h)",
+      "commentPlaceholder": "Co pozoruji? (volitelně)",
+      "anonymous": "Anonymně (pouze 'někdo')",
+      "endMine": "Ukončit",
+      "loginToCheckin": "Pro check-in se přihlas."
+    }
+  },
   "notifications": {
     "title": "Notifikace",
     "empty": "Žádné notifikace",

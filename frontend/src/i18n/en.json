@@ -10,6 +10,29 @@
     "empty": "No notifications",
     "markAllRead": "Mark all as read"
   },
+  "place": {
+    "subscribe": "Follow place",
+    "subscribed": "Following",
+    "unsubscribe": "stop following",
+    "tab": {
+      "overview": "Overview",
+      "chat": "Chat",
+      "presence": "Who's here"
+    },
+    "chat": {
+      "empty": "No messages yet. Be the first.",
+      "placeholder": "Type a message…",
+      "loginToPost": "Log in to post."
+    },
+    "presence": {
+      "activeCount": "{{count}} active check-ins right now",
+      "checkIn": "Check in (4h)",
+      "commentPlaceholder": "What are you observing? (optional)",
+      "anonymous": "Anonymously (shown as 'someone')",
+      "endMine": "End",
+      "loginToCheckin": "Log in to check in."
+    }
+  },
   "articles": {
     "new": "New article",
     "back": "Back to list",

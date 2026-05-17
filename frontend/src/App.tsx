@@ -373,7 +373,7 @@ function AuthenticatedMapView({ me }: { me: Me }) {
   const { t } = useTranslation();
   return (
     <div className="space-y-4">
-      <MapView />
+      <MapView me={me} />
       <div className="text-xs text-slate-500 flex items-center gap-3">
         <span>
           {t("auth.label.email")}{" "}

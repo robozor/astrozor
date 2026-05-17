@@ -155,3 +155,152 @@ export const places = {
   },
   get: (slug: string) => api.get<Place>(`/places/${slug}`),
 };
+
+// ---- Chat (per-place REST + client polling) ----
+
+export type ChatMessage = {
+  id: string;
+  place_slug: string;
+  user_display_name: string;
+  user_email: string;
+  text: string;
+  created_at: string;
+};
+
+export const chat = {
+  list: (placeSlug: string) =>
+    api.get<{ count: number; items: ChatMessage[] }>(`/places/${placeSlug}/chat`),
+  post: (placeSlug: string, text: string) =>
+    api.post<ChatMessage>(`/places/${placeSlug}/chat`, { text }),
+  remove: (id: string) => api.del<void>(`/messages/${id}`),
+};
+
+// ---- Presence (check-ins) ----
+
+export type Checkin = {
+  id: string;
+  user_email: string | null;
+  display_name: string;
+  comment: string;
+  anonymous: boolean;
+  place_slug: string;
+  created_at: string;
+  expires_at: string;
+};
+
+export const presence = {
+  get: (placeSlug: string) =>
+    api.get<{ place_slug: string; count: number; checkins: Checkin[] }>(
+      `/places/${placeSlug}/presence`,
+    ),
+  checkin: (
+    placeSlug: string,
+    opts?: { comment?: string; anonymous?: boolean; expires_in_hours?: number },
+  ) =>
+    api.post<Checkin>(`/places/${placeSlug}/checkin`, {
+      comment: opts?.comment ?? "",
+      anonymous: opts?.anonymous ?? false,
+      expires_in_hours: opts?.expires_in_hours ?? 4,
+    }),
+  end: (id: string) => api.del<void>(`/checkins/${id}`),
+};
+
+// ---- Articles ----
+
+export type ArticleListItem = {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string;
+  language: string;
+  status: string;
+  author_display_name: string;
+  doi: string;
+  published_at: string | null;
+  created_at: string;
+};
+
+export type Article = ArticleListItem & {
+  engine: string;
+  author_email: string;
+  license: string;
+  content_html: string;
+  updated_at: string;
+};
+
+export type Comment = {
+  id: string;
+  article_slug: string;
+  user_display_name: string;
+  text: string;
+  created_at: string;
+};
+
+export const articles = {
+  list: (params?: { language?: string; author?: string }) => {
+    const search = new URLSearchParams();
+    if (params?.language) search.set("language", params.language);
+    if (params?.author) search.set("author", params.author);
+    const qs = search.toString();
+    return api.get<{ count: number; items: ArticleListItem[] }>(
+      `/articles${qs ? "?" + qs : ""}`,
+    );
+  },
+  get: (slug: string) => api.get<Article>(`/articles/${slug}`),
+  create: (data: { title: string; summary?: string; content_md: string; language?: string }) =>
+    api.post<Article>("/articles", data),
+  patch: (slug: string, data: Partial<{ title: string; summary: string; content_md: string }>) =>
+    api.patch<Article>(`/articles/${slug}`, data),
+  publish: (slug: string) => api.post<Article>(`/articles/${slug}/publish`),
+  remove: (slug: string) => api.del<void>(`/articles/${slug}`),
+  comments: (slug: string) =>
+    api.get<{ count: number; items: Comment[] }>(`/articles/${slug}/comments`),
+  postComment: (slug: string, text: string) =>
+    api.post<Comment>(`/articles/${slug}/comments`, { text }),
+};
+
+// ---- Notifications ----
+
+export type Notification = {
+  id: string;
+  kind: string;
+  source_kind: string;
+  source_id: string;
+  title: string;
+  body: string;
+  link: string;
+  created_at: string;
+  read_at: string | null;
+};
+
+export type NotificationList = {
+  count: number;
+  unread_count: number;
+  items: Notification[];
+};
+
+export type Subscription = {
+  id: string;
+  kind: string;
+  target_id: string;
+  created_at: string;
+};
+
+export const notifications = {
+  list: (params?: { only_unread?: boolean; limit?: number }) => {
+    const search = new URLSearchParams();
+    if (params?.only_unread) search.set("only_unread", "true");
+    if (params?.limit) search.set("limit", String(params.limit));
+    const qs = search.toString();
+    return api.get<NotificationList>(`/notifications${qs ? "?" + qs : ""}`);
+  },
+  markRead: (id: string) => api.post<Notification>(`/notifications/${id}/read`),
+  markAllRead: () => api.post<{ marked: number }>("/notifications/read-all"),
+};
+
+export const subscriptions = {
+  list: () => api.get<Subscription[]>("/subscriptions"),
+  create: (target_id: string, kind = "place") =>
+    api.post<Subscription>("/subscriptions", { kind, target_id }),
+  remove: (id: string) => api.del<void>(`/subscriptions/${id}`),
+};
