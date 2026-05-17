@@ -16,19 +16,18 @@ When the autonomous developer needs something from the human that cannot be self
 
 ### 🔵 Soft (don't block start, will block specific later Krok)
 
-#### B-1 — GitHub OAuth credentials *(blocks full Krok 1 acceptance)*
+#### ~~B-1 — GitHub OAuth~~ — **resolved 2026-05-17**
 
-**What:** OAuth App credentials for "Sign in with GitHub".
-**How to resolve:**
-1. Go to https://github.com/settings/developers
-2. *OAuth Apps → New OAuth App*
-3. Application name: `Astrozor (dev)`
-4. Homepage URL: `http://astrozor.localhost`
-5. Authorization callback URL: `http://astrozor.localhost/auth/github/callback`
-6. Generate client secret
-7. Add to `.env` as `GITHUB_OAUTH_CLIENT_ID` and `GITHUB_OAUTH_CLIENT_SECRET`
+OAuth App `Ov23liDVuKvNiSyzAEhb` registered. Backend wired:
+- `GET  /api/v1/auth/github/start` redirects to GitHub authorize
+- `GET  /api/v1/auth/github/callback` exchanges code, creates/links `Identity`, stores access_token, logs in
+- `GET  /api/v1/accounts/identities` — list own connected providers
+- `DELETE /api/v1/accounts/identities/{id}` — disconnect (blocks last identity removal if user has no password)
+- `POST /api/v1/auth/resend-verification` — re-send verify email
 
-**Workaround:** Krok 1 ships with email-only auth; GitHub OAuth wired up as soon as credentials available.
+Per-user `access_token` lifts the `projects.github.fetch_repo_metadata()` rate limit from 60 req/h (anon) to 5000 req/h (per-user).
+
+Frontend has "Sign in with GitHub" button in unauth view. Profile UI for connect/disconnect is a follow-up.
 
 #### B-2 — Reálná data ČAS pro seed *(blocks Krok 3 final acceptance)*
 
