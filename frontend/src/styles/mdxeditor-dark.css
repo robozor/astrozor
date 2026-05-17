@@ -270,3 +270,97 @@
 [class*="_dialogTitle"] {
   color: #f1f5f9 !important;
 }
+
+/* Image insert dialog (URL / upload / alt + Save/Cancel footer) and any
+   other form-based popovers that live in the Radix portal */
+[class*="_dialogForm"] {
+  background-color: #0f172a !important;
+  color: #e2e8f0 !important;
+  border: 1px solid #334155 !important;
+}
+
+[class*="_dialogForm"] input,
+[class*="_dialogForm"] select,
+[class*="_dialogForm"] textarea {
+  background-color: #020617 !important;
+  color: #e2e8f0 !important;
+  border: 1px solid #334155 !important;
+}
+
+[class*="_dialogForm"] label,
+[class*="_dialogForm"] [class*="_formField"] {
+  color: #cbd5e1 !important;
+}
+
+[class*="_buttonsFooter"] {
+  background-color: #0f172a !important;
+  border-top: 1px solid #1e293b;
+}
+
+[class*="_buttonsFooter"] button {
+  background-color: #1e293b !important;
+  color: #e2e8f0 !important;
+  border: 1px solid #334155 !important;
+}
+
+[class*="_buttonsFooter"] button[type="submit"],
+[class*="_buttonsFooter"] button[data-primary="true"] {
+  background-color: #4f46e5 !important;
+  color: #ffffff !important;
+  border-color: #4f46e5 !important;
+}
+
+[class*="_dialogOverlay"] {
+  background-color: rgba(2, 6, 23, 0.75) !important;
+}
+
+/* Selected-image floating toolbar (Edit / Delete buttons over the image) */
+[class*="_editImageToolbar"] {
+  background-color: #0f172a !important;
+  border: 1px solid #334155 !important;
+  color: #cbd5e1 !important;
+}
+
+[class*="_editImageButton"] {
+  background-color: transparent !important;
+  color: #cbd5e1 !important;
+}
+
+[class*="_editImageButton"]:hover {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+}
+
+/* Table add-row / add-column floating controls + cell editor triggers */
+.astrozor-mdx [class*="_addRowButton"],
+.astrozor-mdx [class*="_addColumnButton"],
+.astrozor-mdx [class*="_tableRowEditorTrigger"],
+.astrozor-mdx [class*="_tableColumnEditorTrigger"],
+.astrozor-mdx [class*="_iconButton"] {
+  background-color: #1e293b !important;
+  color: #cbd5e1 !important;
+  border: 1px solid #334155 !important;
+}
+
+.astrozor-mdx [class*="_addRowButton"]:hover,
+.astrozor-mdx [class*="_addColumnButton"]:hover,
+.astrozor-mdx [class*="_tableRowEditorTrigger"]:hover,
+.astrozor-mdx [class*="_tableColumnEditorTrigger"]:hover,
+.astrozor-mdx [class*="_iconButton"]:hover {
+  background-color: #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+.astrozor-mdx [class*="_addRowButton"] svg,
+.astrozor-mdx [class*="_addColumnButton"] svg,
+.astrozor-mdx [class*="_iconButton"] svg {
+  color: #cbd5e1;
+  fill: currentColor;
+}
+
+/* Active / pressed state on cell-editor triggers */
+.astrozor-mdx [class*="_tableRowEditorTrigger"][data-state="on"],
+.astrozor-mdx [class*="_tableColumnEditorTrigger"][data-state="on"] {
+  background-color: #4f46e5 !important;
+  color: #ffffff !important;
+}
