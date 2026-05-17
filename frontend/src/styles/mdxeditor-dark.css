@@ -285,6 +285,29 @@
   background-color: #020617 !important;
   color: #e2e8f0 !important;
   border: 1px solid #334155 !important;
+  padding: 0.4rem 0.6rem !important;
+  border-radius: 4px !important;
+}
+
+/* Native file input (upload tab): make the "Choose file" button visible
+   on the dark background. Without this the button is system-default
+   white/grey and the filename text is invisible. */
+[class*="_dialogForm"] input[type="file"] {
+  padding: 0.4rem !important;
+  cursor: pointer;
+}
+[class*="_dialogForm"] input[type="file"]::file-selector-button {
+  background: #4f46e5;
+  color: #ffffff;
+  border: 0;
+  padding: 0.35rem 0.75rem;
+  border-radius: 4px;
+  margin-right: 0.6rem;
+  cursor: pointer;
+  font-weight: 500;
+}
+[class*="_dialogForm"] input[type="file"]::file-selector-button:hover {
+  background: #6366f1;
 }
 
 [class*="_dialogForm"] label,
