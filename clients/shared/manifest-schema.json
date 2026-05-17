@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://astrozor.cz/schemas/manifest/v1",
+  "title": "Astrozor publishing manifest",
+  "description": "Shared schema between CLI / Quarto / VS Code / R clients.",
+  "type": "object",
+  "required": ["title"],
+  "properties": {
+    "schema_version": { "type": "string", "default": "1" },
+    "title": { "type": "string", "minLength": 2, "maxLength": 200 },
+    "summary": { "type": "string", "maxLength": 400 },
+    "language": { "type": "string", "default": "cs", "enum": ["cs", "en"] },
+    "engine": {
+      "type": "string",
+      "enum": ["markdown", "quarto", "rmarkdown", "jupyter"],
+      "default": "markdown"
+    },
+    "license": { "type": "string", "default": "CC BY 4.0" },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "html": { "type": "string" },
+    "content_md": { "type": "string" }
+  },
+  "oneOf": [
+    { "required": ["html"] },
+    { "required": ["content_md"] }
+  ]
+}
