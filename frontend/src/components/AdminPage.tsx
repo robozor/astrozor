@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { admin, type Me, type MapInfraOut } from "../lib/api";
 
@@ -26,7 +26,10 @@ export function AdminPage({ me }: { me: Me }) {
 
 function MapInfraPanel() {
   const { t } = useTranslation();
-  // Poll every 3s while any job is running so progress streams in
+  // Poll every 1.5 s while any job is running so progress streams in.
+  // Browser tab in background still gets updates (refetchIntervalInBackground)
+  // so users who alt-tab away during a multi-GB download don't see stale
+  // numbers on their return.
   const infra = useQuery({
     queryKey: ["admin", "map-infra"],
     queryFn: () => admin.getMapInfra(),
@@ -34,8 +37,9 @@ function MapInfraPanel() {
       const d = q.state.data as MapInfraOut | undefined;
       const running =
         d?.pmtiles.status === "running" || d?.photon.status === "running";
-      return running ? 3000 : false;
+      return running ? 1500 : false;
     },
+    refetchIntervalInBackground: true,
   });
 
   if (infra.isLoading) {
@@ -104,6 +108,13 @@ function PmtilesCard({ data }: { data: MapInfraOut }) {
         <dt>{t("admin.status")}</dt>
         <dd className={statusClass(data.pmtiles.status)}>{data.pmtiles.status}</dd>
       </dl>
+
+      {downloading && data.pmtiles.live_progress && (
+        <LiveProgress
+          bytesWritten={data.pmtiles.live_progress.bytes_written}
+          totalBytes={data.pmtiles.live_progress.total_bytes}
+        />
+      )}
 
       {(downloading || hasError) && data.pmtiles.status_message && (
         <p
@@ -284,6 +295,63 @@ function PhotonCard({ data }: { data: MapInfraOut }) {
         )}
       </div>
     </article>
+  );
+}
+
+function LiveProgress({
+  bytesWritten,
+  totalBytes,
+}: {
+  bytesWritten: number;
+  totalBytes: number;
+}) {
+  const { t } = useTranslation();
+  // Track previous reading to derive instantaneous rate client-side.
+  const prevRef = useRef<{ bytes: number; ts: number } | null>(null);
+  const [rateMbS, setRateMbS] = useState<number | null>(null);
+
+  useEffect(() => {
+    const now = Date.now();
+    if (prevRef.current && now > prevRef.current.ts) {
+      const dt = (now - prevRef.current.ts) / 1000;
+      const db = bytesWritten - prevRef.current.bytes;
+      if (dt > 0 && db >= 0) {
+        // Exponential smoothing so the number doesn't flicker
+        const inst = db / 1024 / 1024 / dt;
+        setRateMbS((r) => (r === null ? inst : 0.6 * r + 0.4 * inst));
+      }
+    }
+    prevRef.current = { bytes: bytesWritten, ts: now };
+  }, [bytesWritten]);
+
+  const pct = totalBytes > 0 ? (bytesWritten * 100) / totalBytes : 0;
+  const writtenMib = (bytesWritten / 1024 / 1024).toFixed(0);
+  const totalMib = totalBytes > 0 ? (totalBytes / 1024 / 1024).toFixed(0) : "?";
+  let etaStr = "";
+  if (rateMbS && rateMbS > 0 && totalBytes > 0) {
+    const remainingMib = (totalBytes - bytesWritten) / 1024 / 1024;
+    const etaS = Math.max(0, remainingMib / rateMbS);
+    const h = Math.floor(etaS / 3600);
+    const m = Math.floor((etaS % 3600) / 60);
+    etaStr = h ? ` · ETA ${h}h ${m}m` : ` · ETA ${m}m`;
+  }
+
+  return (
+    <div className="space-y-1">
+      <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-indigo-500 transition-all duration-500"
+          style={{ width: `${Math.min(100, pct).toFixed(2)}%` }}
+        />
+      </div>
+      <p className="text-[11px] text-slate-400 font-mono">
+        {pct.toFixed(2)}% — {writtenMib} / {totalMib} MiB
+        {rateMbS !== null ? ` @ ${rateMbS.toFixed(1)} MB/s` : ""}
+        {etaStr}
+        {" "}
+        <span className="text-slate-600">({t("admin.live")})</span>
+      </p>
+    </div>
   );
 }
 

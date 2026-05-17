@@ -134,6 +134,7 @@
     "status": "Status",
     "active": "Active",
     "inactive": "Inactive",
+    "live": "live from disk",
     "useThis": "Use this",
     "notReady": "Not ready",
     "pmtiles": {

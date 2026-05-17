@@ -58,8 +58,40 @@ def _require_staff(request: HttpRequest) -> bool:
     )
 
 
+def _live_pmtiles_progress(m: MapInfra) -> dict | None:
+    """If a download is in-flight, peek at the on-disk .part file size
+    and return live progress, independent of how often the worker
+    persists its own status_message. Lets the UI show smooth progress
+    even when the worker reports at coarse intervals.
+    """
+    if m.pmtiles_status != MapInfra.JobStatus.RUNNING:
+        return None
+    from pathlib import Path
+
+    parent = Path(m.pmtiles_path).parent
+    if not parent.is_dir():
+        return None
+    try:
+        parts = sorted(parent.glob("*.part"), key=lambda p: p.stat().st_mtime, reverse=True)
+    except OSError:
+        return None
+    if not parts:
+        return None
+    try:
+        size = parts[0].stat().st_size
+    except OSError:
+        return None
+    # We don't know the total in DB until the worker first reads the
+    # response Content-Length header; approximate via the latest known
+    # Protomaps build size if it's available, otherwise return raw bytes
+    latest = _latest_protomaps_build()
+    total = (latest or {}).get("size") or 0
+    return {"bytes_written": size, "total_bytes": total}
+
+
 def _infra_out(m: MapInfra) -> dict:
     latest = _latest_protomaps_build()
+    live = _live_pmtiles_progress(m)
     return {
         "pmtiles": {
             "path": m.pmtiles_path,
@@ -70,6 +102,7 @@ def _infra_out(m: MapInfra) -> dict:
             "status_message": m.pmtiles_status_message,
             "job_id": m.pmtiles_job_id,
             "available": m.pmtiles_size_bytes > 0 and m.pmtiles_status != MapInfra.JobStatus.ERROR,
+            "live_progress": live,
             "latest": (
                 {
                     "url": PROTOMAPS_BUILD_URL.format(key=latest["key"]),

@@ -209,6 +209,10 @@ export type MapInfraOut = {
     status_message: string;
     job_id: string;
     available: boolean;
+    live_progress: {
+      bytes_written: number;
+      total_bytes: number;
+    } | null;
     latest: {
       url: string;
       key: string;

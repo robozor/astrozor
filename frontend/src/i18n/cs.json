@@ -134,6 +134,7 @@
     "status": "Stav",
     "active": "Aktivní",
     "inactive": "Neaktivní",
+    "live": "live z disku",
     "useThis": "Aktivovat",
     "notReady": "Nepřipraveno",
     "pmtiles": {
