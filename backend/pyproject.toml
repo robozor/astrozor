@@ -1,0 +1,30 @@
+[project]
+name = "astrozor-backend"
+version = "0.0.1"
+description = "Astrozor backend — Django + Ninja"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = [".venv", "migrations"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "W", "UP", "DJ"]
+ignore = ["E501"]  # line too long — handled by formatter
+
+[tool.ruff.lint.per-file-ignores]
+"**/migrations/*.py" = ["E", "F", "I", "B", "W", "UP", "DJ"]
+"**/settings.py" = ["F405", "F403"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "astrozor.settings"
+python_files = ["test_*.py", "*_test.py", "tests.py"]
+addopts = "-ra -q"
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+check_untyped_defs = true
+exclude = ["migrations"]

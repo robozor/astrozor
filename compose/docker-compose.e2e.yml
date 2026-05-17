@@ -1,0 +1,17 @@
+# E2E test overlay — adds Playwright runner service.
+# Usage: docker compose -p astrozor -f docker-compose.yml -f compose/docker-compose.e2e.yml run --rm e2e
+
+services:
+  e2e:
+    image: astrozor/e2e:dev
+    build:
+      context: ..
+      dockerfile: docker/e2e/Dockerfile
+    depends_on:
+      - proxy
+    environment:
+      E2E_BASE_URL: http://proxy
+    volumes:
+      - ../e2e/specs:/app/e2e/specs:ro
+      - ../e2e/playwright-report:/app/e2e/playwright-report
+    profiles: ["e2e"]

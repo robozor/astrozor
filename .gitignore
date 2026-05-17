@@ -20,3 +20,34 @@ desktop.ini
 
 # Logs
 *.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Django / Celery runtime
+celerybeat-schedule*
+staticfiles/
+media/
+
+# Node / Vite
+node_modules/
+dist/
+.vite/
+
+# Playwright
+playwright-report/
+test-results/
+
+# Docker / build cache
+.docker/

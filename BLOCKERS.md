@@ -1,0 +1,82 @@
+# Astrozor — Blockers
+
+> Single source of truth for items waiting on the human maintainer. The autonomous developer (Claude) checks this list before each iteration and works around blockers when possible.
+
+**Last updated:** 2026-05-17
+
+---
+
+## How this works
+
+When the autonomous developer needs something from the human that cannot be self-resolved, an entry is added here. The developer continues with other work in the meantime and notifies when reaching a natural pause point. The human resolves the blocker (provides credentials, data, decision, etc.) and the developer resumes in the next iteration.
+
+---
+
+## Active blockers
+
+### 🔵 Soft (don't block start, will block specific later Krok)
+
+#### B-1 — GitHub OAuth credentials *(blocks full Krok 1 acceptance)*
+
+**What:** OAuth App credentials for "Sign in with GitHub".
+**How to resolve:**
+1. Go to https://github.com/settings/developers
+2. *OAuth Apps → New OAuth App*
+3. Application name: `Astrozor (dev)`
+4. Homepage URL: `http://astrozor.localhost`
+5. Authorization callback URL: `http://astrozor.localhost/auth/github/callback`
+6. Generate client secret
+7. Add to `.env` as `GITHUB_OAUTH_CLIENT_ID` and `GITHUB_OAUTH_CLIENT_SECRET`
+
+**Workaround:** Krok 1 ships with email-only auth; GitHub OAuth wired up as soon as credentials available.
+
+#### B-2 — Reálná data ČAS pro seed *(blocks Krok 3 final acceptance)*
+
+**What:** Seznam hvězdáren / stanovišť ČR (CSV/JSON s polemi: název, lat, lon, typ, kontakt, web).
+**How to resolve:** Umísti do `seed-data/cas/places.csv` nebo dej URL ke stažení.
+**Workaround:** Krok 3 dokončím s vygenerovanou ukázkou 15 hvězdáren (reálné polohy známých hvězdáren ČR — z veřejných údajů). Tvá data nahradí seed když je dodáš.
+
+#### B-3 — Google OAuth credentials *(blocks full Krok 1 acceptance)*
+
+**What:** Google Cloud project + OAuth 2.0 client.
+**How to resolve:**
+1. https://console.cloud.google.com/apis/credentials
+2. Create project `Astrozor (dev)` → OAuth client ID → Web application
+3. Authorized redirect URIs: `http://astrozor.localhost/auth/google/callback`
+4. Add to `.env` as `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`
+
+**Workaround:** Stejné jako B-1 — email-only auth funguje, Google OAuth doplníme.
+
+#### B-4 — Mastodon OAuth registration *(blocks Krok 13)*
+
+**What:** Decision on which Mastodon instance to register Astrozor as application (default `mastodon.social`).
+**Workaround:** Plánováno až v Kroku 13, není akutní.
+
+#### B-5 — Zenodo Sandbox API token *(blocks Krok 11 DOI)*
+
+**What:** API token pro `sandbox.zenodo.org` (test) a `zenodo.org` (prod).
+**How to resolve:**
+1. Vytvořit účet na https://sandbox.zenodo.org/
+2. *Settings → Applications → New token*
+3. Scopes: `deposit:write deposit:actions`
+4. Add to `.env` as `ZENODO_SANDBOX_TOKEN` (a později `ZENODO_PROD_TOKEN`)
+
+**Workaround:** Krok 11 ukáže DOI mintování proti Zenodo sandbox; pokud token chybí, mockuju.
+
+#### B-6 — Discord test webhook URL *(soft — only for testing Krok 9)*
+
+**What:** Test Discord webhook pro ověření doručení notifikací.
+**How to resolve:** Discord server → channel settings → Integrations → Webhooks → New → copy URL → `.env` `DISCORD_TEST_WEBHOOK_URL`.
+**Workaround:** Mockuju s `httpx-mock`, reálný test až s URL.
+
+---
+
+## Resolved blockers
+
+(none yet)
+
+---
+
+## Decision-needed items
+
+(none currently — all major decisions in `requirements/decisions-qa.md` resolved, žádné ve frontě)

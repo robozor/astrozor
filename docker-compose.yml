@@ -1,0 +1,168 @@
+# Astrozor — Docker Compose stack
+# Project name: astrozor (use `docker compose -p astrozor ...`)
+#
+# Services:
+#   db        — PostgreSQL + PostGIS
+#   redis     — Redis 7 (cache + Celery broker + Channels layer)
+#   api       — Django + Ninja API (ASGI uvicorn, dev with --reload)
+#   worker    — Celery worker (uses api image)
+#   beat      — Celery beat (uses api image)
+#   frontend  — Vite dev server
+#   proxy     — Caddy reverse proxy (port 80)
+#
+# Start:  docker compose -p astrozor up -d
+# Stop:   docker compose -p astrozor down
+# Logs:   docker compose -p astrozor logs -f <service>
+
+name: astrozor
+
+x-api-image: &api-image
+  image: astrozor/api:dev
+  build:
+    context: .
+    dockerfile: docker/api/Dockerfile
+    args:
+      BASE_IMAGE: astrozor/python-base:dev
+
+x-api-env: &api-env
+  DJANGO_SETTINGS_MODULE: astrozor.settings
+  DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-insecure-dev-secret-change-me}
+  DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
+  DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,astrozor.localhost,api,proxy}
+  DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-http://astrozor.localhost,http://localhost}
+  POSTGRES_DB: ${POSTGRES_DB:-astrozor}
+  POSTGRES_USER: ${POSTGRES_USER:-astrozor}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-astrozor}
+  POSTGRES_HOST: db
+  POSTGRES_PORT: 5432
+  REDIS_URL: redis://redis:6379/0
+  PYTHONPATH: /app/backend
+
+services:
+  # ---- Build-only service for shared Python base image ----
+  python-base:
+    image: astrozor/python-base:dev
+    build:
+      context: .
+      dockerfile: docker/base/Dockerfile.python
+    command: ["true"]
+    profiles: ["build"]
+
+  # ---- Infrastructure ----
+  db:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: astrozor-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-astrozor}
+      POSTGRES_USER: ${POSTGRES_USER:-astrozor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-astrozor}
+    volumes:
+      - astrozor_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-astrozor} -d ${POSTGRES_DB:-astrozor}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: astrozor-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - astrozor_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # ---- Application ----
+  api:
+    <<: *api-image
+    container_name: astrozor-api
+    environment:
+      <<: *api-env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app/backend
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  worker:
+    <<: *api-image
+    container_name: astrozor-worker
+    environment:
+      <<: *api-env
+    depends_on:
+      api:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app/backend
+    entrypoint: ["/usr/bin/tini", "--"]
+    command: ["celery", "-A", "astrozor", "worker", "--loglevel=info", "--concurrency=2"]
+    restart: unless-stopped
+
+  beat:
+    <<: *api-image
+    container_name: astrozor-beat
+    environment:
+      <<: *api-env
+    depends_on:
+      api:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app/backend
+    entrypoint: ["/usr/bin/tini", "--"]
+    command: ["celery", "-A", "astrozor", "beat", "--loglevel=info"]
+    restart: unless-stopped
+
+  frontend:
+    image: astrozor/frontend:dev
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    container_name: astrozor-frontend
+    volumes:
+      - ./frontend:/app/frontend
+      - astrozor_frontend_node_modules:/app/frontend/node_modules
+    environment:
+      NODE_ENV: development
+    expose:
+      - "5173"
+    restart: unless-stopped
+
+  proxy:
+    image: astrozor/proxy:dev
+    build:
+      context: .
+      dockerfile: docker/proxy/Dockerfile
+    container_name: astrozor-proxy
+    depends_on:
+      - api
+      - frontend
+    ports:
+      - "80:80"
+      # 443 not bound in dev — Caddyfile uses HTTP only. HTTPS is added via
+      # compose/docker-compose.prod.yml override or compose/docker-compose.tls.yml.
+    volumes:
+      - astrozor_caddy_data:/data
+      - astrozor_caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  astrozor_db_data:
+  astrozor_redis_data:
+  astrozor_frontend_node_modules:
+  astrozor_caddy_data:
+  astrozor_caddy_config:
