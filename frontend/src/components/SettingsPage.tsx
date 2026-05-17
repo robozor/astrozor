@@ -228,11 +228,13 @@ function ProviderRow({
       </div>
     );
   }
+  // Mastodon: per-instance dynamic registration. Always available, no env.
+  if (provider === "mastodon") {
+    return <MastodonRow />;
+  }
   // Provider not configured on this instance — show a disabled row with a hint.
   if (!configured) {
-    const badge = provider === "mastodon" ? "B-4" : provider === "google" ? "B-3" : "B-1";
-    const hintKey =
-      provider === "mastodon" ? "auth.oauth.comingSoon" : "auth.oauth.notConfiguredHint";
+    const badge = provider === "google" ? "B-3" : "B-1";
     return (
       <div
         title={t("auth.oauth.notConfiguredHint")}
@@ -241,7 +243,7 @@ function ProviderRow({
         <div>
           <span className="text-slate-600 mr-2">○</span>
           <strong>{label}</strong>
-          <span className="text-slate-500 ml-2">{t(hintKey)}</span>
+          <span className="text-slate-500 ml-2">{t("auth.oauth.notConfiguredHint")}</span>
         </div>
         <span className="text-xs text-slate-600">{badge}</span>
       </div>
@@ -259,6 +261,55 @@ function ProviderRow({
       </div>
       <span className="text-xs text-indigo-300">{t(`auth.oauth.connect_${provider}`)}</span>
     </a>
+  );
+}
+
+function MastodonRow() {
+  const { t } = useTranslation();
+  const [instance, setInstance] = useState("");
+  const register = useMutation({
+    mutationFn: (url: string) => auth.registerMastodon(url),
+    onSuccess: (data) => {
+      // Server has registered the app — go to OAuth authorize.
+      window.location.href = data.start_url;
+    },
+  });
+
+  return (
+    <div className="bg-slate-950 ring-1 ring-slate-800 rounded-md px-3 py-2 text-sm">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-slate-600">○</span>
+        <strong>Mastodon</strong>
+        <span className="text-slate-500 text-xs">{t("auth.oauth.mastodonHint")}</span>
+      </div>
+      <form
+        className="flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (instance.trim()) register.mutate(instance.trim());
+        }}
+      >
+        <input
+          type="text"
+          value={instance}
+          onChange={(e) => setInstance(e.target.value)}
+          placeholder="mastodon.social"
+          className="flex-1 bg-slate-950 ring-1 ring-slate-700 focus:ring-slate-500 rounded-md px-3 py-1.5 text-slate-100 outline-none text-xs"
+        />
+        <button
+          type="submit"
+          disabled={!instance.trim() || register.isPending}
+          className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 text-white text-xs px-3 py-1.5 rounded-md transition"
+        >
+          {register.isPending ? "…" : t("auth.oauth.mastodonConnect")}
+        </button>
+      </form>
+      {register.isError && (
+        <p className="mt-2 text-xs text-rose-400">
+          {(register.error as ApiError).detail}
+        </p>
+      )}
+    </div>
   );
 }
 

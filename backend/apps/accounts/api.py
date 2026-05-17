@@ -7,12 +7,12 @@ from datetime import timedelta
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
 from django.http import HttpRequest, HttpResponseRedirect
 from django.utils import timezone
-from ninja import Router
+from ninja import Router, Schema
 from ninja.errors import HttpError
 
 from .emails import send_magic_link_email, send_verification_email
-from .models import EmailToken, Identity, User
-from .oauth import OAuthError, get_provider, new_state
+from .models import EmailToken, Identity, MastodonInstance, User  # noqa: F401
+from .oauth import OAuthError, get_provider, new_state, register_mastodon_app
 from .schemas import (
     IdentityOut,
     LoginIn,
@@ -259,6 +259,27 @@ def _safe_from(value: str | None) -> str:
     return "map"
 
 
+class MastodonRegisterIn(Schema):
+    instance_url: str
+
+
+@router.post("/auth/mastodon/register", response={200: dict, 400: dict})
+def mastodon_register(request: HttpRequest, payload: MastodonRegisterIn):
+    """Register Astrozor on a Mastodon instance and return where to redirect.
+
+    Idempotent — re-registers if the redirect URI changed (e.g. host change).
+    """
+    try:
+        inst = register_mastodon_app(payload.instance_url, request=request)
+    except OAuthError as e:
+        return 400, {"detail": str(e)}
+    return 200, {
+        "instance_url": inst.base_url,
+        "name": inst.name,
+        "start_url": f"/api/v1/auth/mastodon/start?instance={inst.base_url}&from=settings",
+    }
+
+
 @router.get("/auth/{provider}/start")
 def oauth_start(request: HttpRequest, provider: str, **kwargs):
     """Initiate OAuth flow: store state + 'from' in session, redirect to provider.
@@ -287,9 +308,10 @@ def oauth_start(request: HttpRequest, provider: str, **kwargs):
 def oauth_callback(request: HttpRequest, provider: str, code: str = "", state: str = ""):
     """Provider redirects here with `code` and `state`. We exchange and log in."""
     from_page = _safe_from(request.session.pop(f"oauth_from_{provider}", None))
+    instance_url = request.session.pop(f"oauth_instance_{provider}", None)
 
     try:
-        p = get_provider(provider)
+        p = get_provider(provider, instance_url=instance_url)
     except OAuthError:
         return HttpResponseRedirect(f"/?oauth_error=unknown_provider&from={from_page}")
 
@@ -311,8 +333,12 @@ def oauth_callback(request: HttpRequest, provider: str, code: str = "", state: s
     # existing account" rather than a fresh login.
     current_user = request.user if request.user.is_authenticated else None
 
+    # Mastodon identity is keyed by (provider, provider_user_id, instance)
+    # because user-id 42 on mastodon.social ≠ user-id 42 on fosstodon.org.
     identity = Identity.objects.filter(
-        provider=profile.provider, provider_user_id=profile.provider_user_id
+        provider=profile.provider,
+        provider_user_id=profile.provider_user_id,
+        provider_instance=(instance_url or ""),
     ).select_related("user").first()
 
     if identity:
@@ -329,13 +355,16 @@ def oauth_callback(request: HttpRequest, provider: str, code: str = "", state: s
             provider=profile.provider,
             provider_user_id=profile.provider_user_id,
             provider_username=profile.display_name,
+            provider_instance=instance_url or "",
             email=profile.email,
             display_name=profile.display_name,
             avatar_url=profile.avatar_url,
         )
         user = current_user
     else:
-        # Anonymous OAuth login — match by email or create new account
+        # Anonymous OAuth login — match by email or create new account.
+        # Mastodon doesn't expose real e-mail so the synthesized handle
+        # acts as a unique identifier instead.
         user = User.objects.filter(email__iexact=profile.email).first()
         if user is None:
             user = User.objects.create_user(email=profile.email)
@@ -347,8 +376,6 @@ def oauth_callback(request: HttpRequest, provider: str, code: str = "", state: s
                 user.profile.avatar_url = profile.avatar_url
             user.profile.save()
         elif not user.email_verified:
-            # Email matched an existing local account — trust the provider's
-            # verification (GitHub/Google return only verified primary emails).
             user.email_verified = True
             user.save(update_fields=["email_verified"])
         identity = Identity.objects.create(
@@ -356,6 +383,7 @@ def oauth_callback(request: HttpRequest, provider: str, code: str = "", state: s
             provider=profile.provider,
             provider_user_id=profile.provider_user_id,
             provider_username=profile.display_name,
+            provider_instance=instance_url or "",
             email=profile.email,
             display_name=profile.display_name,
             avatar_url=profile.avatar_url,

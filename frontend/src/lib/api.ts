@@ -111,6 +111,11 @@ export const auth = {
     api.post<{ status: string; detail: string }>("/auth/resend-verification"),
   oauthProviders: () =>
     api.get<{ github: boolean; google: boolean; mastodon: boolean }>("/auth/providers"),
+  registerMastodon: (instanceUrl: string) =>
+    api.post<{ instance_url: string; name: string; start_url: string }>(
+      "/auth/mastodon/register",
+      { instance_url: instanceUrl },
+    ),
   patchProfile: (patch: ProfilePatch) => api.patch<Me>("/accounts/profile", patch),
   listIdentities: () => api.get<Identity[]>("/accounts/identities"),
   disconnectIdentity: (id: string) => api.del<void>(`/accounts/identities/${id}`),

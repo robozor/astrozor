@@ -127,6 +127,9 @@ class Identity(models.Model):
     provider = models.CharField(max_length=16, choices=Provider.choices)
     provider_user_id = models.CharField(max_length=120)
     provider_username = models.CharField(max_length=120, blank=True)
+    # For Mastodon (federated): which instance hosts this identity.
+    # Empty for GitHub/Google.
+    provider_instance = models.URLField(blank=True)
     email = models.EmailField()
     display_name = models.CharField(max_length=160, blank=True)
     avatar_url = models.URLField(blank=True)
@@ -139,7 +142,7 @@ class Identity(models.Model):
 
     class Meta:
         db_table = "accounts_identity"
-        unique_together = [("provider", "provider_user_id")]
+        unique_together = [("provider", "provider_user_id", "provider_instance")]
         indexes = [
             models.Index(fields=["user", "provider"]),
             models.Index(fields=["email"]),
@@ -147,6 +150,32 @@ class Identity(models.Model):
 
     def __str__(self) -> str:
         return f"{self.provider}:{self.provider_user_id} → {self.user_id}"
+
+
+class MastodonInstance(models.Model):
+    """Astrozor's OAuth app registered on a specific Mastodon instance.
+
+    Mastodon supports dynamic app registration via POST /api/v1/apps. We
+    register once per instance (the first time any user wants to connect a
+    Mastodon account on that instance) and cache the resulting client_id /
+    client_secret here. No platform-wide credentials needed.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    base_url = models.URLField(unique=True, max_length=200, help_text="e.g. https://mastodon.social")
+    client_id = models.CharField(max_length=200)
+    client_secret = models.CharField(max_length=200)
+    vapid_key = models.CharField(max_length=200, blank=True)
+    name = models.CharField(max_length=160, blank=True, help_text="Display name from the instance")
+    redirect_uri = models.URLField(max_length=400, help_text="The redirect we registered with")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "accounts_mastodon_instance"
+        ordering = ["base_url"]
+
+    def __str__(self) -> str:
+        return self.base_url
 
 
 class EmailToken(models.Model):

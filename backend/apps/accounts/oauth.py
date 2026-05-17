@@ -236,9 +236,171 @@ class GoogleProvider:
         )
 
 
-def get_provider(name: str):
+# ---- Mastodon (dynamic per-instance app registration) ----
+
+
+def _normalize_mastodon_url(raw: str) -> str:
+    """Normalize a Mastodon instance URL.
+
+    Accepts 'mastodon.social', 'https://mastodon.social', 'https://mastodon.social/' etc.
+    Returns the canonical 'https://mastodon.social' (no trailing slash).
+    """
+    s = raw.strip().rstrip("/")
+    if not s:
+        raise OAuthError("Mastodon instance URL is required")
+    if not s.startswith("http://") and not s.startswith("https://"):
+        s = f"https://{s}"
+    return s
+
+
+def register_mastodon_app(instance_url: str, request=None):
+    """Register Astrozor as an OAuth app on a Mastodon instance.
+
+    Idempotent: returns the cached MastodonInstance row if one already exists
+    for this URL. Otherwise POSTs to /api/v1/apps and saves the credentials.
+    """
+    from .models import MastodonInstance
+
+    base = _normalize_mastodon_url(instance_url)
+    existing = MastodonInstance.objects.filter(base_url=base).first()
+    if existing:
+        # If the redirect URI changed (e.g. user switched from astrozor.localhost
+        # to localhost), re-register so Mastodon knows the new redirect.
+        new_redirect = callback_url("mastodon", request=request)
+        if existing.redirect_uri == new_redirect:
+            return existing
+
+    redirect = callback_url("mastodon", request=request)
+    body = {
+        "client_name": "Astrozor",
+        "redirect_uris": redirect,
+        "scopes": "read:accounts read:statuses write:statuses",
+        "website": redirect.rsplit("/api/", 1)[0],
+    }
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            r = client.post(f"{base}/api/v1/apps", data=body)
+    except httpx.HTTPError as e:
+        raise OAuthError(f"Mastodon app registration failed: {e}") from e
+
+    if r.status_code not in (200, 201):
+        raise OAuthError(
+            f"Mastodon /api/v1/apps returned HTTP {r.status_code}: {r.text[:200]}"
+        )
+    data = r.json()
+    cid = data.get("client_id")
+    csec = data.get("client_secret")
+    if not cid or not csec:
+        raise OAuthError(f"Mastodon response missing client credentials: {data}")
+
+    obj, _created = MastodonInstance.objects.update_or_create(
+        base_url=base,
+        defaults={
+            "client_id": cid,
+            "client_secret": csec,
+            "vapid_key": data.get("vapid_key", "") or "",
+            "name": data.get("name", "") or "Astrozor",
+            "redirect_uri": redirect,
+        },
+    )
+    return obj
+
+
+class MastodonProvider:
+    """Provider bound to one specific Mastodon instance.
+
+    Unlike GitHub/Google (one platform-wide app), Mastodon credentials are
+    per-instance and stored in the MastodonInstance table after dynamic
+    registration.
+    """
+
+    name = "mastodon"
+
+    def __init__(self, instance_url: str) -> None:
+        from .models import MastodonInstance
+
+        base = _normalize_mastodon_url(instance_url)
+        try:
+            inst = MastodonInstance.objects.get(base_url=base)
+        except MastodonInstance.DoesNotExist as e:
+            raise OAuthError(
+                f"Mastodon instance {base} not registered yet — call register first"
+            ) from e
+        self.instance = inst
+        self.base_url = base
+        self.client_id = inst.client_id
+        self.client_secret = inst.client_secret
+
+    @property
+    def is_configured(self) -> bool:
+        return bool(self.client_id and self.client_secret)
+
+    def authorize_url(self, state: str, request=None) -> str:
+        params = {
+            "client_id": self.client_id,
+            "redirect_uri": callback_url(self.name, request=request),
+            "response_type": "code",
+            "scope": "read:accounts read:statuses write:statuses",
+            "state": state,
+        }
+        return f"{self.base_url}/oauth/authorize?{urlencode(params)}"
+
+    def exchange_code(self, code: str, request=None) -> str:
+        with httpx.Client(timeout=15.0) as client:
+            r = client.post(
+                f"{self.base_url}/oauth/token",
+                data={
+                    "client_id": self.client_id,
+                    "client_secret": self.client_secret,
+                    "code": code,
+                    "grant_type": "authorization_code",
+                    "redirect_uri": callback_url(self.name, request=request),
+                    "scope": "read:accounts read:statuses write:statuses",
+                },
+            )
+        if r.status_code != 200:
+            raise OAuthError(
+                f"Mastodon token exchange failed: HTTP {r.status_code}: {r.text[:200]}"
+            )
+        data = r.json()
+        token = data.get("access_token")
+        if not token:
+            raise OAuthError(f"Mastodon token response missing access_token: {data}")
+        return token
+
+    def fetch_profile(self, access_token: str) -> OAuthProfile:
+        with httpx.Client(timeout=15.0) as client:
+            r = client.get(
+                f"{self.base_url}/api/v1/accounts/verify_credentials",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+        if r.status_code != 200:
+            raise OAuthError(f"Mastodon verify_credentials failed: HTTP {r.status_code}")
+        u = r.json()
+        username = u.get("acct") or u.get("username") or ""
+        if "@" not in username:
+            # Convert local acct ("alice") into "alice@instance.tld" for clarity
+            host = self.base_url.replace("https://", "").replace("http://", "").rstrip("/")
+            username = f"{username}@{host}" if username else ""
+        # Mastodon doesn't return an email through the public API; use the handle
+        # as a synthesized email so we have a unique identifier.
+        synth_email = f"{u.get('username')}@{self.base_url.replace('https://', '').replace('http://', '')}"
+        return OAuthProfile(
+            provider="mastodon",
+            provider_user_id=str(u.get("id") or u.get("username") or ""),
+            email=synth_email,
+            display_name=u.get("display_name") or username or synth_email,
+            avatar_url=u.get("avatar_static") or u.get("avatar") or "",
+        )
+
+
+def get_provider(name: str, instance_url: str | None = None):
     if name == "github":
         return GitHubProvider()
     if name == "google":
         return GoogleProvider()
+    if name == "mastodon":
+        if not instance_url:
+            raise OAuthError("Mastodon requires an instance URL")
+        return MastodonProvider(instance_url)
     raise OAuthError(f"Unknown OAuth provider: {name}")
