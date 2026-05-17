@@ -147,17 +147,18 @@ function ArticleDetail({
       queryClient.invalidateQueries({ queryKey: ["comments", slug] });
     },
   });
+  const [shareOpen, setShareOpen] = useState(false);
 
-  if (detail.isLoading) return <p className="text-slate-500 text-sm">{t("common.loading")}</p>;
-  if (detail.isError) return <p className="text-rose-400 text-sm">404</p>;
-  const article = detail.data!;
-  const isAuthor = article.author_email === me.user.email;
-  const isOwnDraft = isAuthor && article.status !== "published";
-  const isPublished = article.status === "published";
+  // Author / publication state — derived even before article loads.
+  // Hooks must be called unconditionally on every render (React rules of
+  // hooks), so we keep the useQuery here and pass an `enabled` that
+  // depends on data we'll have AFTER detail resolves. While detail is
+  // loading, isAuthor is false → query stays disabled, no extra fetch.
+  const article = detail.data;
+  const isAuthor = !!article && article.author_email === me.user.email;
+  const isPublished = !!article && article.status === "published";
+  const isOwnDraft = isAuthor && article && article.status !== "published";
 
-  // Show "Share on Mastodon" only when the author has a connected
-  // Mastodon identity (token present). Only meaningful for published
-  // articles — drafts have no public URL.
   const identities = useQuery({
     queryKey: ["identities"],
     queryFn: () => auth.listIdentities(),
@@ -166,7 +167,9 @@ function ArticleDetail({
   const canShareToMasto = !!identities.data?.some(
     (i) => i.provider === "mastodon" && i.has_token,
   );
-  const [shareOpen, setShareOpen] = useState(false);
+
+  if (detail.isLoading) return <p className="text-slate-500 text-sm">{t("common.loading")}</p>;
+  if (detail.isError || !article) return <p className="text-rose-400 text-sm">404</p>;
 
   return (
     <article>

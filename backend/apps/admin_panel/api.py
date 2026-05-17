@@ -257,7 +257,7 @@ def list_users(request: HttpRequest, q: str = ""):
         return 403, {"detail": "Staff only"}
     from apps.accounts.models import User
 
-    qs = User.objects.all().select_related("profile").order_by("date_joined")
+    qs = User.objects.all().select_related("profile").order_by("created_at")
     if q:
         from django.db.models import Q
 
