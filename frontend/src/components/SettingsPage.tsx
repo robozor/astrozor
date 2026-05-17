@@ -217,9 +217,22 @@ function ProviderRow({
       </div>
     );
   }
+  // Mastodon doesn't have a working backend provider yet (B-4).
+  if (provider === "mastodon") {
+    return (
+      <div className="flex items-center justify-between bg-slate-950 ring-1 ring-slate-800 rounded-md px-3 py-2 text-sm opacity-60">
+        <div>
+          <span className="text-slate-600 mr-2">○</span>
+          <strong>{label}</strong>
+          <span className="text-slate-500 ml-2">{t("auth.oauth.comingSoon")}</span>
+        </div>
+        <span className="text-xs text-slate-600">B-4</span>
+      </div>
+    );
+  }
   return (
     <a
-      href={`/api/v1/auth/${provider}/start`}
+      href={`/api/v1/auth/${provider}/start?from=settings`}
       className="flex items-center justify-between bg-slate-950 ring-1 ring-slate-800 hover:ring-slate-700 rounded-md px-3 py-2 text-sm transition"
     >
       <div>

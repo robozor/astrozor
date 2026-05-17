@@ -53,10 +53,62 @@ export function App() {
 
 function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const { t } = useTranslation();
-  const [page, setPage] = useState<Page>("map");
+
+  // Initial page from URL — supports OAuth redirect ?from=settings and clean URLs
+  const initialPage: Page = (() => {
+    if (typeof window === "undefined") return "map";
+    const params = new URLSearchParams(window.location.search);
+    const fromParam = params.get("from");
+    if (fromParam === "settings" || fromParam === "articles") return fromParam;
+    return "map";
+  })();
+  const [page, setPage] = useState<Page>(initialPage);
+  const [flash, setFlash] = useState<{
+    type: "ok" | "error";
+    text: string;
+  } | null>(null);
+
+  // Show a flash after OAuth redirect, then clean the URL.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const ok = params.get("oauth_ok");
+    const err = params.get("oauth_error");
+    const provider = params.get("provider");
+    const verified = params.get("verified");
+    if (ok) {
+      setFlash({
+        type: "ok",
+        text: provider ? `${provider} připojeno.` : "Přihlášení úspěšné.",
+      });
+    } else if (err) {
+      setFlash({ type: "error", text: `OAuth chyba: ${err}` });
+    } else if (verified) {
+      setFlash({ type: "ok", text: "E-mail ověřen." });
+    }
+    if (ok || err || verified) {
+      // Clean URL but keep ?from preserved? No — strip everything.
+      window.history.replaceState({}, "", window.location.pathname);
+      const t = setTimeout(() => setFlash(null), 5000);
+      return () => clearTimeout(t);
+    }
+  }, []);
+
   return (
     <main className="min-h-screen p-4 sm:p-6">
       <div className="max-w-6xl mx-auto bg-slate-900/60 ring-1 ring-slate-800 rounded-2xl p-4 sm:p-6 backdrop-blur">
+        {flash && (
+          <div
+            data-testid="flash"
+            className={`mb-3 text-sm px-3 py-2 rounded-md ring-1 ${
+              flash.type === "ok"
+                ? "bg-emerald-950/40 ring-emerald-900/50 text-emerald-200"
+                : "bg-rose-950/40 ring-rose-900/50 text-rose-200"
+            }`}
+          >
+            {flash.text}
+          </div>
+        )}
         <div className="flex items-center gap-3 mb-4">
           <span className="text-3xl" aria-hidden>
             ☆

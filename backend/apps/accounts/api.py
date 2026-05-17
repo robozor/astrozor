@@ -225,40 +225,60 @@ def update_profile(request: HttpRequest, payload: ProfilePatch):
 # ---- OAuth (GitHub, Google later, Mastodon later) ----
 
 
+_SAFE_FROM = {"map", "settings", "articles"}
+
+
+def _safe_from(value: str | None) -> str:
+    """Allowlist the ?from= page so we can't be tricked into open-redirect."""
+    if value and value in _SAFE_FROM:
+        return value
+    return "map"
+
+
 @router.get("/auth/{provider}/start")
-def oauth_start(request: HttpRequest, provider: str):
-    """Initiate OAuth flow: store state in session, redirect to provider."""
+def oauth_start(request: HttpRequest, provider: str, **kwargs):
+    """Initiate OAuth flow: store state + 'from' in session, redirect to provider.
+
+    Accepts ?from=settings|map|articles to control where the callback lands
+    once OAuth completes.
+    """
+    from_page = _safe_from(request.GET.get("from"))
     try:
         p = get_provider(provider)
     except OAuthError:
-        return HttpResponseRedirect("/?oauth_error=unknown_provider")
+        return HttpResponseRedirect(f"/?oauth_error=unknown_provider&from={from_page}")
     if not p.is_configured:
-        return HttpResponseRedirect("/?oauth_error=not_configured")
+        return HttpResponseRedirect(f"/?oauth_error=not_configured&from={from_page}")
 
     state = new_state()
     request.session[f"oauth_state_{provider}"] = state
+    request.session[f"oauth_from_{provider}"] = from_page
     return HttpResponseRedirect(p.authorize_url(state))
 
 
 @router.get("/auth/{provider}/callback")
 def oauth_callback(request: HttpRequest, provider: str, code: str = "", state: str = ""):
     """Provider redirects here with `code` and `state`. We exchange and log in."""
+    from_page = _safe_from(request.session.pop(f"oauth_from_{provider}", None))
+
     try:
         p = get_provider(provider)
     except OAuthError:
-        return HttpResponseRedirect("/?oauth_error=unknown_provider")
+        return HttpResponseRedirect(f"/?oauth_error=unknown_provider&from={from_page}")
 
     expected = request.session.pop(f"oauth_state_{provider}", None)
     if not state or expected != state:
-        return HttpResponseRedirect("/?oauth_error=bad_state")
+        return HttpResponseRedirect(f"/?oauth_error=bad_state&from={from_page}")
     if not code:
-        return HttpResponseRedirect("/?oauth_error=no_code")
+        return HttpResponseRedirect(f"/?oauth_error=no_code&from={from_page}")
 
     try:
         token = p.exchange_code(code)
         profile = p.fetch_profile(token)
     except OAuthError as e:
-        return HttpResponseRedirect(f"/?oauth_error={e.__class__.__name__}")
+        return HttpResponseRedirect(
+            f"/?oauth_error={e.__class__.__name__}&from={from_page}"
+        )
 
     # If the user is ALREADY logged in, treat this as "connect provider to my
     # existing account" rather than a fresh login.
@@ -271,7 +291,9 @@ def oauth_callback(request: HttpRequest, provider: str, code: str = "", state: s
     if identity:
         # Existing identity — if logged in as a different user, prevent hijack
         if current_user and identity.user_id != current_user.id:
-            return HttpResponseRedirect("/?oauth_error=identity_owned_by_another_user")
+            return HttpResponseRedirect(
+                f"/?oauth_error=identity_owned_by_another_user&from={from_page}"
+            )
         user = identity.user
     elif current_user:
         # Logged-in user is connecting a NEW provider to their account
@@ -323,7 +345,7 @@ def oauth_callback(request: HttpRequest, provider: str, code: str = "", state: s
     user.backend = "django.contrib.auth.backends.ModelBackend"
     auth_login(request, user)
 
-    return HttpResponseRedirect("/?oauth_ok=1")
+    return HttpResponseRedirect(f"/?oauth_ok=1&provider={provider}&from={from_page}")
 
 
 # ---- Identity management (in account settings) ----

@@ -65,6 +65,7 @@
       "connect_google": "Connect Google",
       "connect_mastodon": "Connect Mastodon",
       "notConnected": "not connected",
+      "comingSoon": "Coming soon",
       "disconnect": "Disconnect",
       "noIdentities": "No external account connected.",
       "connectedAccounts": "Connected accounts",
