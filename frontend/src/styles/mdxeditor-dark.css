@@ -281,7 +281,11 @@
 
 [class*="_dialogForm"] input,
 [class*="_dialogForm"] select,
-[class*="_dialogForm"] textarea {
+[class*="_dialogForm"] textarea,
+[class*="_multiFieldForm"] input,
+[class*="_multiFieldForm"] select,
+[class*="_multiFieldForm"] textarea,
+[class*="_textInput"] {
   background-color: #020617 !important;
   color: #e2e8f0 !important;
   border: 1px solid #334155 !important;
@@ -289,14 +293,35 @@
   border-radius: 4px !important;
 }
 
+/* Field rows inside the image dialog (label + input pairs) */
+[class*="_multiFieldForm"],
+[class*="_formField"] {
+  background-color: transparent !important;
+  color: #e2e8f0 !important;
+}
+[class*="_formField"] {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0.5rem 0;
+}
+[class*="_formField"] label {
+  color: #cbd5e1 !important;
+  font-size: 0.875rem;
+}
+
 /* Native file input (upload tab): make the "Choose file" button visible
    on the dark background. Without this the button is system-default
-   white/grey and the filename text is invisible. */
-[class*="_dialogForm"] input[type="file"] {
+   white/grey ("Vybrat soubor" in CZ Chrome) and looks like an inactive
+   element, not an obvious upload trigger. */
+[class*="_formField"] input[type="file"],
+[class*="_multiFieldForm"] input[type="file"] {
   padding: 0.4rem !important;
   cursor: pointer;
+  background-color: #0f172a !important;
 }
-[class*="_dialogForm"] input[type="file"]::file-selector-button {
+[class*="_formField"] input[type="file"]::file-selector-button,
+[class*="_multiFieldForm"] input[type="file"]::file-selector-button {
   background: #4f46e5;
   color: #ffffff;
   border: 0;
@@ -306,7 +331,8 @@
   cursor: pointer;
   font-weight: 500;
 }
-[class*="_dialogForm"] input[type="file"]::file-selector-button:hover {
+[class*="_formField"] input[type="file"]::file-selector-button:hover,
+[class*="_multiFieldForm"] input[type="file"]::file-selector-button:hover {
   background: #6366f1;
 }
 
