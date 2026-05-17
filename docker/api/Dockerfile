@@ -6,10 +6,15 @@ WORKDIR /app/backend
 
 USER root
 COPY --chown=astrozor:astrozor backend/ /app/backend/
-RUN chmod +x /app/backend/entrypoint.sh \
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends gosu \
+ && rm -rf /var/lib/apt/lists/* \
+ && chmod +x /app/backend/entrypoint.sh \
  && mkdir -p /var/lib/astrozor/media/uploads /var/lib/astrozor/pmtiles \
  && chown -R astrozor:astrozor /var/lib/astrozor
-USER astrozor
+# Stay as root so entrypoint.sh can chmod the bind-mounted docker.sock
+# (used by admin live-progress code); entrypoint then drops to astrozor
+# via gosu before exec'ing the app.
 
 ENV PYTHONPATH=/app/backend \
     DJANGO_SETTINGS_MODULE=astrozor.settings

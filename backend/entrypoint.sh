@@ -4,6 +4,17 @@
 
 set -euo pipefail
 
+# If we're running as root (USER root in Dockerfile, needed when admin
+# code reads docker.sock), grant the astrozor user access to the
+# bind-mounted docker socket, then drop to astrozor for the actual app.
+if [ "$(id -u)" = "0" ]; then
+    if [ -S /var/run/docker.sock ]; then
+        chmod 666 /var/run/docker.sock 2>/dev/null || true
+    fi
+    # Re-exec as astrozor without changing argv
+    exec gosu astrozor "$0" "$@"
+fi
+
 echo "[entrypoint] waiting for database at ${POSTGRES_HOST:-db}:${POSTGRES_PORT:-5432}..."
 ATTEMPTS=0
 MAX_ATTEMPTS=60

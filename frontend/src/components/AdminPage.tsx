@@ -35,8 +35,13 @@ function MapInfraPanel() {
     queryFn: () => admin.getMapInfra(),
     refetchInterval: (q) => {
       const d = q.state.data as MapInfraOut | undefined;
+      const photonPhase = d?.photon.live_progress?.phase;
+      const photonActive =
+        photonPhase === "downloading" || photonPhase === "extracting";
       const running =
-        d?.pmtiles.status === "running" || d?.photon.status === "running";
+        d?.pmtiles.status === "running" ||
+        d?.photon.status === "running" ||
+        photonActive;
       return running ? 1500 : false;
     },
     refetchIntervalInBackground: true,
@@ -252,6 +257,10 @@ function PhotonCard({ data }: { data: MapInfraOut }) {
         <dd className={statusClass(data.photon.status)}>{data.photon.status}</dd>
       </dl>
 
+      {data.photon.live_progress && (
+        <PhotonLiveProgress progress={data.photon.live_progress} />
+      )}
+
       {(probing || hasError) && data.photon.status_message && (
         <p
           className={`text-xs ${
@@ -262,7 +271,9 @@ function PhotonCard({ data }: { data: MapInfraOut }) {
         </p>
       )}
 
-      <p className="text-[11px] text-slate-500">{t("admin.photon.deployHint")}</p>
+      {!data.photon.live_progress && (
+        <p className="text-[11px] text-slate-500">{t("admin.photon.deployHint")}</p>
+      )}
 
       <div className="flex flex-wrap gap-2 pt-2">
         <button
@@ -353,6 +364,36 @@ function LiveProgress({
         <span className="text-slate-600">({t("admin.live")})</span>
       </p>
     </div>
+  );
+}
+
+function PhotonLiveProgress({
+  progress,
+}: {
+  progress: NonNullable<MapInfraOut["photon"]["live_progress"]>;
+}) {
+  if (progress.phase === "downloading" && progress.bytes_written && progress.total_bytes) {
+    return (
+      <LiveProgress
+        bytesWritten={progress.bytes_written}
+        totalBytes={progress.total_bytes}
+      />
+    );
+  }
+  const colour =
+    progress.phase === "ready"
+      ? "text-emerald-300"
+      : progress.phase === "extracting" || progress.phase === "downloading"
+        ? "text-amber-300"
+        : progress.phase === "stopped"
+          ? "text-rose-300"
+          : "text-slate-300";
+  return (
+    <p className={`text-xs font-mono ${colour}`} data-testid="photon-live-progress">
+      {progress.phase === "extracting" && "📦 "}
+      {progress.phase === "ready" && "✓ "}
+      {progress.label}
+    </p>
   );
 }
 

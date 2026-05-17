@@ -58,6 +58,97 @@ def _require_staff(request: HttpRequest) -> bool:
     )
 
 
+PHOTON_CONTAINER = "astrozor-photon"
+DOCKER_SOCK = "/var/run/docker.sock"
+
+# Sample line we parse from photon-docker stdout:
+# "2026-05-17 16:14:11,140 - root - INFO - Download progress: 13.4% (7.56GB / 56.52GB) - 47.2 Mbps - ETA: 2h 28m"
+_PHOTON_PROGRESS_RE = __import__("re").compile(
+    r"Download progress:\s*(?P<pct>\d+(?:\.\d+)?)%\s*"
+    r"\((?P<written>\d+(?:\.\d+)?)\s*GB\s*/\s*(?P<total>\d+(?:\.\d+)?)\s*GB\)"
+    r"(?:.*?ETA:\s*(?P<eta>[^\r\n]+?))?\s*$"
+)
+
+
+def _demux_docker_logs(data: bytes) -> str:
+    """Docker's /containers/{id}/logs returns a multiplexed stream for
+    non-TTY containers: each frame is 8 bytes of header (stream_type +
+    3 padding + 4-byte BE length) followed by the payload. Strip the
+    headers and concatenate the text.
+    """
+    out = []
+    i = 0
+    while i < len(data):
+        if i + 8 > len(data):
+            break
+        stream_type = data[i]
+        if stream_type not in (0, 1, 2):
+            # Not multiplexed (TTY mode) — decode the rest as-is
+            out.append(data[i:].decode("utf-8", errors="replace"))
+            break
+        length = int.from_bytes(data[i + 4 : i + 8], "big")
+        i += 8
+        out.append(data[i : i + length].decode("utf-8", errors="replace"))
+        i += length
+    return "".join(out)
+
+
+def _live_photon_progress() -> dict | None:
+    """Peek at the photon container's logs via Docker's HTTP API on the
+    unix socket. Returns parsed download progress for the UI, or None
+    if the socket isn't available / container isn't running / nothing
+    parseable in the recent log window.
+    """
+    import os
+
+    if not os.path.exists(DOCKER_SOCK):
+        return None
+    try:
+        transport = httpx.HTTPTransport(uds=DOCKER_SOCK)
+        with httpx.Client(transport=transport, base_url="http://localhost", timeout=5.0) as client:
+            info = client.get(f"/containers/{PHOTON_CONTAINER}/json")
+            if info.status_code != 200:
+                return None
+            state = (info.json().get("State") or {}).get("Status")
+            if state != "running":
+                return {"phase": "stopped", "label": f"Photon container is {state}"}
+            r = client.get(
+                f"/containers/{PHOTON_CONTAINER}/logs",
+                params={"stdout": "true", "stderr": "true", "tail": "40"},
+            )
+            if r.status_code != 200:
+                return None
+            text = _demux_docker_logs(r.content)
+    except Exception as e:  # noqa: BLE001
+        log.warning("Photon live progress probe failed: %s", e)
+        return None
+
+    # Walk the log lines from newest to oldest; first progress / phase hit wins.
+    for line in reversed(text.splitlines()):
+        if "Photon is ready" in line or "Listening on" in line:
+            return {"phase": "ready", "label": "Photon is ready"}
+        if "Extracting" in line or "extracting" in line:
+            return {"phase": "extracting", "label": "Extracting downloaded archive…"}
+        m = _PHOTON_PROGRESS_RE.search(line)
+        if m:
+            written_gb = float(m.group("written"))
+            total_gb = float(m.group("total"))
+            eta = (m.group("eta") or "").strip()
+            return {
+                "phase": "downloading",
+                "bytes_written": int(written_gb * 1024**3),
+                "total_bytes": int(total_gb * 1024**3),
+                "eta": eta,
+                "label": (
+                    f"Downloading Photon index: {float(m.group('pct')):.1f}% "
+                    f"({written_gb:.2f} / {total_gb:.2f} GB)"
+                    + (f" · ETA {eta}" if eta else "")
+                ),
+            }
+    # No matching line in the tail — still useful to say something
+    return {"phase": "running", "label": "Photon container is running"}
+
+
 def _live_pmtiles_progress(m: MapInfra) -> dict | None:
     """If a download is in-flight, peek at the on-disk .part file size
     and return live progress, independent of how often the worker
@@ -127,6 +218,7 @@ def _infra_out(m: MapInfra) -> dict:
             "imported_size_mb": m.photon_imported_size_mb,
             "available": m.photon_last_import is not None
             and m.photon_status != MapInfra.JobStatus.ERROR,
+            "live_progress": _live_photon_progress(),
         },
         "tile_backend": m.tile_backend,
         "search_backend": m.search_backend,

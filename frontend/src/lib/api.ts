@@ -227,6 +227,13 @@ export type MapInfraOut = {
     status_message: string;
     imported_size_mb: number;
     available: boolean;
+    live_progress: {
+      phase: "downloading" | "extracting" | "ready" | "running" | "stopped";
+      label: string;
+      bytes_written?: number;
+      total_bytes?: number;
+      eta?: string;
+    } | null;
   };
   tile_backend: "osm" | "pmtiles";
   search_backend: "nominatim" | "photon";

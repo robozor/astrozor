@@ -121,6 +121,11 @@ services:
       - ./backend:/app/backend
       - astrozor_media:/var/lib/astrozor/media
       - astrozor_pmtiles:/var/lib/astrozor/pmtiles
+      # Docker socket so admin endpoints can tail the photon container's
+      # logs for live download progress. See _live_photon_progress.
+      # Not read-only because the unix socket needs both directions for
+      # HTTP API calls (technically writes the request frame).
+      - /var/run/docker.sock:/var/run/docker.sock
     expose:
       - "8000"
     restart: unless-stopped
@@ -139,6 +144,11 @@ services:
       - ./backend:/app/backend
       - astrozor_media:/var/lib/astrozor/media
       - astrozor_pmtiles:/var/lib/astrozor/pmtiles
+      # Docker socket so admin endpoints can tail the photon container's
+      # logs for live download progress. See _live_photon_progress.
+      # Not read-only because the unix socket needs both directions for
+      # HTTP API calls (technically writes the request frame).
+      - /var/run/docker.sock:/var/run/docker.sock
     entrypoint: ["/usr/bin/tini", "--"]
     command: ["celery", "-A", "astrozor", "worker", "--loglevel=info", "--concurrency=2"]
     restart: unless-stopped
@@ -157,6 +167,11 @@ services:
       - ./backend:/app/backend
       - astrozor_media:/var/lib/astrozor/media
       - astrozor_pmtiles:/var/lib/astrozor/pmtiles
+      # Docker socket so admin endpoints can tail the photon container's
+      # logs for live download progress. See _live_photon_progress.
+      # Not read-only because the unix socket needs both directions for
+      # HTTP API calls (technically writes the request frame).
+      - /var/run/docker.sock:/var/run/docker.sock
     entrypoint: ["/usr/bin/tini", "--"]
     command: ["celery", "-A", "astrozor", "beat", "--loglevel=info"]
     restart: unless-stopped
