@@ -6,7 +6,9 @@ WORKDIR /app/backend
 
 USER root
 COPY --chown=astrozor:astrozor backend/ /app/backend/
-RUN chmod +x /app/backend/entrypoint.sh
+RUN chmod +x /app/backend/entrypoint.sh \
+ && mkdir -p /var/lib/astrozor/media/uploads \
+ && chown -R astrozor:astrozor /var/lib/astrozor
 USER astrozor
 
 ENV PYTHONPATH=/app/backend \
