@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     "apps.presence",
     "apps.chat",
     "apps.notifications",
+    "apps.publishing",
 ]
 
 AUTH_USER_MODEL = "accounts.User"

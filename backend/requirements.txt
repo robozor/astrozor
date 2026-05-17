@@ -29,6 +29,8 @@ httpx==0.28.1
 # Misc
 python-dotenv==1.0.1
 bleach==6.2.0
+markdown-it-py==3.0.0
+linkify-it-py==2.0.3
 
 # Dev / test
 pytest==8.3.4
