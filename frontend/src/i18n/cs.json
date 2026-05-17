@@ -4,6 +4,7 @@
     "loading": "Načítám…",
     "krok": "Krok",
     "cancel": "Zrušit",
+    "close": "Zavřít",
     "back": "Zpět"
   },
   "place": {
@@ -36,6 +37,7 @@
   },
   "articles": {
     "new": "Nový článek",
+    "shareMastodon": "Sdílet na Mastodon",
     "back": "Zpět na seznam",
     "draftBadge": "Koncept (jen ty vidíš)",
     "comments": "Komentáře",
@@ -305,6 +307,22 @@
     "filterAuthor": "Autor:",
     "allAuthors": "Všichni autoři",
     "noByAuthor": "Tento autor v aktuální dávce nic neposlal.",
+    "share": {
+      "title": "Sdílet článek na Mastodon",
+      "body": "Text statusu (uprav podle potřeby)",
+      "hashtags": "Hashtagy",
+      "hashtagsHint": "Oddělené mezerou nebo čárkou; znak # se přidá automaticky.",
+      "regenerate": "Přegenerovat z článku",
+      "visibility": "Viditelnost",
+      "vis": {
+        "public": "Veřejné",
+        "unlisted": "Neuvedené v timeline",
+        "private": "Pouze sledující"
+      },
+      "send": "Odeslat na Mastodon",
+      "success": "Status úspěšně publikován na Mastodon.",
+      "openOnMasto": "Otevřít status na Mastodonu"
+    },
     "kind": {
       "home": "Domů",
       "hashtag": "Hashtag",

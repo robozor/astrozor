@@ -308,6 +308,12 @@ export type MastoTimeline = {
   detail?: string;
 };
 
+export type MastoPostResult = {
+  url: string;
+  id: string;
+  created_at: string;
+};
+
 export const mastodon = {
   timeline: (kind: "home" | "hashtag" | "public" = "home", tag = "", limit = 20) => {
     const search = new URLSearchParams({
@@ -317,6 +323,11 @@ export const mastodon = {
     });
     return api.get<MastoTimeline>(`/mastodon/timeline?${search.toString()}`);
   },
+  post: (data: {
+    status: string;
+    visibility?: "public" | "unlisted" | "private" | "direct";
+    spoiler_text?: string;
+  }) => api.post<MastoPostResult>("/mastodon/post", data),
 };
 
 export const meta = {

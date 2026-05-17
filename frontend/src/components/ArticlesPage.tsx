@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { articles, type ArticleListItem, type Me } from "../lib/api";
+import { articles, auth, type ArticleListItem, type Me } from "../lib/api";
 import { MarkdownEditor } from "./MarkdownEditor";
+import { MastodonShareModal } from "./MastodonShareModal";
 
 type View =
   | { kind: "list" }
@@ -152,10 +153,24 @@ function ArticleDetail({
   const article = detail.data!;
   const isAuthor = article.author_email === me.user.email;
   const isOwnDraft = isAuthor && article.status !== "published";
+  const isPublished = article.status === "published";
+
+  // Show "Share on Mastodon" only when the author has a connected
+  // Mastodon identity (token present). Only meaningful for published
+  // articles — drafts have no public URL.
+  const identities = useQuery({
+    queryKey: ["identities"],
+    queryFn: () => auth.listIdentities(),
+    enabled: isAuthor && isPublished,
+  });
+  const canShareToMasto = !!identities.data?.some(
+    (i) => i.provider === "mastodon" && i.has_token,
+  );
+  const [shareOpen, setShareOpen] = useState(false);
 
   return (
     <article>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-2">
         <button
           type="button"
           onClick={onBack}
@@ -163,17 +178,36 @@ function ArticleDetail({
         >
           ← {t("articles.back")}
         </button>
-        {isAuthor && (
-          <button
-            type="button"
-            onClick={onEdit}
-            data-testid="article-edit"
-            className="text-sm bg-slate-800 hover:bg-slate-700 text-slate-100 px-3 py-1 rounded-md ring-1 ring-slate-700 transition"
-          >
-            ✎ {t("articles.editor.edit")}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {isAuthor && isPublished && canShareToMasto && (
+            <button
+              type="button"
+              onClick={() => setShareOpen(true)}
+              data-testid="article-share-masto"
+              className="text-sm bg-fuchsia-800 hover:bg-fuchsia-700 text-fuchsia-100 px-3 py-1 rounded-md ring-1 ring-fuchsia-700/70 transition"
+            >
+              🐘 {t("articles.shareMastodon")}
+            </button>
+          )}
+          {isAuthor && (
+            <button
+              type="button"
+              onClick={onEdit}
+              data-testid="article-edit"
+              className="text-sm bg-slate-800 hover:bg-slate-700 text-slate-100 px-3 py-1 rounded-md ring-1 ring-slate-700 transition"
+            >
+              ✎ {t("articles.editor.edit")}
+            </button>
+          )}
+        </div>
       </div>
+
+      {shareOpen && (
+        <MastodonShareModal
+          article={article}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
 
       <header className="mb-6">
         <h2 className="text-2xl font-semibold">{article.title}</h2>

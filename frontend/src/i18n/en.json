@@ -4,6 +4,7 @@
     "loading": "Loading…",
     "krok": "Step",
     "cancel": "Cancel",
+    "close": "Close",
     "back": "Back"
   },
   "notifications": {
@@ -36,6 +37,7 @@
   },
   "articles": {
     "new": "New article",
+    "shareMastodon": "Share on Mastodon",
     "back": "Back to list",
     "draftBadge": "Draft (only you see this)",
     "comments": "Comments",
@@ -305,6 +307,22 @@
     "filterAuthor": "Author:",
     "allAuthors": "All authors",
     "noByAuthor": "This author hasn't posted in the current batch.",
+    "share": {
+      "title": "Share article on Mastodon",
+      "body": "Status text (edit as needed)",
+      "hashtags": "Hashtags",
+      "hashtagsHint": "Separate with spaces or commas; the # is added for you.",
+      "regenerate": "Regenerate from article",
+      "visibility": "Visibility",
+      "vis": {
+        "public": "Public",
+        "unlisted": "Unlisted",
+        "private": "Followers only"
+      },
+      "send": "Post to Mastodon",
+      "success": "Status posted successfully.",
+      "openOnMasto": "Open status on Mastodon"
+    },
     "kind": {
       "home": "Home",
       "hashtag": "Hashtag",

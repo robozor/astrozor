@@ -201,16 +201,10 @@ def publish_article(request: HttpRequest, slug: str):
         a.content_html = render_markdown(a.content_md)
     a.save()
 
-    # Best-effort cross-post to the author's connected Mastodon, if any.
-    # Failures are swallowed inside mastodon_post_status so they never block.
-    host = request.get_host()
-    scheme = "https" if request.is_secure() else "http"
-    article_url = f"{scheme}://{host}/articles/{a.slug}"
-    summary_part = f"\n\n{a.summary}" if a.summary else ""
-    mastodon_post_status(
-        a.author,
-        f"📰 {a.title}{summary_part}\n\n{article_url}",
-    )
+    # Mastodon share is opt-in per article via the "Sdílet na Mastodon"
+    # popup in the UI (POST /api/v1/mastodon/post). No automatic cross-post
+    # here so authors get to review/edit the text and pick hashtags before
+    # the toot goes out.
     return 200, _article_out(a)
 
 

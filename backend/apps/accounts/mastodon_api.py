@@ -12,7 +12,7 @@ import re
 
 import httpx
 from django.http import HttpRequest
-from ninja import Router
+from ninja import Router, Schema
 
 from .models import Identity
 
@@ -150,4 +150,64 @@ def get_timeline(
     return 200, {
         "items": items,
         "instance": base,
+    }
+
+
+# ---- Manual post ----
+
+
+class StatusIn(Schema):
+    status: str
+    visibility: str = "public"
+    spoiler_text: str = ""
+
+
+@router.post(
+    "/mastodon/post",
+    response={200: dict, 400: dict, 401: dict, 502: dict},
+)
+def post_status(request: HttpRequest, payload: StatusIn):
+    """Post a status to the caller's connected Mastodon, using their token.
+
+    Used by the per-article share popup and any other future share flow.
+    Failures bubble up as 502 with the upstream body so the UI can show
+    a real error (unlike the silent best-effort cross-post helper).
+    """
+    identity = _user_identity(request.user)
+    if not identity:
+        return 401, {
+            "detail": "Mastodon not connected. Go to Settings → Connected accounts.",
+        }
+    text = (payload.status or "").strip()
+    if not text:
+        return 400, {"detail": "Status text is required"}
+    if payload.visibility not in ("public", "unlisted", "private", "direct"):
+        return 400, {"detail": "Invalid visibility"}
+
+    base = identity.provider_instance.rstrip("/")
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            r = client.post(
+                f"{base}/api/v1/statuses",
+                headers={"Authorization": f"Bearer {identity.access_token}"},
+                data={
+                    "status": text[:5000],
+                    "visibility": payload.visibility,
+                    "spoiler_text": (payload.spoiler_text or "")[:200],
+                },
+            )
+    except httpx.HTTPError as e:
+        return 502, {"detail": f"Mastodon upstream error: {e}"}
+    if r.status_code not in (200, 201):
+        return 502, {
+            "detail": f"Mastodon returned HTTP {r.status_code}: {r.text[:300]}",
+        }
+    try:
+        data = r.json()
+    except Exception:
+        data = {}
+    return 200, {
+        "url": data.get("url") or "",
+        "id": str(data.get("id") or ""),
+        "created_at": data.get("created_at") or "",
     }
