@@ -12,3 +12,25 @@ html, body, #root {
 body {
   font-family: var(--font-display);
 }
+
+/* Rendered article HTML — minimal typographic styles */
+.article-html h1 { font-size: 1.5rem; font-weight: 600; margin: 1.5rem 0 0.75rem; color: rgb(241 245 249); }
+.article-html h2 { font-size: 1.25rem; font-weight: 600; margin: 1.25rem 0 0.5rem; color: rgb(241 245 249); }
+.article-html h3 { font-size: 1.125rem; font-weight: 600; margin: 1rem 0 0.5rem; color: rgb(241 245 249); }
+.article-html p { margin: 0.75rem 0; color: rgb(203 213 225); line-height: 1.6; }
+.article-html a { color: rgb(165 180 252); text-decoration: underline; }
+.article-html a:hover { color: rgb(199 210 254); }
+.article-html ul, .article-html ol { margin: 0.75rem 0 0.75rem 1.5rem; color: rgb(203 213 225); }
+.article-html ul { list-style: disc; }
+.article-html ol { list-style: decimal; }
+.article-html li { margin: 0.25rem 0; line-height: 1.6; }
+.article-html code { background: rgb(15 23 42); color: rgb(248 250 252); padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-size: 0.875rem; }
+.article-html pre { background: rgb(15 23 42); padding: 1rem; border-radius: 0.5rem; overflow-x: auto; margin: 1rem 0; }
+.article-html pre code { background: transparent; padding: 0; }
+.article-html blockquote { border-left: 3px solid rgb(71 85 105); padding-left: 1rem; color: rgb(148 163 184); margin: 1rem 0; }
+.article-html hr { border-color: rgb(30 41 59); margin: 1.5rem 0; }
+.article-html table { border-collapse: collapse; margin: 1rem 0; }
+.article-html th, .article-html td { border: 1px solid rgb(30 41 59); padding: 0.5rem 0.75rem; }
+.article-html th { background: rgb(15 23 42); color: rgb(241 245 249); }
+.article-html img { max-width: 100%; height: auto; border-radius: 0.5rem; margin: 1rem 0; }
+.article-html strong { color: rgb(241 245 249); }

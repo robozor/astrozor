@@ -5,6 +5,7 @@ import { ApiError, auth, type Me } from "./lib/api";
 import { SUPPORTED_LANGUAGES, type LanguageCode } from "./i18n";
 import { MapView } from "./components/MapView";
 import { SettingsPage } from "./components/SettingsPage";
+import { ArticlesPage } from "./components/ArticlesPage";
 
 type Page = "map" | "settings" | "articles";
 
@@ -63,6 +64,12 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
           <nav className="flex items-center gap-1 ml-2">
             <NavTab id="map" active={page === "map"} label={t("nav.map")} onClick={() => setPage("map")} />
             <NavTab
+              id="articles"
+              active={page === "articles"}
+              label={t("nav.articles")}
+              onClick={() => setPage("articles")}
+            />
+            <NavTab
               id="settings"
               active={page === "settings"}
               label={t("nav.settings")}
@@ -84,6 +91,7 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
         </div>
 
         {page === "map" && <AuthenticatedMapView me={me} />}
+        {page === "articles" && <ArticlesPage me={me} />}
         {page === "settings" && <SettingsPage me={me} />}
       </div>
     </main>

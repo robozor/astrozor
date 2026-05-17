@@ -2,7 +2,24 @@
   "common": {
     "brand": "Astrozor",
     "loading": "Načítám…",
-    "krok": "Krok"
+    "krok": "Krok",
+    "cancel": "Zrušit"
+  },
+  "articles": {
+    "new": "Nový článek",
+    "back": "Zpět na seznam",
+    "draftBadge": "Koncept (jen ty vidíš)",
+    "comments": "Komentáře",
+    "commentPlaceholder": "Napiš komentář…",
+    "commentPost": "Odeslat",
+    "empty": "Žádné publikované články",
+    "emptyHint": "Klikni na 'Nový článek' a napiš první.",
+    "editor": {
+      "titlePlaceholder": "Název článku",
+      "summaryPlaceholder": "Krátké shrnutí (volitelně)",
+      "saveDraft": "Uložit koncept",
+      "publish": "Publikovat (vystaví DOI)"
+    }
   },
   "lang": {
     "cs": "Čeština",

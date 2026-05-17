@@ -2,7 +2,24 @@
   "common": {
     "brand": "Astrozor",
     "loading": "Loading…",
-    "krok": "Step"
+    "krok": "Step",
+    "cancel": "Cancel"
+  },
+  "articles": {
+    "new": "New article",
+    "back": "Back to list",
+    "draftBadge": "Draft (only you see this)",
+    "comments": "Comments",
+    "commentPlaceholder": "Write a comment…",
+    "commentPost": "Send",
+    "empty": "No articles published yet",
+    "emptyHint": "Click 'New article' to write the first one.",
+    "editor": {
+      "titlePlaceholder": "Article title",
+      "summaryPlaceholder": "Short summary (optional)",
+      "saveDraft": "Save draft",
+      "publish": "Publish (mints DOI)"
+    }
   },
   "lang": {
     "cs": "Čeština",
