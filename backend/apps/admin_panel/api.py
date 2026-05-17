@@ -71,14 +71,19 @@ def _live_pmtiles_progress(m: MapInfra) -> dict | None:
     parent = Path(m.pmtiles_path).parent
     if not parent.is_dir():
         return None
+    # New deterministic name (e.g. europe.pmtiles.part). Fall back to
+    # any *.part during migration from the old tempfile.mkstemp pattern.
+    part = Path(m.pmtiles_path).with_suffix(Path(m.pmtiles_path).suffix + ".part")
     try:
-        parts = sorted(parent.glob("*.part"), key=lambda p: p.stat().st_mtime, reverse=True)
-    except OSError:
-        return None
-    if not parts:
-        return None
-    try:
-        size = parts[0].stat().st_size
+        if part.exists():
+            size = part.stat().st_size
+        else:
+            others = sorted(
+                parent.glob("*.part"), key=lambda p: p.stat().st_mtime, reverse=True
+            )
+            if not others:
+                return None
+            size = others[0].stat().st_size
     except OSError:
         return None
     # We don't know the total in DB until the worker first reads the

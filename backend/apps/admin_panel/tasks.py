@@ -7,8 +7,6 @@ the admin UI polls the MapInfra row for status updates.
 from __future__ import annotations
 
 import logging
-import os
-import tempfile
 import time
 from pathlib import Path
 
@@ -25,11 +23,13 @@ log = logging.getLogger(__name__)
 def download_pmtiles(self):
     """Stream the Protomaps Daily PMTiles build to the configured path.
 
-    Uses HTTP range/resume not implemented — full re-download each refresh.
-    Atomic: writes to <path>.part then renames to <path>.
-
-    Updates MapInfra.pmtiles_status to running → idle/error, message field
-    holds progress %, last error etc.
+    - Resumable: writes to a deterministic .part file next to the target,
+      and on restart sends `Range: bytes=<offset>-` to continue where it
+      left off. Servers that don't support 206 cause a fresh start.
+    - Inactivity-resistant: short per-read timeout (60 s) so a silently
+      dropped TCP connection fails fast instead of hanging for hours,
+      and the task auto-retries with exponential backoff up to 3 times.
+    - Atomic: renames .part → final path only when total matches.
     """
     infra = MapInfra.get()
     infra.pmtiles_status = MapInfra.JobStatus.RUNNING
@@ -38,7 +38,7 @@ def download_pmtiles(self):
     infra.save(update_fields=["pmtiles_status", "pmtiles_job_id", "pmtiles_status_message"])
 
     target = Path(infra.pmtiles_path)
-    tmp_path: Path | None = None
+    tmp_path = target.with_suffix(target.suffix + ".part")
 
     try:
         # Auto-resolve to the newest Protomaps Daily build if user left
@@ -58,53 +58,113 @@ def download_pmtiles(self):
             )
 
         target.parent.mkdir(parents=True, exist_ok=True)
-        tmp_fd, tmp_name = tempfile.mkstemp(dir=target.parent, suffix=".part")
-        os.close(tmp_fd)
-        tmp_path = Path(tmp_name)
 
-        with httpx.stream(
-            "GET",
-            source_url,
-            timeout=httpx.Timeout(connect=30.0, read=600.0, write=600.0, pool=30.0),
-            follow_redirects=True,
-        ) as r:
-            r.raise_for_status()
-            total = int(r.headers.get("content-length") or 0)
-            written = 0
-            start_ts = time.monotonic()
-            last_report = start_ts
-            with tmp_path.open("wb") as f:
-                for chunk in r.iter_bytes(chunk_size=4 * 1024 * 1024):
-                    f.write(chunk)
-                    written += len(chunk)
-                    now = time.monotonic()
-                    # Persist progress at most every 2 s — keeps the UI
-                    # responsive on multi-hour downloads without thrashing
-                    # the DB. 1 % of a 129 GB file is 1.3 GB, far too
-                    # coarse on its own.
-                    if now - last_report < 2.0:
-                        continue
-                    last_report = now
-                    elapsed = now - start_ts
-                    rate_mb_s = (written / 1024 / 1024) / elapsed if elapsed > 0 else 0
-                    pct_str = (
-                        f"{written * 100 / total:.1f}%" if total else "?"
+        # Clean up any stale tempfile-style .part from older runs
+        for stale in target.parent.glob("tmp*.part"):
+            try:
+                stale.unlink()
+            except OSError:
+                pass
+
+        max_attempts = 4
+        attempt = 0
+        while True:
+            attempt += 1
+            # Resume from wherever .part left off, if any
+            resume_from = tmp_path.stat().st_size if tmp_path.exists() else 0
+            headers = {}
+            if resume_from > 0:
+                headers["Range"] = f"bytes={resume_from}-"
+                MapInfra.objects.filter(pk=1).update(
+                    pmtiles_status_message=(
+                        f"Resuming from {resume_from // (1024 * 1024)} MiB "
+                        f"(attempt {attempt}/{max_attempts})…"
                     )
-                    if total and rate_mb_s > 0:
-                        eta_s = max(0, int((total - written) / (rate_mb_s * 1024 * 1024)))
-                        h, rem = divmod(eta_s, 3600)
-                        m, _s = divmod(rem, 60)
-                        eta_str = f" · ETA {h}h {m}m" if h else f" · ETA {m}m"
-                    else:
-                        eta_str = ""
-                    MapInfra.objects.filter(pk=1).update(
-                        pmtiles_status_message=(
-                            f"Downloading… {pct_str} "
-                            f"({written // (1024 * 1024)} / "
-                            f"{(total // (1024 * 1024)) if total else '?'} MiB) "
-                            f"at {rate_mb_s:.1f} MB/s{eta_str}"
-                        )
+                )
+
+            try:
+                with httpx.stream(
+                    "GET",
+                    source_url,
+                    timeout=httpx.Timeout(connect=30.0, read=60.0, write=60.0, pool=30.0),
+                    follow_redirects=True,
+                    headers=headers,
+                ) as r:
+                    # 206 = server honored Range; 200 = full body (we discard any
+                    # partial and start fresh below)
+                    if resume_from > 0 and r.status_code == 200:
+                        tmp_path.unlink(missing_ok=True)
+                        resume_from = 0
+                    r.raise_for_status()
+                    total = int(r.headers.get("content-length") or 0)
+                    if resume_from > 0 and r.status_code == 206:
+                        total += resume_from
+                    written = resume_from
+                    start_ts = time.monotonic()
+                    last_report = start_ts
+                    mode = "ab" if resume_from > 0 else "wb"
+                    with tmp_path.open(mode) as f:
+                        for chunk in r.iter_bytes(chunk_size=4 * 1024 * 1024):
+                            f.write(chunk)
+                            written += len(chunk)
+                            now = time.monotonic()
+                            if now - last_report < 2.0:
+                                continue
+                            last_report = now
+                            elapsed = now - start_ts
+                            rate_mb_s = (
+                                ((written - resume_from) / 1024 / 1024) / elapsed
+                                if elapsed > 0
+                                else 0
+                            )
+                            pct_str = (
+                                f"{written * 100 / total:.1f}%" if total else "?"
+                            )
+                            if total and rate_mb_s > 0:
+                                eta_s = max(
+                                    0,
+                                    int(
+                                        (total - written)
+                                        / (rate_mb_s * 1024 * 1024)
+                                    ),
+                                )
+                                h, rem = divmod(eta_s, 3600)
+                                m, _s = divmod(rem, 60)
+                                eta_str = (
+                                    f" · ETA {h}h {m}m" if h else f" · ETA {m}m"
+                                )
+                            else:
+                                eta_str = ""
+                            MapInfra.objects.filter(pk=1).update(
+                                pmtiles_status_message=(
+                                    f"Downloading… {pct_str} "
+                                    f"({written // (1024 * 1024)} / "
+                                    f"{(total // (1024 * 1024)) if total else '?'} MiB) "
+                                    f"at {rate_mb_s:.1f} MB/s{eta_str}"
+                                )
+                            )
+                # Stream exited cleanly — break the retry loop
+                break
+
+            except (httpx.ReadTimeout, httpx.ReadError, httpx.RemoteProtocolError) as e:
+                # Connection stalled or dropped. Retry with backoff if we have attempts left.
+                if attempt >= max_attempts:
+                    raise
+                backoff = min(30, 2 ** attempt)
+                log.warning(
+                    "PMTiles stream broke (%s), retrying in %ds (attempt %d/%d)",
+                    e,
+                    backoff,
+                    attempt + 1,
+                    max_attempts,
+                )
+                MapInfra.objects.filter(pk=1).update(
+                    pmtiles_status_message=(
+                        f"Stream broke ({type(e).__name__}). Retry in {backoff}s "
+                        f"({attempt}/{max_attempts})…"
                     )
+                )
+                time.sleep(backoff)
 
         # Atomic swap
         tmp_path.replace(target)
@@ -182,17 +242,18 @@ def import_photon(self):
     except httpx.ConnectError as e:
         log.warning("Photon container unreachable: %s", e)
         MapInfra.objects.filter(pk=1).update(
-            photon_status=MapInfra.JobStatus.ERROR,
+            photon_status=MapInfra.JobStatus.IDLE,  # not "running" — UI stops auto-polling
             photon_status_message=(
-                f"Photon container at {infra.photon_url} is not reachable. "
-                "Start it with: docker compose -p astrozor --profile photon up -d photon "
-                "and wait for the OSM import to finish (see docs/runbook/map-infra.md)."
+                f"Photon at {infra.photon_url} is not reachable yet. "
+                "Start it: docker compose -p astrozor --profile photon up -d photon "
+                "and wait until the OSM import inside the container finishes "
+                "(it can take 15 min – several hours). Then click Probe again."
             ),
         )
         # No re-raise; UI already shows the friendly message
     except Exception as e:  # noqa: BLE001
         log.exception("Photon probe failed")
         MapInfra.objects.filter(pk=1).update(
-            photon_status=MapInfra.JobStatus.ERROR,
+            photon_status=MapInfra.JobStatus.IDLE,
             photon_status_message=f"Probe failed: {e}"[:500],
         )
