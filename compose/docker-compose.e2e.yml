@@ -5,13 +5,13 @@ services:
   e2e:
     image: astrozor/e2e:dev
     build:
-      context: ..
+      context: .
       dockerfile: docker/e2e/Dockerfile
     depends_on:
       - proxy
     environment:
       E2E_BASE_URL: http://proxy
     volumes:
-      - ../e2e/specs:/app/e2e/specs:ro
-      - ../e2e/playwright-report:/app/e2e/playwright-report
+      - ./e2e/specs:/app/e2e/specs:ro
+      - ./e2e/playwright-report:/app/e2e/playwright-report
     profiles: ["e2e"]

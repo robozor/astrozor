@@ -1,6 +1,6 @@
 # Astrozor — Playwright E2E runner.
 # Uses official Microsoft Playwright image which includes browsers (~1.5 GB).
-FROM mcr.microsoft.com/playwright:v1.49.1-noble
+FROM mcr.microsoft.com/playwright:v1.60.0-noble
 
 WORKDIR /app/e2e
 

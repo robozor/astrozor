@@ -8,6 +8,9 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 5173,
     strictPort: true,
+    // Allow any Host header in dev — we sit behind Caddy reverse proxy,
+    // and E2E runs from inside the Docker network using service hostnames.
+    allowedHosts: true,
     watch: {
       usePolling: true, // for Docker volume mounts on Windows
     },
