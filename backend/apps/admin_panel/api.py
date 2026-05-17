@@ -251,6 +251,8 @@ def _user_admin_out(u) -> dict:
         "last_login_country": u.last_login_country or "",
         "last_login_country_code": u.last_login_country_code or "",
         "last_login_city": u.last_login_city or "",
+        "storage_used_bytes": profile.storage_used_bytes if profile else 0,
+        "storage_quota_bytes": profile.storage_quota_bytes if profile else 0,
         "created_at": u.created_at,
     }
 

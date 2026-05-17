@@ -60,7 +60,7 @@ function UsersPanel({ me }: { me: Me }) {
         />
       </header>
 
-      <div className="overflow-auto max-h-[28rem] ring-1 ring-slate-800 rounded-md">
+      <div className="overflow-auto max-h-[28rem] ring-1 ring-slate-800 rounded-md dark-scroll">
         <table className="w-full text-xs">
           <thead className="sticky top-0 bg-slate-900/95 backdrop-blur z-10">
             <tr className="text-slate-500 border-b border-slate-800">
@@ -68,6 +68,7 @@ function UsersPanel({ me }: { me: Me }) {
               <th className="text-left py-2 px-2 font-medium">{t("admin.users.joined")}</th>
               <th className="text-left py-2 px-2 font-medium">{t("admin.users.lastLogin")}</th>
               <th className="text-left py-2 px-2 font-medium">{t("admin.users.origin")}</th>
+              <th className="text-left py-2 px-2 font-medium">{t("admin.users.storage")}</th>
               <th className="text-center py-2 px-2 font-medium">{t("admin.users.role")}</th>
               <th className="text-center py-2 px-2 font-medium">{t("admin.users.status")}</th>
             </tr>
@@ -130,6 +131,12 @@ function UserRow({
         ) : (
           <span className="text-slate-600">—</span>
         )}
+      </td>
+      <td className="py-2 px-2 min-w-[10rem]">
+        <StorageBar
+          used={user.storage_used_bytes}
+          quota={user.storage_quota_bytes}
+        />
       </td>
       <td className="py-2 px-2 text-center">
         {user.is_superuser ? (
@@ -573,6 +580,30 @@ function statusClass(s: "idle" | "running" | "error") {
     : s === "running"
       ? "text-amber-300"
       : "text-emerald-300";
+}
+
+function StorageBar({ used, quota }: { used: number; quota: number }) {
+  const pct = quota > 0 ? Math.min(100, (used / quota) * 100) : 0;
+  const fill =
+    pct >= 90 ? "bg-rose-500" : pct >= 70 ? "bg-amber-500" : "bg-indigo-500";
+  return (
+    <div>
+      <div className="h-1.5 bg-slate-900 rounded-full overflow-hidden ring-1 ring-slate-800">
+        <div className={`h-full ${fill}`} style={{ width: `${pct}%` }} />
+      </div>
+      <div className="text-[10px] text-slate-500 mt-0.5 font-mono">
+        {formatBytes(used)} / {formatBytes(quota)}
+        <span className="ml-1 text-slate-600">({pct.toFixed(0)}%)</span>
+      </div>
+    </div>
+  );
+}
+
+function formatBytes(b: number): string {
+  if (b < 1024) return `${b} B`;
+  if (b < 1024 ** 2) return `${(b / 1024).toFixed(1)} KB`;
+  if (b < 1024 ** 3) return `${(b / 1024 / 1024).toFixed(1)} MB`;
+  return `${(b / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
 
 /** ISO-3166 2-letter country code → Unicode flag emoji (CZ → 🇨🇿). */

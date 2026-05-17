@@ -281,6 +281,8 @@ export type AdminUser = {
   last_login_country: string;
   last_login_country_code: string;
   last_login_city: string;
+  storage_used_bytes: number;
+  storage_quota_bytes: number;
   created_at: string;
 };
 
