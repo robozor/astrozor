@@ -20,6 +20,10 @@ app.conf.beat_schedule = {
         "task": "presence.cleanup_expired_checkins",
         "schedule": 60.0,  # every 60 s
     },
+    "feeds-poll-due-sources": {
+        "task": "feeds.poll_due_sources",
+        "schedule": 600.0,  # every 10 min
+    },
 }
 
 

@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     "apps.chat",
     "apps.notifications",
     "apps.publishing",
+    "apps.feeds",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
