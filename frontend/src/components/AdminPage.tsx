@@ -109,21 +109,22 @@ function PmtilesCard({ data }: { data: MapInfraOut }) {
         <dd className={statusClass(data.pmtiles.status)}>{data.pmtiles.status}</dd>
       </dl>
 
-      {downloading && data.pmtiles.live_progress && (
+      {downloading && data.pmtiles.live_progress ? (
         <LiveProgress
           bytesWritten={data.pmtiles.live_progress.bytes_written}
           totalBytes={data.pmtiles.live_progress.total_bytes}
         />
-      )}
-
-      {(downloading || hasError) && data.pmtiles.status_message && (
-        <p
-          className={`text-xs ${
-            hasError ? "text-rose-300" : "text-slate-300"
-          } font-mono break-words`}
-        >
-          {data.pmtiles.status_message}
-        </p>
+      ) : (
+        (downloading || hasError) &&
+        data.pmtiles.status_message && (
+          <p
+            className={`text-xs ${
+              hasError ? "text-rose-300" : "text-slate-300"
+            } font-mono break-words`}
+          >
+            {data.pmtiles.status_message}
+          </p>
+        )
       )}
 
       <label className="block">
