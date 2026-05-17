@@ -165,6 +165,12 @@
       "lon": "Longitude",
       "elevation": "Elevation",
       "bortle": "Bortle"
+    },
+    "legend": {
+      "observatory": "Observatory (occupied)",
+      "spot": "Spot (occupied)",
+      "inactive": "No active check-in",
+      "subscribed": "★ Following"
     }
   }
 }

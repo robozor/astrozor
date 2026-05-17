@@ -142,6 +142,7 @@ export type Place = {
   bortle_class: number | null;
   valid_from: string | null;
   valid_to: string | null;
+  active_checkin_count: number;
 };
 
 export const places = {

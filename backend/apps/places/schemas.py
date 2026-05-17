@@ -26,6 +26,9 @@ class PlaceOut(Schema):
     bortle_class: float | None
     valid_from: datetime | None
     valid_to: datetime | None
+    # How many users are currently checked in here. Used by the map UI
+    # to highlight 'active' (occupied) markers.
+    active_checkin_count: int = 0
 
 
 class PlaceListOut(Schema):

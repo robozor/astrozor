@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.http import HttpRequest
 from django.utils import timezone
 from django.utils.text import slugify
@@ -35,7 +35,19 @@ def _to_out(p: Place) -> dict:
         "bortle_class": p.bortle_class,
         "valid_from": p.valid_from,
         "valid_to": p.valid_to,
+        "active_checkin_count": getattr(p, "active_checkin_count", 0),
     }
+
+
+def _annotate_active_checkins(qs):
+    """Annotate active_checkin_count = currently checked-in users at each place."""
+    now = timezone.now()
+    return qs.annotate(
+        active_checkin_count=Count(
+            "checkins",
+            filter=Q(checkins__ended_at__isnull=True, checkins__expires_at__gt=now),
+        )
+    )
 
 
 @router.get("/places", response=PlaceListOut)
@@ -47,7 +59,7 @@ def list_places(
     limit: int = Query(default=200, le=1000),
 ):
     """List published places filtered by optional bbox / kind / name search."""
-    qs = Place.objects.filter(status=Place.Status.PUBLISHED)
+    qs = _annotate_active_checkins(Place.objects.filter(status=Place.Status.PUBLISHED))
 
     # Hide expired temporary places
     qs = qs.exclude(
@@ -80,7 +92,7 @@ def list_places(
 @router.get("/places/{slug}", response={200: PlaceOut, 404: dict})
 def get_place(request: HttpRequest, slug: str):  # noqa: ARG001
     try:
-        place = Place.objects.get(slug=slug)
+        place = _annotate_active_checkins(Place.objects.filter(slug=slug)).get()
     except Place.DoesNotExist:
         return 404, {"detail": "Place not found"}
     if not place.is_visible:
