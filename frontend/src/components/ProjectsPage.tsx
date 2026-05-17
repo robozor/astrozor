@@ -214,7 +214,7 @@ function RepoCard({
         <p className="text-xs text-slate-400 mt-1 line-clamp-2">{repo.description}</p>
       )}
       {repo.last_status && repo.last_status !== "ok" && (
-        <p className="text-xs text-amber-400 mt-1">⚠ {repo.last_status}</p>
+        <RepoStatusWarning status={repo.last_status} />
       )}
       <div className="flex flex-wrap gap-3 mt-2">
         <button
@@ -266,6 +266,28 @@ function RepoCard({
   );
 }
 
+function RepoStatusWarning({ status }: { status: string }) {
+  const { t } = useTranslation();
+  let title = status;
+  let hint: string | null = null;
+  if (status === "not_found") {
+    title = t("projects.repos.status.notFound");
+    hint = t("projects.repos.status.notFoundHint");
+  } else if (status === "rate_limited") {
+    title = t("projects.repos.status.rateLimited");
+    hint = t("projects.repos.status.rateLimitedHint");
+  } else if (status.startsWith("error:")) {
+    title = t("projects.repos.status.error");
+    hint = status.slice(6).trim();
+  }
+  return (
+    <div className="mt-2 bg-amber-950/40 ring-1 ring-amber-900/50 rounded-md px-2 py-1.5">
+      <p className="text-xs text-amber-200 font-medium">⚠ {title}</p>
+      {hint && <p className="text-xs text-amber-300/80 mt-0.5">{hint}</p>}
+    </div>
+  );
+}
+
 function IssuesPanel({ repo }: { repo: GHRepo }) {
   const { t } = useTranslation();
   const issues = useQuery({
@@ -280,6 +302,7 @@ function IssuesPanel({ repo }: { repo: GHRepo }) {
     (i) => i.provider === "github" && i.has_token,
   );
 
+  const repoUnreachable = repo.last_status === "not_found";
   return (
     <div className="mt-3 border-t border-slate-800 pt-3">
       <h4 className="text-xs font-medium text-slate-300 mb-2">
@@ -289,7 +312,11 @@ function IssuesPanel({ repo }: { repo: GHRepo }) {
         <p className="text-xs text-slate-500">{t("common.loading")}</p>
       )}
       {issues.isSuccess && issues.data.length === 0 && (
-        <p className="text-xs text-slate-500">{t("projects.issues.empty")}</p>
+        <p className="text-xs text-slate-500">
+          {repoUnreachable
+            ? t("projects.issues.repoUnreachable")
+            : t("projects.issues.empty")}
+        </p>
       )}
       <ul className="space-y-2">
         {issues.data?.map((issue) => (

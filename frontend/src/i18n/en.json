@@ -148,12 +148,20 @@
       "add": "Add",
       "refresh": "Refresh",
       "remove": "Remove",
-      "issues": "issues"
+      "issues": "issues",
+      "status": {
+        "notFound": "Repository unreachable",
+        "notFoundHint": "GitHub returned 404 — either this repository doesn't exist, or it's private and your connected GitHub account doesn't have it in scope. For private repos, disconnect and reconnect GitHub in Settings (we ask for the 'repo' scope). Then click Refresh.",
+        "rateLimited": "GitHub API rate limit exceeded",
+        "rateLimitedHint": "Anonymous quota is 60 requests/hour. Connect GitHub in Settings to raise it to 5000/hour.",
+        "error": "Error talking to GitHub"
+      }
     },
     "issues": {
       "title": "Open tasks (issues)",
       "toggle": "Issues",
       "empty": "No open issues.",
+      "repoUnreachable": "Cannot load issues — repository is not visible to your connected GitHub account (see the warning above).",
       "openOnGh": "Issues on GH",
       "boards": "Project boards",
       "openIssue": "Open issue",

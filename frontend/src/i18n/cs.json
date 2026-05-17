@@ -148,12 +148,20 @@
       "add": "Přidat",
       "refresh": "Obnovit",
       "remove": "Odebrat",
-      "issues": "issues"
+      "issues": "issues",
+      "status": {
+        "notFound": "Repozitář nedostupný",
+        "notFoundHint": "GitHub vrátil 404 — buď tento repozitář neexistuje, nebo je privátní a tvůj připojený GitHub účet ho nemá v rozsahu oprávnění. Pro privátní repa odpoj a znovu připoj GitHub v Nastavení (vyžadujeme scope 'repo'). Pak klikni Obnovit.",
+        "rateLimited": "Překročen limit GitHub API",
+        "rateLimitedHint": "Anonymně máš 60 dotazů/hodinu. Připoj GitHub v Nastavení a limit stoupne na 5000/hod.",
+        "error": "Chyba při komunikaci s GitHubem"
+      }
     },
     "issues": {
       "title": "Otevřené úkoly (issues)",
       "toggle": "Issues",
       "empty": "Žádné otevřené issues.",
+      "repoUnreachable": "Issues nelze načíst — repozitář není pro tvůj připojený GitHub účet dostupný (viz hláška u repa nahoře).",
       "openOnGh": "Issues na GH",
       "boards": "Project boards",
       "openIssue": "Otevřít issue",
