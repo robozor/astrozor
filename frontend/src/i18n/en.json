@@ -67,6 +67,8 @@
       "notConnected": "not connected",
       "comingSoon": "Coming soon",
       "notConfiguredHint": "Not configured on this instance — admin must add OAuth credentials to .env",
+      "mastodonHint": "Enter your Mastodon instance (e.g. mastodon.social)",
+      "mastodonConnect": "Register & Connect",
       "disconnect": "Disconnect",
       "noIdentities": "No external account connected.",
       "connectedAccounts": "Connected accounts",
