@@ -11,6 +11,18 @@
   },
   "auth": {
     "welcome": "Welcome to Astrozor. Please log in or sign up to continue.",
+    "or": "or",
+    "oauth": {
+      "signInGitHub": "Sign in with GitHub",
+      "connectGitHub": "Connect GitHub account",
+      "disconnect": "Disconnect",
+      "noIdentities": "No external account connected.",
+      "connectedAccounts": "Connected accounts",
+      "errorBadState": "Invalid OAuth state — please try again.",
+      "errorNotConfigured": "GitHub OAuth is not configured on this instance.",
+      "errorIdentityOwned": "This account is already linked to another user."
+    },
+    "resendVerification": "Resend verification email",
     "tab": {
       "login": "Log in",
       "signup": "Sign up",

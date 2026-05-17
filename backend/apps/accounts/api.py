@@ -1,18 +1,20 @@
-"""Accounts API — signup, login, logout, magic-link, profile."""
+"""Accounts API — signup, login, logout, magic-link, profile, OAuth."""
 
 from __future__ import annotations
 
 from datetime import timedelta
 
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponseRedirect
 from django.utils import timezone
 from ninja import Router
 from ninja.errors import HttpError
 
 from .emails import send_magic_link_email, send_verification_email
-from .models import EmailToken, User
+from .models import EmailToken, Identity, User
+from .oauth import OAuthError, get_provider, new_state
 from .schemas import (
+    IdentityOut,
     LoginIn,
     MagicLinkRequestIn,
     MeOut,
@@ -170,6 +172,26 @@ def logout(request: HttpRequest):
 # ---- Me ----
 
 
+@router.post("/auth/resend-verification", response={200: StatusOut, 401: StatusOut})
+def resend_verification(request: HttpRequest):
+    """Re-send the email-verification link to the currently logged-in user."""
+    if not request.user.is_authenticated:
+        return 401, {"status": "error", "detail": "Not authenticated"}
+    user: User = request.user
+    if user.email_verified:
+        return 200, {"status": "ok", "detail": "already verified"}
+    # Invalidate previous verify tokens
+    EmailToken.objects.filter(user=user, purpose=EmailToken.Purpose.VERIFY, consumed_at__isnull=True).update(
+        consumed_at=timezone.now()
+    )
+    token = EmailToken.objects.create(user=user, purpose=EmailToken.Purpose.VERIFY)
+    try:
+        send_verification_email(user.email, token.token)
+    except Exception:  # pragma: no cover
+        return 200, {"status": "error", "detail": "Could not send (check SMTP)"}
+    return 200, {"status": "ok", "detail": "sent"}
+
+
 @router.get("/auth/me", response={200: MeOut, 401: StatusOut})
 def me(request: HttpRequest):
     if not request.user.is_authenticated:
@@ -192,3 +214,144 @@ def update_profile(request: HttpRequest, payload: ProfilePatch):
         setattr(profile, field, value)
     profile.save()
     return 200, {"user": _user_out(user), "profile": _profile_out(user)}
+
+
+# ---- OAuth (GitHub, Google later, Mastodon later) ----
+
+
+@router.get("/auth/{provider}/start")
+def oauth_start(request: HttpRequest, provider: str):
+    """Initiate OAuth flow: store state in session, redirect to provider."""
+    try:
+        p = get_provider(provider)
+    except OAuthError:
+        return HttpResponseRedirect("/?oauth_error=unknown_provider")
+    if not p.is_configured:
+        return HttpResponseRedirect("/?oauth_error=not_configured")
+
+    state = new_state()
+    request.session[f"oauth_state_{provider}"] = state
+    return HttpResponseRedirect(p.authorize_url(state))
+
+
+@router.get("/auth/{provider}/callback")
+def oauth_callback(request: HttpRequest, provider: str, code: str = "", state: str = ""):
+    """Provider redirects here with `code` and `state`. We exchange and log in."""
+    try:
+        p = get_provider(provider)
+    except OAuthError:
+        return HttpResponseRedirect("/?oauth_error=unknown_provider")
+
+    expected = request.session.pop(f"oauth_state_{provider}", None)
+    if not state or expected != state:
+        return HttpResponseRedirect("/?oauth_error=bad_state")
+    if not code:
+        return HttpResponseRedirect("/?oauth_error=no_code")
+
+    try:
+        token = p.exchange_code(code)
+        profile = p.fetch_profile(token)
+    except OAuthError as e:
+        return HttpResponseRedirect(f"/?oauth_error={e.__class__.__name__}")
+
+    # If the user is ALREADY logged in, treat this as "connect provider to my
+    # existing account" rather than a fresh login.
+    current_user = request.user if request.user.is_authenticated else None
+
+    identity = Identity.objects.filter(
+        provider=profile.provider, provider_user_id=profile.provider_user_id
+    ).select_related("user").first()
+
+    if identity:
+        # Existing identity — if logged in as a different user, prevent hijack
+        if current_user and identity.user_id != current_user.id:
+            return HttpResponseRedirect("/?oauth_error=identity_owned_by_another_user")
+        user = identity.user
+    elif current_user:
+        # Logged-in user is connecting a NEW provider to their account
+        identity = Identity.objects.create(
+            user=current_user,
+            provider=profile.provider,
+            provider_user_id=profile.provider_user_id,
+            provider_username=profile.display_name,
+            email=profile.email,
+            display_name=profile.display_name,
+            avatar_url=profile.avatar_url,
+        )
+        user = current_user
+    else:
+        # Anonymous OAuth login — match by email or create new account
+        user = User.objects.filter(email__iexact=profile.email).first()
+        if user is None:
+            user = User.objects.create_user(email=profile.email)
+            user.email_verified = True
+            user.save(update_fields=["email_verified"])
+            if profile.display_name:
+                user.profile.display_name = profile.display_name
+            if profile.avatar_url:
+                user.profile.avatar_url = profile.avatar_url
+            user.profile.save()
+        identity = Identity.objects.create(
+            user=user,
+            provider=profile.provider,
+            provider_user_id=profile.provider_user_id,
+            provider_username=profile.display_name,
+            email=profile.email,
+            display_name=profile.display_name,
+            avatar_url=profile.avatar_url,
+        )
+
+    # Store the access token so we can call the provider's API on this user's
+    # behalf (option C — per-user token, higher rate limits, personal data).
+    identity.access_token = token
+    identity.last_login_at = timezone.now()
+    identity.save(update_fields=["access_token", "last_login_at"])
+
+    # Authenticate the session (Django backend not needed because we already
+    # validated via OAuth; specify the backend explicitly).
+    user.backend = "django.contrib.auth.backends.ModelBackend"
+    auth_login(request, user)
+
+    return HttpResponseRedirect("/?oauth_ok=1")
+
+
+# ---- Identity management (in account settings) ----
+
+
+def _identity_out(i: Identity) -> dict:
+    return {
+        "id": i.id,
+        "provider": i.provider,
+        "provider_user_id": i.provider_user_id,
+        "provider_username": i.provider_username,
+        "email": i.email,
+        "display_name": i.display_name,
+        "avatar_url": i.avatar_url,
+        "has_token": bool(i.access_token),
+        "last_login_at": i.last_login_at,
+        "created_at": i.created_at,
+    }
+
+
+@router.get("/accounts/identities", response={200: list[IdentityOut], 401: StatusOut})
+def list_identities(request: HttpRequest):
+    if not request.user.is_authenticated:
+        return 401, {"status": "error", "detail": "Not authenticated"}
+    qs = Identity.objects.filter(user=request.user).order_by("-created_at")
+    return 200, [_identity_out(i) for i in qs]
+
+
+@router.delete("/accounts/identities/{identity_id}", response={204: None, 401: StatusOut, 404: StatusOut})
+def disconnect_identity(request: HttpRequest, identity_id: str):
+    if not request.user.is_authenticated:
+        return 401, {"status": "error", "detail": "Not authenticated"}
+    try:
+        i = Identity.objects.get(id=identity_id, user=request.user)
+    except (Identity.DoesNotExist, ValueError):
+        return 404, {"status": "error", "detail": "Identity not found"}
+    # Don't lock the user out: refuse to delete the LAST identity if user has
+    # no usable password.
+    if not request.user.has_usable_password() and request.user.identities.count() == 1:
+        return 401, {"status": "error", "detail": "Cannot disconnect last identity without a password"}
+    i.delete()
+    return 204, None

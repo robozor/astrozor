@@ -96,3 +96,16 @@ class MeOut(Schema):
 class StatusOut(Schema):
     status: str
     detail: str = ""
+
+
+class IdentityOut(Schema):
+    id: UUID
+    provider: str
+    provider_user_id: str
+    provider_username: str
+    email: str
+    display_name: str
+    avatar_url: str
+    has_token: bool
+    last_login_at: datetime | None
+    created_at: datetime

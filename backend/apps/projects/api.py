@@ -144,11 +144,10 @@ def add_repo(request: HttpRequest, slug: str, payload: GHRepoIn):
     repo, created = GHRepo.objects.get_or_create(
         project=p, owner_login=owner.strip(), repo_name=name.strip()
     )
-    # Fetch immediately
-    fetch_repo_metadata(repo)
+    # Fetch immediately, using the user's connected GH token if they have one
+    fetch_repo_metadata(repo, user=request.user)
     repo.refresh_from_db()
-    status = 201 if created else 201  # always 201 for simplicity
-    return status, _repo_out(repo)
+    return 201, _repo_out(repo)
 
 
 @router.post("/repos/{repo_id}/refresh", response={200: GHRepoOut, 401: dict, 404: dict})
@@ -159,7 +158,7 @@ def refresh_repo(request: HttpRequest, repo_id: str):
         r = GHRepo.objects.get(id=repo_id)
     except (GHRepo.DoesNotExist, ValueError):
         return 404, {"detail": "Repo not found"}
-    fetch_repo_metadata(r)
+    fetch_repo_metadata(r, user=request.user)
     r.refresh_from_db()
     return 200, _repo_out(r)
 

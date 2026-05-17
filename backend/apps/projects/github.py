@@ -37,11 +37,15 @@ def _parse_iso(s: str | None) -> datetime | None:
         return None
 
 
-def fetch_repo_metadata(repo: GHRepo) -> dict:
+def fetch_repo_metadata(repo: GHRepo, user=None) -> dict:
+    """Fetch repo metadata. If `user` is given and has a connected GitHub
+    Identity, we use their access_token (5000 req/h). Otherwise anonymous.
+    """
     url = f"{GH_API}/repos/{repo.owner_login}/{repo.repo_name}"
+    token = _resolve_user_token(user) if user else None
     try:
         with httpx.Client(timeout=10.0) as client:
-            resp = client.get(url, headers=_headers())
+            resp = client.get(url, headers=_headers(token))
     except httpx.HTTPError as e:  # pragma: no cover
         repo.last_status = f"error: {e}"[:40]
         repo.last_fetched_at = dj_tz.now()

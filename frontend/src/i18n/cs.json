@@ -11,6 +11,18 @@
   },
   "auth": {
     "welcome": "Vítej v Astrozoru. Pro pokračování se přihlas nebo zaregistruj.",
+    "or": "nebo",
+    "oauth": {
+      "signInGitHub": "Přihlásit se přes GitHub",
+      "connectGitHub": "Připojit GitHub účet",
+      "disconnect": "Odpojit",
+      "noIdentities": "Žádný externí účet připojen.",
+      "connectedAccounts": "Připojené účty",
+      "errorBadState": "Neplatný OAuth stav — zkus to znovu.",
+      "errorNotConfigured": "GitHub OAuth není nakonfigurován na této instanci.",
+      "errorIdentityOwned": "Tento účet je už propojen s jiným uživatelem."
+    },
+    "resendVerification": "Poslat ověřovací e-mail znovu",
     "tab": {
       "login": "Přihlášení",
       "signup": "Registrace",

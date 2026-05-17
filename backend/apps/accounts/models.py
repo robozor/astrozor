@@ -99,6 +99,49 @@ def _default_expiration() -> timezone.datetime:
     return timezone.now() + timedelta(hours=24)
 
 
+class Identity(models.Model):
+    """OAuth identity link — per-user, multiple providers allowed.
+
+    Each row is owned by exactly one User. Stored access_token enables
+    Astrozor to call the provider's API on the user's behalf (e.g. fetch
+    their starred GitHub repos at 5000 req/h instead of anonymous 60).
+    Disconnecting wipes the token but keeps the link history.
+    """
+
+    class Provider(models.TextChoices):
+        GITHUB = "github", "GitHub"
+        GOOGLE = "google", "Google"
+        MASTODON = "mastodon", "Mastodon"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="identities"
+    )
+    provider = models.CharField(max_length=16, choices=Provider.choices)
+    provider_user_id = models.CharField(max_length=120)
+    provider_username = models.CharField(max_length=120, blank=True)
+    email = models.EmailField()
+    display_name = models.CharField(max_length=160, blank=True)
+    avatar_url = models.URLField(blank=True)
+    # Stored for "act on user's behalf" API calls. Production should
+    # encrypt this column; MVP keeps it plaintext (admin-visible).
+    access_token = models.CharField(max_length=400, blank=True)
+    scopes = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_login_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "accounts_identity"
+        unique_together = [("provider", "provider_user_id")]
+        indexes = [
+            models.Index(fields=["user", "provider"]),
+            models.Index(fields=["email"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.provider}:{self.provider_user_id} → {self.user_id}"
+
+
 class EmailToken(models.Model):
     """One-time token sent via e-mail (magic link, verification, password reset)."""
 
