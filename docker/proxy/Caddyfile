@@ -20,6 +20,9 @@
     handle /static/* {
         reverse_proxy api:8000
     }
+    handle /media/* {
+        reverse_proxy api:8000
+    }
 
     # Everything else → Vite dev server (frontend)
     handle {

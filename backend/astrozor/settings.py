@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     "apps.events",
     "apps.citizen",
     "apps.publishing_api",
+    "apps.uploads",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
@@ -167,6 +168,12 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = Path(env("MEDIA_ROOT", str(BASE_DIR / "media")))
+# Per-upload size limit (bytes). Stays well below the 5 GiB profile quota
+# so a single malformed upload can't blow it.
+ASTROZOR_MAX_UPLOAD_BYTES = int(env("ASTROZOR_MAX_UPLOAD_BYTES", str(8 * 1024 * 1024)))  # 8 MiB
 
 # ---- Misc ----
 

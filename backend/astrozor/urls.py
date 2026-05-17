@@ -1,5 +1,7 @@
 """Astrozor URL routing."""
 
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path
 
@@ -9,3 +11,8 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/v1/", api.urls),
 ]
+
+# In DEV serve user-uploaded media directly through Django.
+# In production this path is served by Caddy from the volume mount.
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

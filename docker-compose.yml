@@ -52,6 +52,8 @@ x-api-env: &api-env
   GITHUB_OAUTH_TOKEN_URL: ${GITHUB_OAUTH_TOKEN_URL:-}
   GITHUB_OAUTH_USER_URL: ${GITHUB_OAUTH_USER_URL:-}
   GITHUB_OAUTH_EMAILS_URL: ${GITHUB_OAUTH_EMAILS_URL:-}
+  # Media (user uploads) — kept on a volume so DB restarts don't lose files.
+  MEDIA_ROOT: /var/lib/astrozor/media
 
 services:
   # ---- Build-only service for shared Python base image ----
@@ -117,6 +119,7 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app/backend
+      - astrozor_media:/var/lib/astrozor/media
     expose:
       - "8000"
     restart: unless-stopped
@@ -133,6 +136,7 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app/backend
+      - astrozor_media:/var/lib/astrozor/media
     entrypoint: ["/usr/bin/tini", "--"]
     command: ["celery", "-A", "astrozor", "worker", "--loglevel=info", "--concurrency=2"]
     restart: unless-stopped
@@ -149,6 +153,7 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app/backend
+      - astrozor_media:/var/lib/astrozor/media
     entrypoint: ["/usr/bin/tini", "--"]
     command: ["celery", "-A", "astrozor", "beat", "--loglevel=info"]
     restart: unless-stopped
@@ -192,3 +197,4 @@ volumes:
   astrozor_frontend_node_modules:
   astrozor_caddy_data:
   astrozor_caddy_config:
+  astrozor_media:

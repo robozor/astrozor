@@ -29,6 +29,7 @@ import {
 import "@mdxeditor/editor/style.css";
 import "../styles/mdxeditor-dark.css";
 import { useRef } from "react";
+import { uploads } from "../lib/api";
 
 type Props = {
   markdown: string;
@@ -71,7 +72,12 @@ export function MarkdownEditor({
           thematicBreakPlugin(),
           linkPlugin(),
           linkDialogPlugin(),
-          imagePlugin(),
+          imagePlugin({
+            imageUploadHandler: async (file: File) => {
+              const r = await uploads.image(file);
+              return r.url;
+            },
+          }),
           tablePlugin(),
           codeBlockPlugin({ defaultCodeBlockLanguage: "python" }),
           codeMirrorPlugin({

@@ -121,6 +121,51 @@ export const auth = {
   disconnectIdentity: (id: string) => api.del<void>(`/accounts/identities/${id}`),
 };
 
+// ---- Uploads ----
+
+export type UploadResult = {
+  id: string;
+  url: string;
+  size_bytes: number;
+  mime: string;
+};
+
+export const uploads = {
+  /**
+   * Upload an image. Returns the public URL the editor (or any other
+   * caller) can embed. Multipart form-data; the session cookie travels
+   * via `credentials: include` automatically.
+   */
+  async image(file: File): Promise<UploadResult> {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch(BASE + "/uploads/image", {
+      method: "POST",
+      credentials: "include",
+      body: fd,
+    });
+    const text = await res.text();
+    let parsed: unknown = null;
+    try {
+      parsed = text ? JSON.parse(text) : null;
+    } catch {
+      // not json
+    }
+    if (!res.ok) {
+      const detail =
+        parsed &&
+        typeof parsed === "object" &&
+        parsed !== null &&
+        "detail" in parsed &&
+        typeof (parsed as { detail: unknown }).detail === "string"
+          ? (parsed as { detail: string }).detail
+          : res.statusText;
+      throw new ApiError(res.status, detail);
+    }
+    return parsed as UploadResult;
+  },
+};
+
 export const meta = {
   healthz: () => api.get<{ status: string; version: string; database: string }>("/healthz"),
   readyz: () => api.get<{ status: string; version: string; database: string }>("/readyz"),

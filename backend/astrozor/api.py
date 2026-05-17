@@ -18,6 +18,7 @@ from apps.presence.api import router as presence_router
 from apps.projects.api import router as projects_router
 from apps.publishing.api import router as publishing_router
 from apps.publishing_api.api import router as publishing_api_router
+from apps.uploads.api import router as uploads_router
 
 api = NinjaAPI(
     title="Astrozor API",
@@ -39,6 +40,7 @@ api.add_router("", projects_router)
 api.add_router("", events_router)
 api.add_router("", citizen_router)
 api.add_router("", publishing_api_router)
+api.add_router("", uploads_router)
 
 
 # CSRF token endpoint kept for Django admin form usage / future hardening
