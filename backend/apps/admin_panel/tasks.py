@@ -37,12 +37,14 @@ def download_pmtiles(self):
     infra.save(update_fields=["pmtiles_status", "pmtiles_job_id", "pmtiles_status_message"])
 
     target = Path(infra.pmtiles_path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    tmp_fd, tmp_name = tempfile.mkstemp(dir=target.parent, suffix=".part")
-    os.close(tmp_fd)
-    tmp_path = Path(tmp_name)
+    tmp_path: Path | None = None
 
     try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        tmp_fd, tmp_name = tempfile.mkstemp(dir=target.parent, suffix=".part")
+        os.close(tmp_fd)
+        tmp_path = Path(tmp_name)
+
         with httpx.stream(
             "GET",
             infra.pmtiles_source_url,
@@ -88,15 +90,25 @@ def download_pmtiles(self):
 
     except Exception as e:  # noqa: BLE001
         log.exception("PMTiles download failed")
-        try:
-            tmp_path.unlink(missing_ok=True)
-        except Exception:
-            pass
+        if tmp_path is not None:
+            try:
+                tmp_path.unlink(missing_ok=True)
+            except Exception:
+                pass
+        # Make permission errors actionable instead of cryptic
+        msg = str(e)
+        if isinstance(e, PermissionError) or "Permission denied" in msg:
+            msg = (
+                f"Permission denied writing to {target.parent}. "
+                "Fix volume ownership: docker compose exec -u 0 api "
+                f"chown -R astrozor:astrozor {target.parent}"
+            )
         MapInfra.objects.filter(pk=1).update(
             pmtiles_status=MapInfra.JobStatus.ERROR,
-            pmtiles_status_message=f"Download failed: {e}"[:500],
+            pmtiles_status_message=f"Download failed: {msg}"[:500],
         )
-        raise
+        # Don't re-raise — letting Celery mark it FAILURE adds noise but no
+        # extra info; the model already captures the error for the UI.
 
 
 @shared_task(bind=True)
@@ -129,10 +141,20 @@ def import_photon(self):
             update_fields=["photon_status", "photon_status_message", "photon_last_import"]
         )
         return {"status": "ok"}
+    except httpx.ConnectError as e:
+        log.warning("Photon container unreachable: %s", e)
+        MapInfra.objects.filter(pk=1).update(
+            photon_status=MapInfra.JobStatus.ERROR,
+            photon_status_message=(
+                f"Photon container at {infra.photon_url} is not reachable. "
+                "Start it with: docker compose -p astrozor --profile photon up -d photon "
+                "and wait for the OSM import to finish (see docs/runbook/map-infra.md)."
+            ),
+        )
+        # No re-raise; UI already shows the friendly message
     except Exception as e:  # noqa: BLE001
         log.exception("Photon probe failed")
         MapInfra.objects.filter(pk=1).update(
             photon_status=MapInfra.JobStatus.ERROR,
             photon_status_message=f"Probe failed: {e}"[:500],
         )
-        raise
