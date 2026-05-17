@@ -233,6 +233,82 @@ def get_map_infra(request: HttpRequest):
     return 200, _infra_out(MapInfra.get())
 
 
+# ---- User management ----
+
+
+def _user_admin_out(u) -> dict:
+    profile = getattr(u, "profile", None)
+    return {
+        "id": str(u.id),
+        "email": u.email,
+        "display_name": profile.display_name if profile else "",
+        "is_staff": u.is_staff,
+        "is_superuser": u.is_superuser,
+        "is_active": u.is_active,
+        "email_verified": u.email_verified,
+        "last_login": u.last_login,
+        "created_at": u.created_at,
+    }
+
+
+@router.get("/admin/users", response={200: list[dict], 403: dict})
+def list_users(request: HttpRequest, q: str = ""):
+    if not _require_staff(request):
+        return 403, {"detail": "Staff only"}
+    from apps.accounts.models import User
+
+    qs = User.objects.all().select_related("profile").order_by("date_joined")
+    if q:
+        from django.db.models import Q
+
+        qs = qs.filter(Q(email__icontains=q) | Q(profile__display_name__icontains=q))
+    return 200, [_user_admin_out(u) for u in qs[:200]]
+
+
+class UserPatchIn(Schema):
+    is_active: bool | None = None
+    is_staff: bool | None = None
+
+
+@router.patch("/admin/users/{user_id}", response={200: dict, 400: dict, 403: dict, 404: dict})
+def patch_user(request: HttpRequest, user_id: str, payload: UserPatchIn):
+    if not _require_staff(request):
+        return 403, {"detail": "Staff only"}
+    from apps.accounts.models import User
+
+    try:
+        target = User.objects.get(id=user_id)
+    except (User.DoesNotExist, ValueError):
+        return 404, {"detail": "User not found"}
+
+    # Last-superuser protection — must always have at least one active
+    # superuser otherwise the instance becomes admin-less.
+    fields = []
+    if payload.is_active is not None and payload.is_active != target.is_active:
+        if not payload.is_active and target.is_superuser:
+            active_supers = User.objects.filter(is_superuser=True, is_active=True).exclude(
+                pk=target.pk
+            ).count()
+            if active_supers == 0:
+                return 400, {
+                    "detail": "Cannot block the last active superuser",
+                }
+        target.is_active = payload.is_active
+        fields.append("is_active")
+    if payload.is_staff is not None and payload.is_staff != target.is_staff:
+        if not payload.is_staff and target.is_superuser and target.pk == request.user.pk:
+            return 400, {"detail": "Cannot demote yourself"}
+        target.is_staff = payload.is_staff
+        # Revoking staff also revokes superuser for safety
+        if not payload.is_staff:
+            target.is_superuser = False
+            fields.append("is_superuser")
+        fields.append("is_staff")
+    if fields:
+        target.save(update_fields=list(set(fields)))
+    return 200, _user_admin_out(target)
+
+
 class PmtilesUrlIn(Schema):
     source_url: str | None = None
 

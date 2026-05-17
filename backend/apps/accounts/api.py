@@ -71,7 +71,17 @@ def signup(request: HttpRequest, payload: SignupIn):
     if User.objects.filter(email__iexact=payload.email).exists():
         return 400, {"status": "error", "detail": "Email already registered"}
 
+    # Bootstrap: the very first account on the instance is auto-promoted
+    # to staff + superuser so the operator who installs Astrozor has the
+    # Admin panel + Django admin available without manual `createsuperuser`.
+    # Everyone after the first is a regular user by default.
+    first_user = not User.objects.exists()
+
     user = User.objects.create_user(email=payload.email, password=payload.password)
+    if first_user:
+        user.is_staff = True
+        user.is_superuser = True
+        user.save(update_fields=["is_staff", "is_superuser"])
     if payload.display_name:
         user.profile.display_name = payload.display_name
         user.profile.save(update_fields=["display_name"])

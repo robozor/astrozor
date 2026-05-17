@@ -132,7 +132,22 @@
   },
   "admin": {
     "title": "Application admin",
-    "subtitle": "Self-hosted map infrastructure — replace external services (Nominatim, OSM tiles) with our own instances so rate limits can't bite.",
+    "subtitle": "Self-hosted map infrastructure + user management.",
+    "users": {
+      "title": "Users",
+      "search": "Search email / name…",
+      "user": "User",
+      "joined": "Joined",
+      "lastLogin": "Last login",
+      "role": "Role",
+      "status": "Status",
+      "active": "Active",
+      "blocked": "Blocked",
+      "block": "block",
+      "unblock": "unblock",
+      "grantStaff": "+ admin",
+      "revokeStaff": "− admin"
+    },
     "notStaff": "This section is only available to application admins.",
     "status": "Status",
     "active": "Active",
@@ -277,6 +292,7 @@
       "club": "Club / observatory",
       "bio": "About me",
       "equipment": "Equipment",
+      "language": "Preferred language",
       "locationVisibility": "Location visibility",
       "visibility": {
         "precise": "Precise GPS (default)",
@@ -297,6 +313,38 @@
       "mastodonAutopost": "Mastodon — auto cross-post",
       "autopostCheckin": "Auto-post check-ins to my Mastodon",
       "autopostCheckinHint": "When you check in at a place, Astrozor posts a \"🔭 Observing from …\" status to your Mastodon instance. Requires a connected Mastodon account. Anonymous check-ins are never posted."
+    },
+    "discord": {
+      "title": "Discord notifications — event types",
+      "subtitle": "Pick which events should be pinged to your Discord webhook (URL above).",
+      "noWebhook": "Set a Discord webhook URL above first — without it there's nowhere to send notifications.",
+      "kind": {
+        "place_followed_checkin": "Check-in on a followed place",
+        "place_any_checkin": "Any check-in (anywhere)",
+        "article_published": "Article published",
+        "event_status_changed": "Event status changed",
+        "project_lifecycle": "Project created / archived",
+        "campaign_status_changed": "Campaign status changed"
+      },
+      "kindHint": {
+        "place_followed_checkin": "Someone checked in at a place you're following.",
+        "place_any_checkin": "Anyone, anywhere. Can be high volume.",
+        "article_published": "Optionally restrict to specific authors.",
+        "event_status_changed": "Optionally restrict to organizers, specific events, and/or target states.",
+        "project_lifecycle": "Restrict to creation or archival only.",
+        "campaign_status_changed": "Optionally restrict to coordinators, specific campaigns, and/or target states."
+      },
+      "filter": {
+        "authors": "Only from these authors (empty = anyone):",
+        "organizers": "Only from these organizers:",
+        "coordinators": "Only from these coordinators:",
+        "events": "Only these events:",
+        "campaigns": "Only these campaigns:",
+        "toStates": "Only transitions to these states:",
+        "actions": "Only these actions:",
+        "any": "any",
+        "allUsers": "anyone"
+      }
     }
   },
   "mastodon": {

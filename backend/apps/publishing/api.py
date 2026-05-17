@@ -205,6 +205,27 @@ def publish_article(request: HttpRequest, slug: str):
     # popup in the UI (POST /api/v1/mastodon/post). No automatic cross-post
     # here so authors get to review/edit the text and pick hashtags before
     # the toot goes out.
+
+    # Discord webhook fanout — to subscribers who opted in (optionally
+    # filtered by author email).
+    from apps.notifications.discord_dispatch import dispatch_event
+
+    host = request.get_host()
+    scheme = "https" if request.is_secure() else "http"
+    dispatch_event(
+        "article_published",
+        {
+            "title": f"📰 Nový článek: {a.title}",
+            "description": (a.summary or "")[:300],
+            "url": f"{scheme}://{host}/articles/{a.slug}",
+            "fields": [
+                {"name": "Autor", "value": a.author.email, "inline": True},
+                {"name": "Jazyk", "value": a.language.upper(), "inline": True},
+            ],
+            "author_email": a.author.email,
+            "actor_user_id": str(a.author.id),
+        },
+    )
     return 200, _article_out(a)
 
 

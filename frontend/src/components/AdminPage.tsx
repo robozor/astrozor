@@ -1,7 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { admin, type Me, type MapInfraOut } from "../lib/api";
+import {
+  admin,
+  adminUsers,
+  type AdminUser,
+  type Me,
+  type MapInfraOut,
+} from "../lib/api";
 
 export function AdminPage({ me }: { me: Me }) {
   const { t } = useTranslation();
@@ -19,8 +25,138 @@ export function AdminPage({ me }: { me: Me }) {
         <h2 className="text-xl font-semibold">{t("admin.title")}</h2>
         <p className="text-sm text-slate-400 mt-1">{t("admin.subtitle")}</p>
       </header>
+      <UsersPanel me={me} />
       <MapInfraPanel />
     </section>
+  );
+}
+
+function UsersPanel({ me }: { me: Me }) {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const [q, setQ] = useState("");
+  const list = useQuery({
+    queryKey: ["admin", "users", q],
+    queryFn: () => adminUsers.list(q),
+  });
+  const patch = useMutation({
+    mutationFn: (args: { id: string; data: { is_active?: boolean; is_staff?: boolean } }) =>
+      adminUsers.patch(args.id, args.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "users"] }),
+  });
+
+  return (
+    <section
+      className="bg-slate-950/40 ring-1 ring-slate-800 rounded-xl p-4"
+      data-testid="admin-users"
+    >
+      <header className="flex items-baseline justify-between gap-4 mb-3 flex-wrap">
+        <h3 className="font-medium text-slate-100">{t("admin.users.title")}</h3>
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={t("admin.users.search")}
+          className="bg-slate-950 ring-1 ring-slate-700 focus:ring-indigo-500 rounded-md px-2 py-1 text-xs text-slate-100 outline-none"
+        />
+      </header>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-slate-500 border-b border-slate-800">
+              <th className="text-left py-2 pr-2 font-medium">{t("admin.users.user")}</th>
+              <th className="text-left py-2 pr-2 font-medium">{t("admin.users.joined")}</th>
+              <th className="text-left py-2 pr-2 font-medium">{t("admin.users.lastLogin")}</th>
+              <th className="text-center py-2 pr-2 font-medium">{t("admin.users.role")}</th>
+              <th className="text-center py-2 font-medium">{t("admin.users.status")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.data?.map((u) => (
+              <UserRow
+                key={u.id}
+                user={u}
+                isMe={u.email === me.user.email}
+                onPatch={(data) => patch.mutate({ id: u.id, data })}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {patch.error && (
+        <p className="text-xs text-rose-400 mt-2">{(patch.error as Error).message}</p>
+      )}
+    </section>
+  );
+}
+
+function UserRow({
+  user,
+  isMe,
+  onPatch,
+}: {
+  user: AdminUser;
+  isMe: boolean;
+  onPatch: (data: { is_active?: boolean; is_staff?: boolean }) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <tr className="border-b border-slate-900 hover:bg-slate-900/40" data-testid={`user-${user.id}`}>
+      <td className="py-2 pr-2">
+        <div className="text-slate-100 font-mono">{user.email}</div>
+        <div className="text-slate-500">{user.display_name}</div>
+      </td>
+      <td className="py-2 pr-2 text-slate-400 font-mono">
+        {new Date(user.created_at).toLocaleDateString()}
+      </td>
+      <td className="py-2 pr-2 text-slate-400 font-mono">
+        {user.last_login ? new Date(user.last_login).toLocaleString() : "—"}
+      </td>
+      <td className="py-2 pr-2 text-center">
+        {user.is_superuser ? (
+          <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-fuchsia-900/60 ring-1 ring-fuchsia-700/60 text-fuchsia-300 font-mono">
+            super
+          </span>
+        ) : user.is_staff ? (
+          <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-900/60 ring-1 ring-indigo-700/60 text-indigo-300 font-mono">
+            staff
+          </span>
+        ) : (
+          <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-800 ring-1 ring-slate-700 text-slate-400 font-mono">
+            user
+          </span>
+        )}
+        {!isMe && !user.is_superuser && (
+          <button
+            type="button"
+            onClick={() => onPatch({ is_staff: !user.is_staff })}
+            className="ml-2 text-[10px] text-indigo-300 hover:text-indigo-200"
+          >
+            {user.is_staff ? t("admin.users.revokeStaff") : t("admin.users.grantStaff")}
+          </button>
+        )}
+      </td>
+      <td className="py-2 text-center">
+        {user.is_active ? (
+          <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-900/60 ring-1 ring-emerald-700/60 text-emerald-300 font-mono">
+            {t("admin.users.active")}
+          </span>
+        ) : (
+          <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-900/60 ring-1 ring-rose-700/60 text-rose-300 font-mono">
+            {t("admin.users.blocked")}
+          </span>
+        )}
+        {!isMe && (
+          <button
+            type="button"
+            onClick={() => onPatch({ is_active: !user.is_active })}
+            className="ml-2 text-[10px] text-rose-300 hover:text-rose-200"
+          >
+            {user.is_active ? t("admin.users.block") : t("admin.users.unblock")}
+          </button>
+        )}
+      </td>
+    </tr>
   );
 }
 

@@ -132,7 +132,22 @@
   },
   "admin": {
     "title": "Správa aplikace",
-    "subtitle": "Self-hosted mapová infrastruktura — náhrada externích služeb (Nominatim, OSM tiles) za vlastní instance bez rate-limit rizika.",
+    "subtitle": "Self-hosted mapová infrastruktura + správa uživatelů.",
+    "users": {
+      "title": "Uživatelé",
+      "search": "Hledat e-mail / jméno…",
+      "user": "Uživatel",
+      "joined": "Registrace",
+      "lastLogin": "Poslední přihlášení",
+      "role": "Role",
+      "status": "Stav",
+      "active": "Aktivní",
+      "blocked": "Zablokovaný",
+      "block": "zablokovat",
+      "unblock": "odblokovat",
+      "grantStaff": "+ admin",
+      "revokeStaff": "− admin"
+    },
     "notStaff": "Tato sekce je dostupná pouze pro administrátora aplikace.",
     "status": "Stav",
     "active": "Aktivní",
@@ -277,6 +292,7 @@
       "club": "Klub / hvězdárna",
       "bio": "O mně",
       "equipment": "Vybavení",
+      "language": "Preferovaný jazyk",
       "locationVisibility": "Viditelnost polohy",
       "visibility": {
         "precise": "Přesné GPS (default)",
@@ -297,6 +313,38 @@
       "mastodonAutopost": "Mastodon — automatický cross-post",
       "autopostCheckin": "Automaticky postnout check-in na můj Mastodon",
       "autopostCheckinHint": "Když uděláš check-in na hvězdárně/stanovišti, Astrozor pošle status \"🔭 Pozoruji z …\" na tvoji Mastodon instanci. Vyžaduje propojený Mastodon účet. Anonymní check-iny se nepostují."
+    },
+    "discord": {
+      "title": "Discord notifikace — typy událostí",
+      "subtitle": "Vyber, na které události chceš dostat zprávu na svůj Discord webhook (URL nastav nahoře).",
+      "noWebhook": "Nejprve vlož Discord webhook URL nahoře — bez něj se notifikace nemají kam poslat.",
+      "kind": {
+        "place_followed_checkin": "Check-in na sledovaném místě",
+        "place_any_checkin": "Jakýkoliv check-in (kdekoliv)",
+        "article_published": "Vyšel článek",
+        "event_status_changed": "Změna stavu akce",
+        "project_lifecycle": "Vznik / zrušení projektu",
+        "campaign_status_changed": "Změna stavu kampaně"
+      },
+      "kindHint": {
+        "place_followed_checkin": "Někdo udělal check-in na místě, které sleduješ (hvězdo či stanoviště v subscriptions).",
+        "place_any_checkin": "Kdokoliv kdekoliv. Pozor — může být hodně.",
+        "article_published": "Lze omezit na konkrétní autory.",
+        "event_status_changed": "Lze omezit na organizátory, konkrétní akce a/nebo cílový stav.",
+        "project_lifecycle": "Lze omezit jen na vznik nebo jen na zrušení.",
+        "campaign_status_changed": "Lze omezit na koordinátory, konkrétní kampaně a/nebo cílový stav."
+      },
+      "filter": {
+        "authors": "Pouze od těchto autorů (prázdné = všichni):",
+        "organizers": "Pouze od těchto organizátorů:",
+        "coordinators": "Pouze od těchto koordinátorů:",
+        "events": "Pouze tyto akce:",
+        "campaigns": "Pouze tyto kampaně:",
+        "toStates": "Pouze přechod na tyto stavy:",
+        "actions": "Pouze tyto akce:",
+        "any": "všechny",
+        "allUsers": "všichni uživatelé"
+      }
     }
   },
   "mastodon": {

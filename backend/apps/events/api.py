@@ -163,8 +163,32 @@ def transition_event(request: HttpRequest, slug: str, payload: EventTransitionIn
             "detail": f"Cannot transition from {e.status} to {payload.status}",
             "allowed": allowed,
         }
+    prev_status = e.status
     e.status = payload.status
     e.save(update_fields=["status", "updated_at"])
+
+    from apps.notifications.discord_dispatch import dispatch_event
+
+    host = request.get_host()
+    scheme = "https" if request.is_secure() else "http"
+    dispatch_event(
+        "event_status_changed",
+        {
+            "title": f"🎟 Akce {e.title}: {prev_status} → {e.status}",
+            "description": (e.description or "")[:300],
+            "url": f"{scheme}://{host}/events/{e.slug}",
+            "fields": [
+                {"name": "Organizátor", "value": e.organizer.email, "inline": True},
+                {"name": "Začátek", "value": e.starts_at.strftime("%Y-%m-%d %H:%M"), "inline": True},
+                {"name": "Nový stav", "value": e.status, "inline": True},
+            ],
+            "organizer_email": e.organizer.email,
+            "event_slug": e.slug,
+            "to_state": e.status,
+            "from_state": prev_status,
+            "actor_user_id": str(request.user.id),
+        },
+    )
     return 200, _event_out(e)
 
 

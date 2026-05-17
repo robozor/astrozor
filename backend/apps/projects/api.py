@@ -104,6 +104,25 @@ def create_project(request: HttpRequest, payload: ProjectIn):
         created_by=request.user,
     )
     Membership.objects.create(project=project, user=request.user, role=Membership.Role.OWNER)
+
+    from apps.notifications.discord_dispatch import dispatch_event
+
+    host = request.get_host()
+    scheme = "https" if request.is_secure() else "http"
+    dispatch_event(
+        "project_lifecycle",
+        {
+            "title": f"🆕 Nový projekt: {project.name}",
+            "description": (project.description or "")[:300],
+            "url": f"{scheme}://{host}/projects/{project.slug}",
+            "fields": [
+                {"name": "Autor", "value": project.created_by.email, "inline": True},
+                {"name": "Viditelnost", "value": project.visibility, "inline": True},
+            ],
+            "action": "created",
+            "actor_user_id": str(request.user.id),
+        },
+    )
     return 201, _project_out(project)
 
 
@@ -117,7 +136,27 @@ def delete_project(request: HttpRequest, slug: str):
         return 404, {"detail": "Project not found"}
     if p.created_by_id != request.user.id and not request.user.is_staff:
         return 403, {"detail": "Forbidden"}
+
+    from apps.notifications.discord_dispatch import dispatch_event
+
+    project_name = p.name
+    project_slug = p.slug
+    creator_email = p.created_by.email
     p.delete()
+
+    dispatch_event(
+        "project_lifecycle",
+        {
+            "title": f"🗑 Projekt smazán: {project_name}",
+            "description": "",
+            "fields": [
+                {"name": "Slug", "value": project_slug, "inline": True},
+                {"name": "Původní autor", "value": creator_email, "inline": True},
+            ],
+            "action": "archived",
+            "actor_user_id": str(request.user.id),
+        },
+    )
     return 204, None
 
 

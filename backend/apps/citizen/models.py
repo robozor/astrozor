@@ -10,7 +10,15 @@ class Campaign(models.Model):
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"
         OPEN = "open", "Open"
+        # Temporarily not accepting submissions (weather, organizer absent,
+        # equipment issue) — UI keeps the campaign visible but disables the
+        # submit form. Resume by flipping back to OPEN.
+        PAUSED = "paused", "Paused"
         CLOSED = "closed", "Closed"
+        # All submitted contributions have been reviewed, coordinator
+        # publishes a summary. Distinct from CLOSED (which may still have
+        # pending reviews) and ARCHIVED (historical, hidden from default lists).
+        COMPLETED = "completed", "Completed"
         ARCHIVED = "archived", "Archived"
 
     class Kind(models.TextChoices):

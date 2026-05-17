@@ -69,6 +69,35 @@ def create_checkin(request: HttpRequest, slug: str, payload: CheckinIn):
         text_parts.append(f"{scheme}://{host}/places/{place.slug}")
         post_status(request.user, "\n\n".join(text_parts))
 
+    # Discord webhook fanout — fires for users who opted in to either
+    # "any check-in" or "check-in on followed place" notifications.
+    from apps.notifications.discord_dispatch import dispatch_event
+
+    host = request.get_host()
+    scheme = "https" if request.is_secure() else "http"
+    place_url = f"{scheme}://{host}/places/{place.slug}"
+    actor = "někdo (anonymně)" if payload.anonymous else (
+        request.user.profile.display_name if request.user.profile.display_name
+        else request.user.email.split("@")[0]
+    )
+    common_payload = {
+        "title": f"🔭 {actor} dělá check-in",
+        "description": payload.comment[:300] if payload.comment else "",
+        "url": place_url,
+        "fields": [
+            {"name": "Místo", "value": place.name, "inline": True},
+            {
+                "name": "Vyprší",
+                "value": expires_at.strftime("%Y-%m-%d %H:%M UTC"),
+                "inline": True,
+            },
+        ],
+        "actor_user_id": str(request.user.id),
+        "place_id": str(place.id),
+    }
+    dispatch_event("place_any_checkin", common_payload)
+    dispatch_event("place_followed_checkin", common_payload)
+
     return 201, _to_out(checkin)
 
 

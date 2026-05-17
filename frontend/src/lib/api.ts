@@ -266,6 +266,72 @@ export const mapConfig = {
   get: () => api.get<MapConfig>("/map/config"),
 };
 
+// ---- Admin: user management ----
+
+export type AdminUser = {
+  id: string;
+  email: string;
+  display_name: string;
+  is_staff: boolean;
+  is_superuser: boolean;
+  is_active: boolean;
+  email_verified: boolean;
+  last_login: string | null;
+  created_at: string;
+};
+
+export const adminUsers = {
+  list: (q = "") => {
+    const qs = q ? `?q=${encodeURIComponent(q)}` : "";
+    return api.get<AdminUser[]>(`/admin/users${qs}`);
+  },
+  patch: (id: string, data: { is_active?: boolean; is_staff?: boolean }) =>
+    api.patch<AdminUser>(`/admin/users/${id}`, data),
+};
+
+// ---- Discord notification preferences ----
+
+export type DiscordPrefKind =
+  | "place_followed_checkin"
+  | "place_any_checkin"
+  | "article_published"
+  | "event_status_changed"
+  | "project_lifecycle"
+  | "campaign_status_changed";
+
+export type DiscordPref = {
+  id: string;
+  kind: DiscordPrefKind;
+  enabled: boolean;
+  filters: Record<string, unknown>;
+  updated_at: string;
+};
+
+export type LookupUser = { email: string; display_name: string };
+export type LookupTitled = { slug: string; title: string; status: string };
+
+export const discordPrefs = {
+  list: () => api.get<DiscordPref[]>("/notifications/discord-prefs"),
+  upsert: (kind: DiscordPrefKind, data: { enabled: boolean; filters: Record<string, unknown> }) =>
+    api.put<DiscordPref>(`/notifications/discord-prefs/${kind}`, data),
+  remove: (kind: DiscordPrefKind) => api.del<void>(`/notifications/discord-prefs/${kind}`),
+};
+
+export const lookups = {
+  users: (q = "", limit = 20) => {
+    const search = new URLSearchParams({ q, limit: String(limit) });
+    return api.get<LookupUser[]>(`/lookup/users?${search.toString()}`);
+  },
+  events: (q = "", limit = 20) => {
+    const search = new URLSearchParams({ q, limit: String(limit) });
+    return api.get<LookupTitled[]>(`/lookup/events?${search.toString()}`);
+  },
+  campaigns: (q = "", limit = 20) => {
+    const search = new URLSearchParams({ q, limit: String(limit) });
+    return api.get<LookupTitled[]>(`/lookup/campaigns?${search.toString()}`);
+  },
+};
+
 // ---- Mastodon timeline ----
 
 export type MastoStatus = {

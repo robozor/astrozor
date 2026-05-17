@@ -135,3 +135,120 @@ def mark_all_read(request: HttpRequest):
         read_at=timezone.now()
     )
     return 200, {"marked": n}
+
+
+# ---- Discord notification preferences ----
+
+from ninja import Schema  # noqa: E402
+
+from .models import DiscordPreference  # noqa: E402
+
+
+def _pref_out(p: DiscordPreference) -> dict:
+    return {
+        "id": str(p.id),
+        "kind": p.kind,
+        "enabled": p.enabled,
+        "filters": p.filters or {},
+        "updated_at": p.updated_at,
+    }
+
+
+@router.get("/notifications/discord-prefs", response={200: list[dict], 401: dict})
+def list_discord_prefs(request: HttpRequest):
+    if not _require_auth(request):
+        return 401, {"detail": "Authentication required"}
+    qs = DiscordPreference.objects.filter(user=request.user).order_by("kind")
+    return 200, [_pref_out(p) for p in qs]
+
+
+class DiscordPrefIn(Schema):
+    enabled: bool = True
+    filters: dict = {}
+
+
+@router.put("/notifications/discord-prefs/{kind}", response={200: dict, 400: dict, 401: dict})
+def upsert_discord_pref(request: HttpRequest, kind: str, payload: DiscordPrefIn):
+    if not _require_auth(request):
+        return 401, {"detail": "Authentication required"}
+    if kind not in DiscordPreference.Kind.values:
+        return 400, {"detail": f"Unknown kind: {kind}"}
+    pref, _ = DiscordPreference.objects.update_or_create(
+        user=request.user,
+        kind=kind,
+        defaults={
+            "enabled": payload.enabled,
+            "filters": payload.filters or {},
+        },
+    )
+    return 200, _pref_out(pref)
+
+
+@router.delete(
+    "/notifications/discord-prefs/{kind}", response={204: None, 401: dict, 404: dict}
+)
+def delete_discord_pref(request: HttpRequest, kind: str):
+    if not _require_auth(request):
+        return 401, {"detail": "Authentication required"}
+    deleted, _ = DiscordPreference.objects.filter(user=request.user, kind=kind).delete()
+    if not deleted:
+        return 404, {"detail": "Not found"}
+    return 204, None
+
+
+# ---- Lookups used by the filter UI ----
+
+
+@router.get("/lookup/users", response={200: list[dict], 401: dict})
+def lookup_users(request: HttpRequest, q: str = "", limit: int = 20):
+    """Autocomplete-style search across users. Returns email + display name.
+    Used by the Discord notification filter pickers (e.g. 'articles by these
+    authors').
+    """
+    if not _require_auth(request):
+        return 401, {"detail": "Authentication required"}
+    from django.db.models import Q
+
+    from apps.accounts.models import User
+
+    qs = User.objects.select_related("profile").filter(is_active=True)
+    if q:
+        qs = qs.filter(Q(email__icontains=q) | Q(profile__display_name__icontains=q))
+    qs = qs.order_by("email")[: max(1, min(50, limit))]
+    return 200, [
+        {
+            "email": u.email,
+            "display_name": getattr(u.profile, "display_name", "") or "",
+        }
+        for u in qs
+    ]
+
+
+@router.get("/lookup/events", response={200: list[dict], 401: dict})
+def lookup_events(request: HttpRequest, q: str = "", limit: int = 20):
+    if not _require_auth(request):
+        return 401, {"detail": "Authentication required"}
+    from apps.events.models import Event
+
+    qs = Event.objects.exclude(status=Event.Status.DRAFT)
+    if q:
+        qs = qs.filter(title__icontains=q)
+    qs = qs.order_by("-starts_at")[: max(1, min(50, limit))]
+    return 200, [
+        {"slug": e.slug, "title": e.title, "status": e.status} for e in qs
+    ]
+
+
+@router.get("/lookup/campaigns", response={200: list[dict], 401: dict})
+def lookup_campaigns(request: HttpRequest, q: str = "", limit: int = 20):
+    if not _require_auth(request):
+        return 401, {"detail": "Authentication required"}
+    from apps.citizen.models import Campaign
+
+    qs = Campaign.objects.exclude(status=Campaign.Status.DRAFT)
+    if q:
+        qs = qs.filter(title__icontains=q)
+    qs = qs.order_by("-created_at")[: max(1, min(50, limit))]
+    return 200, [
+        {"slug": c.slug, "title": c.title, "status": c.status} for c in qs
+    ]

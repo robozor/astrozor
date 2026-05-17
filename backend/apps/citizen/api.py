@@ -145,9 +145,35 @@ def update_campaign(request: HttpRequest, slug: str, payload: CampaignPatchIn):
     if c.coordinator_id != request.user.id and not request.user.is_staff:
         return 403, {"detail": "Forbidden"}
     data = payload.dict(exclude_unset=True)
+    prev_status = c.status
     for field, value in data.items():
         setattr(c, field, value)
     c.save()
+
+    # Notify Discord subscribers only on actual status transitions.
+    if "status" in data and data["status"] != prev_status:
+        from apps.notifications.discord_dispatch import dispatch_event
+
+        host = request.get_host()
+        scheme = "https" if request.is_secure() else "http"
+        dispatch_event(
+            "campaign_status_changed",
+            {
+                "title": f"🌌 Kampaň {c.title}: {prev_status} → {c.status}",
+                "description": (c.description or "")[:300],
+                "url": f"{scheme}://{host}/campaigns/{c.slug}",
+                "fields": [
+                    {"name": "Koordinátor", "value": c.coordinator.email, "inline": True},
+                    {"name": "Projekt", "value": c.project.slug, "inline": True},
+                    {"name": "Nový stav", "value": c.status, "inline": True},
+                ],
+                "coordinator_email": c.coordinator.email,
+                "campaign_slug": c.slug,
+                "to_state": c.status,
+                "from_state": prev_status,
+                "actor_user_id": str(request.user.id),
+            },
+        )
     return 200, _campaign_out(c)
 
 

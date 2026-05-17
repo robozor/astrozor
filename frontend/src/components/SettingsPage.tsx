@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ApiError, auth, type Identity, type Me, type ProfilePatch } from "../lib/api";
+import { DiscordPrefsSection } from "./DiscordPrefsSection";
 
 export function SettingsPage({ me }: { me: Me }) {
   const { t } = useTranslation();
@@ -75,6 +76,8 @@ function ProfileSection({ me }: { me: Me }) {
   const [club, setClub] = useState(me.profile.club);
   const [equipment, setEquipment] = useState(me.profile.equipment);
   const [visibility, setVisibility] = useState(me.profile.location_visibility);
+  const [language, setLanguage] = useState(me.profile.language);
+  const { i18n } = useTranslation();
 
   const save = useMutation({
     mutationFn: (patch: ProfilePatch) => auth.patchProfile(patch),
@@ -115,18 +118,32 @@ function ProfileSection({ me }: { me: Me }) {
             { value: "hidden", label: t("settings.profile.visibility.hidden") },
           ]}
         />
+        <SelectField
+          label={t("settings.profile.language")}
+          value={language}
+          onChange={(v) => setLanguage(v)}
+          options={[
+            { value: "cs", label: "Čeština" },
+            { value: "en", label: "English" },
+          ]}
+        />
       </div>
       <button
         type="button"
-        onClick={() =>
+        onClick={() => {
+          // Apply language immediately on save — synced with i18n
+          if (language !== i18n.language) {
+            void i18n.changeLanguage(language);
+          }
           save.mutate({
             display_name: name,
             bio,
             club,
             equipment,
             location_visibility: visibility,
-          })
-        }
+            language,
+          });
+        }}
         disabled={save.isPending}
         className="mt-4 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 text-white text-sm px-4 py-2 rounded-md transition"
       >
@@ -436,6 +453,10 @@ function IntegrationsSection({ me }: { me: Me }) {
           {t("settings.integrations.zenodoClear")}
         </button>
       )}
+
+      <div className="mt-6 pt-4 border-t border-slate-800">
+        <DiscordPrefsSection hasWebhook={!!me.profile.discord_webhook_url} />
+      </div>
     </Card>
   );
 }
