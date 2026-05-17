@@ -76,7 +76,7 @@ export function DiscordPrefsSection({ hasWebhook }: { hasWebhook: boolean }) {
             key={kind}
             kind={kind}
             pref={byKind.get(kind)}
-            disabled={!hasWebhook}
+            disabled={false}
             onChange={(enabled, filters) =>
               upsert.mutate({ kind, enabled, filters })
             }

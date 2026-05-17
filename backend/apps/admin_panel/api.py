@@ -247,6 +247,10 @@ def _user_admin_out(u) -> dict:
         "is_active": u.is_active,
         "email_verified": u.email_verified,
         "last_login": u.last_login,
+        "last_login_ip": u.last_login_ip or "",
+        "last_login_country": u.last_login_country or "",
+        "last_login_country_code": u.last_login_country_code or "",
+        "last_login_city": u.last_login_city or "",
         "created_at": u.created_at,
     }
 

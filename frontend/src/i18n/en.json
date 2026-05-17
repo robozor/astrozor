@@ -142,6 +142,7 @@
       "user": "User",
       "joined": "Joined",
       "lastLogin": "Last login",
+      "origin": "Origin (IP / location)",
       "role": "Role",
       "status": "Status",
       "active": "Active",

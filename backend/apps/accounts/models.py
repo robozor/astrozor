@@ -22,6 +22,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     email_verified = models.BooleanField(default=False)
+    # Last login origin (filled by signal handler in apps.accounts.signals).
+    # GeoIP lookup is best-effort and cached 24 h per IP.
+    last_login_ip = models.GenericIPAddressField(null=True, blank=True)
+    last_login_country = models.CharField(max_length=80, blank=True)
+    last_login_country_code = models.CharField(max_length=4, blank=True)
+    last_login_city = models.CharField(max_length=120, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

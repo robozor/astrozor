@@ -60,15 +60,16 @@ function UsersPanel({ me }: { me: Me }) {
         />
       </header>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-auto max-h-[28rem] ring-1 ring-slate-800 rounded-md">
         <table className="w-full text-xs">
-          <thead>
+          <thead className="sticky top-0 bg-slate-900/95 backdrop-blur z-10">
             <tr className="text-slate-500 border-b border-slate-800">
-              <th className="text-left py-2 pr-2 font-medium">{t("admin.users.user")}</th>
-              <th className="text-left py-2 pr-2 font-medium">{t("admin.users.joined")}</th>
-              <th className="text-left py-2 pr-2 font-medium">{t("admin.users.lastLogin")}</th>
-              <th className="text-center py-2 pr-2 font-medium">{t("admin.users.role")}</th>
-              <th className="text-center py-2 font-medium">{t("admin.users.status")}</th>
+              <th className="text-left py-2 px-2 font-medium">{t("admin.users.user")}</th>
+              <th className="text-left py-2 px-2 font-medium">{t("admin.users.joined")}</th>
+              <th className="text-left py-2 px-2 font-medium">{t("admin.users.lastLogin")}</th>
+              <th className="text-left py-2 px-2 font-medium">{t("admin.users.origin")}</th>
+              <th className="text-center py-2 px-2 font-medium">{t("admin.users.role")}</th>
+              <th className="text-center py-2 px-2 font-medium">{t("admin.users.status")}</th>
             </tr>
           </thead>
           <tbody>
@@ -100,19 +101,37 @@ function UserRow({
   onPatch: (data: { is_active?: boolean; is_staff?: boolean }) => void;
 }) {
   const { t } = useTranslation();
+  const flag = countryEmoji(user.last_login_country_code);
   return (
     <tr className="border-b border-slate-900 hover:bg-slate-900/40" data-testid={`user-${user.id}`}>
-      <td className="py-2 pr-2">
+      <td className="py-2 px-2">
         <div className="text-slate-100 font-mono">{user.email}</div>
         <div className="text-slate-500">{user.display_name}</div>
       </td>
-      <td className="py-2 pr-2 text-slate-400 font-mono">
+      <td className="py-2 px-2 text-slate-400 font-mono">
         {new Date(user.created_at).toLocaleDateString()}
       </td>
-      <td className="py-2 pr-2 text-slate-400 font-mono">
+      <td className="py-2 px-2 text-slate-400 font-mono">
         {user.last_login ? new Date(user.last_login).toLocaleString() : "—"}
       </td>
-      <td className="py-2 pr-2 text-center">
+      <td className="py-2 px-2 text-slate-400">
+        {user.last_login_ip ? (
+          <div>
+            <div className="font-mono text-slate-300">{user.last_login_ip}</div>
+            {(user.last_login_country || user.last_login_city) && (
+              <div className="text-slate-500">
+                {flag && <span className="mr-1">{flag}</span>}
+                {[user.last_login_city, user.last_login_country]
+                  .filter(Boolean)
+                  .join(", ")}
+              </div>
+            )}
+          </div>
+        ) : (
+          <span className="text-slate-600">—</span>
+        )}
+      </td>
+      <td className="py-2 px-2 text-center">
         {user.is_superuser ? (
           <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-fuchsia-900/60 ring-1 ring-fuchsia-700/60 text-fuchsia-300 font-mono">
             super
@@ -136,7 +155,7 @@ function UserRow({
           </button>
         )}
       </td>
-      <td className="py-2 text-center">
+      <td className="py-2 px-2 text-center">
         {user.is_active ? (
           <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-900/60 ring-1 ring-emerald-700/60 text-emerald-300 font-mono">
             {t("admin.users.active")}
@@ -554,4 +573,14 @@ function statusClass(s: "idle" | "running" | "error") {
     : s === "running"
       ? "text-amber-300"
       : "text-emerald-300";
+}
+
+/** ISO-3166 2-letter country code → Unicode flag emoji (CZ → 🇨🇿). */
+function countryEmoji(code: string): string {
+  if (!code || code.length !== 2) return "";
+  const A = 0x1f1e6 - "A".charCodeAt(0);
+  return String.fromCodePoint(
+    A + code.toUpperCase().charCodeAt(0),
+    A + code.toUpperCase().charCodeAt(1),
+  );
 }

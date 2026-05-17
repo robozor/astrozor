@@ -142,6 +142,7 @@
       "user": "Uživatel",
       "joined": "Registrace",
       "lastLogin": "Poslední přihlášení",
+      "origin": "Původ (IP / lokace)",
       "role": "Role",
       "status": "Stav",
       "active": "Aktivní",

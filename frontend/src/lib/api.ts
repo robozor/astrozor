@@ -277,6 +277,10 @@ export type AdminUser = {
   is_active: boolean;
   email_verified: boolean;
   last_login: string | null;
+  last_login_ip: string;
+  last_login_country: string;
+  last_login_country_code: string;
+  last_login_city: string;
   created_at: string;
 };
 
