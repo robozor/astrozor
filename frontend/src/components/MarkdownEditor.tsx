@@ -45,12 +45,13 @@ type Props = {
 export function MarkdownEditor({ markdown, onChange, placeholder }: Props) {
   const ref = useRef<MDXEditorMethods>(null);
   return (
-    <div className="astrozor-mdx bg-slate-950 ring-1 ring-slate-700 rounded-md overflow-hidden">
+    <div className="astrozor-mdx dark-theme dark-editor bg-slate-950 ring-1 ring-slate-700 rounded-md overflow-hidden">
       <MDXEditor
         ref={ref}
         markdown={markdown}
         onChange={onChange}
         placeholder={placeholder}
+        className="dark-theme dark-editor"
         contentEditableClassName="astrozor-mdx-content"
         plugins={[
           headingsPlugin(),
