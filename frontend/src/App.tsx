@@ -9,9 +9,17 @@ import { ArticlesPage } from "./components/ArticlesPage";
 import { ProjectsPage } from "./components/ProjectsPage";
 import { EventsPage } from "./components/EventsPage";
 import { CampaignsPage } from "./components/CampaignsPage";
+import { AdminPage } from "./components/AdminPage";
 import { NotificationsBell } from "./components/NotificationsBell";
 
-type Page = "map" | "settings" | "articles" | "projects" | "events" | "campaigns";
+type Page =
+  | "map"
+  | "settings"
+  | "articles"
+  | "projects"
+  | "events"
+  | "campaigns"
+  | "admin";
 
 export function App() {
   const queryClient = useQueryClient();
@@ -67,7 +75,8 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
       fromParam === "articles" ||
       fromParam === "projects" ||
       fromParam === "events" ||
-      fromParam === "campaigns"
+      fromParam === "campaigns" ||
+      fromParam === "admin"
     )
       return fromParam;
     return "map";
@@ -156,6 +165,14 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
               label={t("nav.settings")}
               onClick={() => setPage("settings")}
             />
+            {me.user.is_staff && (
+              <NavTab
+                id="admin"
+                active={page === "admin"}
+                label={t("nav.admin")}
+                onClick={() => setPage("admin")}
+              />
+            )}
           </nav>
           <div className="ml-auto flex items-center gap-2">
             <NotificationsBell />
@@ -178,6 +195,7 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
         {page === "events" && <EventsPage me={me} />}
         {page === "campaigns" && <CampaignsPage me={me} />}
         {page === "settings" && <SettingsPage me={me} />}
+        {page === "admin" && <AdminPage me={me} />}
       </div>
     </main>
   );

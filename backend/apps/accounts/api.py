@@ -33,6 +33,7 @@ def _user_out(user: User) -> dict:
         "email": user.email,
         "email_verified": user.email_verified,
         "display_name": user.display_name,
+        "is_staff": user.is_staff,
         "created_at": user.created_at,
     }
 

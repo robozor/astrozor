@@ -123,8 +123,38 @@
     "projects": "Projects",
     "events": "Events",
     "campaigns": "Campaigns",
+    "admin": "Admin",
     "feed": "Feed",
     "logout": "Log out"
+  },
+  "admin": {
+    "title": "Application admin",
+    "subtitle": "Self-hosted map infrastructure — replace external services (Nominatim, OSM tiles) with our own instances so rate limits can't bite.",
+    "notStaff": "This section is only available to application admins.",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "useThis": "Use this",
+    "notReady": "Not ready",
+    "pmtiles": {
+      "title": "PMTiles Europe (map tiles)",
+      "size": "Size",
+      "lastUpdate": "Last update",
+      "sourceUrl": "Source URL (Protomaps Daily build)",
+      "download": "Download",
+      "refresh": "Refresh",
+      "downloading": "Downloading…",
+      "backToOsm": "Switch back to OSM"
+    },
+    "photon": {
+      "title": "Photon (search backend)",
+      "endpoint": "Endpoint",
+      "lastImport": "Last import",
+      "probe": "Probe availability",
+      "probing": "Probing…",
+      "backToNominatim": "Switch back to Nominatim",
+      "deployHint": "Run `docker compose --profile photon up -d photon`, import OSM extract per docs/runbook/map-infra.md, then click 'Probe availability'."
+    }
   },
   "projects": {
     "title": "Projects",

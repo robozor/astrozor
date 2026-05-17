@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     "apps.publishing_api",
     "apps.uploads",
     "apps.geocoding",
+    "apps.admin_panel",
 ]
 
 AUTH_USER_MODEL = "accounts.User"

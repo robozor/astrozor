@@ -8,9 +8,17 @@ import {
   type MapRef,
   type MapStyle,
 } from "react-map-gl/maplibre";
+import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { Protocol } from "pmtiles";
+
+// Register pmtiles:// protocol once, globally. Lets MapLibre fetch
+// vector/raster tiles directly from a .pmtiles archive served over HTTP.
+const pmtilesProtocol = new Protocol();
+maplibregl.addProtocol("pmtiles", pmtilesProtocol.tile);
 import {
   geocoding,
+  mapConfig,
   places,
   subscriptions,
   ApiError,
@@ -96,6 +104,64 @@ const STYLE_TOPO: MapStyle = {
   layers: [{ id: "topo", type: "raster", source: "topo" }],
 };
 
+/**
+ * Build a minimal vector MapStyle backed by a Protomaps PMTiles archive.
+ * The full Protomaps Basemaps style is much richer; this is a fallback so
+ * the map renders something usable even before we bake the official
+ * style.json into our build.
+ */
+function pmtilesStyle(absoluteOrRelativeUrl: string): MapStyle {
+  const url = absoluteOrRelativeUrl.startsWith("http")
+    ? `pmtiles://${absoluteOrRelativeUrl}`
+    : `pmtiles://${window.location.origin}${absoluteOrRelativeUrl}`;
+  return {
+    version: 8,
+    sources: {
+      pmtiles: {
+        type: "vector",
+        url,
+        attribution:
+          '© <a href="https://protomaps.com">Protomaps</a> · © OpenStreetMap contributors',
+      },
+    },
+    layers: [
+      {
+        id: "background",
+        type: "background",
+        paint: { "background-color": "#0b1020" },
+      },
+      {
+        id: "earth",
+        type: "fill",
+        source: "pmtiles",
+        "source-layer": "earth",
+        paint: { "fill-color": "#0f172a" },
+      },
+      {
+        id: "water",
+        type: "fill",
+        source: "pmtiles",
+        "source-layer": "water",
+        paint: { "fill-color": "#172554" },
+      },
+      {
+        id: "roads",
+        type: "line",
+        source: "pmtiles",
+        "source-layer": "roads",
+        paint: { "line-color": "#475569", "line-width": 0.5 },
+      },
+      {
+        id: "boundaries",
+        type: "line",
+        source: "pmtiles",
+        "source-layer": "boundaries",
+        paint: { "line-color": "#64748b", "line-width": 0.4 },
+      },
+    ],
+  };
+}
+
 type StyleKey = "osm" | "dark" | "satellite" | "topo";
 const STYLES: Record<StyleKey, MapStyle> = {
   osm: STYLE_OSM,
@@ -117,6 +183,7 @@ type StateFilter = "all" | "active" | "subscribed";
 export function MapView({ me }: { me?: Me | null } = {}) {
   const mapRef = useRef<MapRef | null>(null);
   const placesQuery = useQuery({ queryKey: ["places"], queryFn: () => places.list() });
+  const cfgQuery = useQuery({ queryKey: ["map-config"], queryFn: () => mapConfig.get() });
   const subsQuery = useQuery({
     queryKey: ["subscriptions"],
     queryFn: () => subscriptions.list(),
@@ -127,6 +194,17 @@ export function MapView({ me }: { me?: Me | null } = {}) {
     [subsQuery.data],
   );
   const [selected, setSelected] = useState<Place | null>(null);
+
+  // If admin has configured PMTiles as the default tile backend, swap
+  // it in as a fifth option and pre-select it. Otherwise OSM stays.
+  const pmtilesUrl = cfgQuery.data?.pmtiles_url;
+  const styles = useMemo<Record<StyleKey, MapStyle>>(() => {
+    if (!pmtilesUrl) return STYLES;
+    return {
+      ...STYLES,
+      osm: pmtilesStyle(pmtilesUrl),
+    };
+  }, [pmtilesUrl]);
 
   const [styleKey, setStyleKey] = useState<StyleKey>("osm");
   const [tileWarning, setTileWarning] = useState<string | null>(null);
@@ -200,7 +278,7 @@ export function MapView({ me }: { me?: Me | null } = {}) {
     <div className="relative w-full h-[calc(100vh-9rem)] min-h-[400px] rounded-xl overflow-hidden ring-1 ring-slate-700">
       <Map
         ref={mapRef}
-        mapStyle={STYLES[styleKey]}
+        mapStyle={styles[styleKey]}
         initialViewState={initialViewState}
         style={{ width: "100%", height: "100%" }}
       >

@@ -120,6 +120,7 @@ services:
     volumes:
       - ./backend:/app/backend
       - astrozor_media:/var/lib/astrozor/media
+      - astrozor_pmtiles:/var/lib/astrozor/pmtiles
     expose:
       - "8000"
     restart: unless-stopped
@@ -137,6 +138,7 @@ services:
     volumes:
       - ./backend:/app/backend
       - astrozor_media:/var/lib/astrozor/media
+      - astrozor_pmtiles:/var/lib/astrozor/pmtiles
     entrypoint: ["/usr/bin/tini", "--"]
     command: ["celery", "-A", "astrozor", "worker", "--loglevel=info", "--concurrency=2"]
     restart: unless-stopped
@@ -154,6 +156,7 @@ services:
     volumes:
       - ./backend:/app/backend
       - astrozor_media:/var/lib/astrozor/media
+      - astrozor_pmtiles:/var/lib/astrozor/pmtiles
     entrypoint: ["/usr/bin/tini", "--"]
     command: ["celery", "-A", "astrozor", "beat", "--loglevel=info"]
     restart: unless-stopped
@@ -196,6 +199,22 @@ services:
       - ./docker/proxy/Caddyfile:/etc/caddy/Caddyfile:ro
     restart: unless-stopped
 
+  # ---- Optional self-hosted geocoder (Photon) ----
+  # Activated by `docker compose --profile photon up -d`. Listens on
+  # internal :2322; backend reaches it via PHOTON_URL.
+  # Data volume must be populated via the photon-import service first.
+  photon:
+    image: rtuszik/photon-docker:latest
+    container_name: astrozor-photon
+    profiles: ["photon"]
+    environment:
+      COUNTRY_CODE: cz
+    volumes:
+      - astrozor_photon_data:/photon/photon_data
+    expose:
+      - "2322"
+    restart: unless-stopped
+
 volumes:
   astrozor_db_data:
   astrozor_redis_data:
@@ -203,3 +222,5 @@ volumes:
   astrozor_caddy_data:
   astrozor_caddy_config:
   astrozor_media:
+  astrozor_photon_data:
+  astrozor_pmtiles:

@@ -57,6 +57,7 @@ export type User = {
   email: string;
   email_verified: boolean;
   display_name: string;
+  is_staff: boolean;
   created_at: string;
 };
 
@@ -192,6 +193,59 @@ export const geocoding = {
     });
     return api.get<GeocodeResponse>(`/geocode?${search.toString()}`);
   },
+};
+
+// ---- Admin: self-hosted map infra ----
+
+export type MapInfraStatus = "idle" | "running" | "error";
+
+export type MapInfraOut = {
+  pmtiles: {
+    path: string;
+    source_url: string;
+    size_bytes: number;
+    last_update: string | null;
+    status: MapInfraStatus;
+    status_message: string;
+    job_id: string;
+    available: boolean;
+  };
+  photon: {
+    url: string;
+    last_import: string | null;
+    status: MapInfraStatus;
+    status_message: string;
+    imported_size_mb: number;
+    available: boolean;
+  };
+  tile_backend: "osm" | "pmtiles";
+  search_backend: "nominatim" | "photon";
+  updated_at: string;
+};
+
+export type MapConfig = {
+  tile_backend: "osm" | "pmtiles";
+  search_backend: "nominatim" | "photon";
+  pmtiles_url: string | null;
+  photon_url: string | null;
+};
+
+export const admin = {
+  getMapInfra: () => api.get<MapInfraOut>("/admin/map-infra"),
+  triggerPmtilesDownload: (source_url?: string) =>
+    api.post<{ job_id: string; status: string }>("/admin/map-infra/pmtiles/download", {
+      source_url: source_url ?? null,
+    }),
+  probePhoton: () =>
+    api.post<{ job_id: string; status: string }>("/admin/map-infra/photon/probe"),
+  switchBackends: (data: {
+    tile_backend?: "osm" | "pmtiles";
+    search_backend?: "nominatim" | "photon";
+  }) => api.post<MapInfraOut>("/admin/map-infra/switch", data),
+};
+
+export const mapConfig = {
+  get: () => api.get<MapConfig>("/map/config"),
 };
 
 export const meta = {

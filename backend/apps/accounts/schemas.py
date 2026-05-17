@@ -51,6 +51,7 @@ class UserOut(Schema):
     email: str
     email_verified: bool
     display_name: str
+    is_staff: bool = False
     created_at: datetime
 
 

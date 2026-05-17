@@ -123,8 +123,38 @@
     "projects": "Projekty",
     "events": "Akce",
     "campaigns": "Kampaně",
+    "admin": "Správa",
     "feed": "Feed",
     "logout": "Odhlásit se"
+  },
+  "admin": {
+    "title": "Správa aplikace",
+    "subtitle": "Self-hosted mapová infrastruktura — náhrada externích služeb (Nominatim, OSM tiles) za vlastní instance bez rate-limit rizika.",
+    "notStaff": "Tato sekce je dostupná pouze pro administrátora aplikace.",
+    "status": "Stav",
+    "active": "Aktivní",
+    "inactive": "Neaktivní",
+    "useThis": "Aktivovat",
+    "notReady": "Nepřipraveno",
+    "pmtiles": {
+      "title": "PMTiles Europe (mapové dlaždice)",
+      "size": "Velikost",
+      "lastUpdate": "Poslední aktualizace",
+      "sourceUrl": "Zdrojová URL (Protomaps Daily build)",
+      "download": "Stáhnout",
+      "refresh": "Obnovit",
+      "downloading": "Stahuje se…",
+      "backToOsm": "Přepnout zpět na OSM"
+    },
+    "photon": {
+      "title": "Photon (search backend)",
+      "endpoint": "Endpoint",
+      "lastImport": "Poslední import",
+      "probe": "Otestovat dostupnost",
+      "probing": "Testuji…",
+      "backToNominatim": "Přepnout zpět na Nominatim",
+      "deployHint": "Spusť `docker compose --profile photon up -d photon`, naimportuj OSM extract dle runbooku docs/runbook/map-infra.md, pak klikni 'Otestovat dostupnost'."
+    }
   },
   "projects": {
     "title": "Projekty",

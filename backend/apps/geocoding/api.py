@@ -109,6 +109,53 @@ def _fetch_upstream(q: str, limit: int, lang: str) -> list[dict[str, Any]]:
     return data if isinstance(data, list) else []
 
 
+def _photon_search(q: str, limit: int, lang: str) -> list[dict[str, Any]]:
+    """Query a self-hosted Photon if the admin switched search to it."""
+    from apps.admin_panel.models import MapInfra
+
+    infra = MapInfra.get()
+    if infra.search_backend != MapInfra.SearchBackend.PHOTON:
+        return []
+    headers = {"Accept": "application/json", "User-Agent": USER_AGENT}
+    params = {"q": q, "limit": str(limit), "lang": (lang or "en").split(",")[0]}
+    try:
+        with httpx.Client(timeout=UPSTREAM_TIMEOUT, headers=headers) as client:
+            r = client.get(f"{infra.photon_url.rstrip('/')}/api", params=params)
+    except httpx.HTTPError as e:
+        log.warning("Photon upstream error: %s", e)
+        return []
+    if r.status_code != 200:
+        log.warning("Photon returned %s for q=%r", r.status_code, q)
+        return []
+    try:
+        data = r.json()
+    except json.JSONDecodeError:
+        return []
+    # Convert Photon GeoJSON FeatureCollection → Nominatim-like shape so
+    # the same frontend rendering works for both backends.
+    out: list[dict[str, Any]] = []
+    for feat in (data or {}).get("features", []):
+        coords = (feat.get("geometry") or {}).get("coordinates") or []
+        props = feat.get("properties") or {}
+        if len(coords) < 2:
+            continue
+        name_parts = [
+            props.get("name") or "",
+            props.get("city") or "",
+            props.get("country") or "",
+        ]
+        out.append(
+            {
+                "place_id": props.get("osm_id") or hash(str(props)) & 0xFFFFFFFF,
+                "lat": str(coords[1]),
+                "lon": str(coords[0]),
+                "display_name": ", ".join(p for p in name_parts if p),
+                "type": props.get("type") or "",
+            }
+        )
+    return out
+
+
 @router.get("/geocode", auth=None)
 def geocode(
     request: HttpRequest,  # noqa: ARG001
@@ -126,10 +173,21 @@ def geocode(
         return JsonResponse({"items": [], "cached": False}, status=200)
     limit = max(1, min(10, limit))
 
-    key = _cache_key(q, limit, lang)
+    # If admin switched to Photon, bypass Nominatim entirely. Photon is
+    # self-hosted so it has no external rate budget; we still cache.
+    from apps.admin_panel.models import MapInfra
+
+    backend = MapInfra.get().search_backend
+
+    key = f"{backend}:{_cache_key(q, limit, lang)}"
     cached = cache.get(key)
     if cached is not None:
         return JsonResponse({"items": cached, "cached": True}, status=200)
+
+    if backend == MapInfra.SearchBackend.PHOTON:
+        items = _photon_search(q, limit, lang)
+        cache.set(key, items, CACHE_TTL_SECONDS)
+        return JsonResponse({"items": items, "cached": False}, status=200)
 
     allowed, retry_after = _consume_token()
     if not allowed:

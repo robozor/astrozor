@@ -1,0 +1,138 @@
+"""Celery tasks for admin map-infra operations.
+
+These run in the worker container; the API endpoint kicks them off and
+the admin UI polls the MapInfra row for status updates.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+import tempfile
+from pathlib import Path
+
+import httpx
+from celery import shared_task
+from django.utils import timezone
+
+from .models import MapInfra
+
+log = logging.getLogger(__name__)
+
+
+@shared_task(bind=True)
+def download_pmtiles(self):
+    """Stream the Protomaps Daily PMTiles build to the configured path.
+
+    Uses HTTP range/resume not implemented — full re-download each refresh.
+    Atomic: writes to <path>.part then renames to <path>.
+
+    Updates MapInfra.pmtiles_status to running → idle/error, message field
+    holds progress %, last error etc.
+    """
+    infra = MapInfra.get()
+    infra.pmtiles_status = MapInfra.JobStatus.RUNNING
+    infra.pmtiles_job_id = self.request.id
+    infra.pmtiles_status_message = "Connecting…"
+    infra.save(update_fields=["pmtiles_status", "pmtiles_job_id", "pmtiles_status_message"])
+
+    target = Path(infra.pmtiles_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    tmp_fd, tmp_name = tempfile.mkstemp(dir=target.parent, suffix=".part")
+    os.close(tmp_fd)
+    tmp_path = Path(tmp_name)
+
+    try:
+        with httpx.stream(
+            "GET",
+            infra.pmtiles_source_url,
+            timeout=httpx.Timeout(connect=30.0, read=600.0, write=600.0, pool=30.0),
+            follow_redirects=True,
+        ) as r:
+            r.raise_for_status()
+            total = int(r.headers.get("content-length") or 0)
+            written = 0
+            last_pct = -1
+            with tmp_path.open("wb") as f:
+                for chunk in r.iter_bytes(chunk_size=4 * 1024 * 1024):
+                    f.write(chunk)
+                    written += len(chunk)
+                    if total:
+                        pct = int(written * 100 / total)
+                        if pct != last_pct:
+                            last_pct = pct
+                            # Persist progress every 1 % so admin UI can poll
+                            MapInfra.objects.filter(pk=1).update(
+                                pmtiles_status_message=f"Downloading… {pct}% ({written // (1024 * 1024)} / {total // (1024 * 1024)} MiB)"
+                            )
+
+        # Atomic swap
+        tmp_path.replace(target)
+        size = target.stat().st_size
+
+        infra.refresh_from_db()
+        infra.pmtiles_status = MapInfra.JobStatus.IDLE
+        infra.pmtiles_status_message = "Download complete"
+        infra.pmtiles_size_bytes = size
+        infra.pmtiles_last_update = timezone.now()
+        infra.save(
+            update_fields=[
+                "pmtiles_status",
+                "pmtiles_status_message",
+                "pmtiles_size_bytes",
+                "pmtiles_last_update",
+            ]
+        )
+        log.info("PMTiles download complete: %s (%s bytes)", target, size)
+        return {"status": "ok", "size_bytes": size, "path": str(target)}
+
+    except Exception as e:  # noqa: BLE001
+        log.exception("PMTiles download failed")
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+        MapInfra.objects.filter(pk=1).update(
+            pmtiles_status=MapInfra.JobStatus.ERROR,
+            pmtiles_status_message=f"Download failed: {e}"[:500],
+        )
+        raise
+
+
+@shared_task(bind=True)
+def import_photon(self):
+    """Verify Photon container is reachable and record the import as done.
+
+    Real OSM PBF import is heavy (~30–60 min for CZ, hours for EU) and
+    typically run via `docker compose --profile photon up photon-import`.
+    This task just probes the running Photon /status endpoint and updates
+    the MapInfra row so the admin UI reflects current state.
+    """
+    infra = MapInfra.get()
+    infra.photon_status = MapInfra.JobStatus.RUNNING
+    infra.photon_status_message = "Probing Photon…"
+    infra.save(update_fields=["photon_status", "photon_status_message"])
+
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            r = client.get(f"{infra.photon_url.rstrip('/')}/status")
+        if r.status_code != 200:
+            raise RuntimeError(f"Photon /status returned HTTP {r.status_code}")
+        # Photon /status response shape varies by version; we just keep it
+        body = r.text[:500]
+
+        infra.refresh_from_db()
+        infra.photon_status = MapInfra.JobStatus.IDLE
+        infra.photon_status_message = f"Reachable: {body}"
+        infra.photon_last_import = timezone.now()
+        infra.save(
+            update_fields=["photon_status", "photon_status_message", "photon_last_import"]
+        )
+        return {"status": "ok"}
+    except Exception as e:  # noqa: BLE001
+        log.exception("Photon probe failed")
+        MapInfra.objects.filter(pk=1).update(
+            photon_status=MapInfra.JobStatus.ERROR,
+            photon_status_message=f"Probe failed: {e}"[:500],
+        )
+        raise
