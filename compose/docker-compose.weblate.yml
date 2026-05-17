@@ -1,0 +1,66 @@
+# Weblate translation platform — scaffold (Q4 decision: Weblate from Krok 2).
+#
+# Default: NOT started — gated behind `--profile weblate`. Adds ~1 GB of
+# image weight and separate Postgres instance, so we keep it off the
+# critical path until translation flow needs it.
+#
+# Start:    docker compose -p astrozor -f docker-compose.yml -f compose/docker-compose.weblate.yml --profile weblate up -d
+# Setup:    see docs/runbook/weblate.md
+# Browse:   http://weblate.astrozor.localhost (when Caddyfile routes it) or directly :8080
+
+services:
+  weblate-db:
+    image: postgres:16-alpine
+    container_name: astrozor-weblate-db
+    profiles: ["weblate"]
+    environment:
+      POSTGRES_DB: weblate
+      POSTGRES_USER: weblate
+      POSTGRES_PASSWORD: ${WEBLATE_DB_PASSWORD:-weblate-dev-only}
+    volumes:
+      - astrozor_weblate_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U weblate -d weblate"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  weblate:
+    image: weblate/weblate:5.9
+    container_name: astrozor-weblate
+    profiles: ["weblate"]
+    depends_on:
+      weblate-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      WEBLATE_DEBUG: 0
+      WEBLATE_SITE_DOMAIN: weblate.astrozor.localhost
+      WEBLATE_ADMIN_PASSWORD: ${WEBLATE_ADMIN_PASSWORD:-astro-weblate-dev}
+      WEBLATE_ADMIN_NAME: Admin
+      WEBLATE_ADMIN_EMAIL: admin@astrozor.localhost
+      WEBLATE_ALLOWED_HOSTS: "*"
+      POSTGRES_HOST: weblate-db
+      POSTGRES_USER: weblate
+      POSTGRES_PASSWORD: ${WEBLATE_DB_PASSWORD:-weblate-dev-only}
+      POSTGRES_DATABASE: weblate
+      REDIS_HOST: redis
+      REDIS_DB: 1
+      WEBLATE_EMAIL_HOST: mailhog
+      WEBLATE_EMAIL_PORT: 1025
+      WEBLATE_EMAIL_USE_TLS: 0
+      WEBLATE_SERVER_EMAIL: weblate@astrozor.localhost
+      WEBLATE_DEFAULT_FROM_EMAIL: weblate@astrozor.localhost
+      WEBLATE_GITHUB_USERNAME: ""
+      WEBLATE_GITHUB_TOKEN: ""
+    volumes:
+      - astrozor_weblate_data:/app/data
+    expose:
+      - "8080"
+    restart: unless-stopped
+
+volumes:
+  astrozor_weblate_db_data:
+  astrozor_weblate_data:

@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { ApiError, auth, type Me } from "./lib/api";
+import { SUPPORTED_LANGUAGES, type LanguageCode } from "./i18n";
 
 export function App() {
   const queryClient = useQueryClient();
@@ -17,10 +19,18 @@ export function App() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["me"] }),
   });
 
+  // Sync profile.language → i18n on login
+  const { i18n } = useTranslation();
+  useEffect(() => {
+    if (me.isSuccess && me.data.profile.language && me.data.profile.language !== i18n.language) {
+      void i18n.changeLanguage(me.data.profile.language);
+    }
+  }, [me.isSuccess, me.data?.profile.language, i18n]);
+
   return (
     <main className="min-h-screen flex items-center justify-center p-6">
       <div className="max-w-xl w-full bg-slate-900/60 ring-1 ring-slate-800 rounded-2xl p-8 backdrop-blur">
-        <Header />
+        <Header isAuthed={!!isAuthed} />
         {me.isLoading ? (
           <Spinner />
         ) : isAuthed ? (
@@ -33,22 +43,64 @@ export function App() {
   );
 }
 
-function Header() {
+function Header({ isAuthed }: { isAuthed: boolean }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center gap-3 mb-6">
       <span className="text-3xl" aria-hidden>
         ☆
       </span>
-      <h1 className="text-2xl font-semibold tracking-tight">Astrozor</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">{t("common.brand")}</h1>
       <span className="ml-auto text-xs px-2 py-1 rounded-full bg-slate-800 text-slate-300">
-        Krok 1
+        {t("common.krok")} 2
       </span>
+      <LanguageSwitcher isAuthed={isAuthed} />
+    </div>
+  );
+}
+
+function LanguageSwitcher({ isAuthed }: { isAuthed: boolean }) {
+  const { i18n } = useTranslation();
+  const queryClient = useQueryClient();
+  const patch = useMutation({
+    mutationFn: (lang: LanguageCode) => auth.patchProfile({ language: lang }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["me"] }),
+  });
+
+  const current = i18n.language.startsWith("cs") ? "cs" : "en";
+
+  function setLang(lang: LanguageCode) {
+    void i18n.changeLanguage(lang);
+    if (isAuthed) {
+      patch.mutate(lang);
+    }
+  }
+
+  return (
+    <div className="flex gap-1 ml-2" role="group" aria-label="language">
+      {SUPPORTED_LANGUAGES.map((code) => (
+        <button
+          key={code}
+          type="button"
+          onClick={() => setLang(code)}
+          aria-pressed={current === code}
+          data-testid={`lang-${code}`}
+          className={`text-xs px-2 py-1 rounded-md font-mono transition ${
+            current === code
+              ? "bg-indigo-600 text-white"
+              : "bg-slate-800 text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          {code.toUpperCase()}
+        </button>
+      ))}
     </div>
   );
 }
 
 function Spinner() {
-  return <p className="text-slate-400 text-sm">Načítám…</p>;
+  const { t } = useTranslation();
+  return <p className="text-slate-400 text-sm">{t("common.loading")}</p>;
 }
 
 // ---- Unauthenticated: tabs for Login / Signup / Magic link ----
@@ -56,20 +108,15 @@ function Spinner() {
 type Tab = "login" | "signup" | "magic";
 
 function UnauthenticatedView({ onAuthed }: { onAuthed: () => void }) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>("login");
   return (
-    <div>
-      <p className="text-slate-300 mb-4 text-sm">
-        Vítej v Astrozoru. Pro pokračování se přihlas nebo zaregistruj.
-      </p>
+    <div data-testid="unauth-root">
+      <p className="text-slate-300 mb-4 text-sm">{t("auth.welcome")}</p>
       <div className="flex gap-1 mb-6 bg-slate-950 rounded-lg p-1 ring-1 ring-slate-800">
-        <TabButton label="Přihlášení" active={tab === "login"} onClick={() => setTab("login")} />
-        <TabButton label="Registrace" active={tab === "signup"} onClick={() => setTab("signup")} />
-        <TabButton
-          label="Magic link"
-          active={tab === "magic"}
-          onClick={() => setTab("magic")}
-        />
+        <TabButton id="login" label={t("auth.tab.login")} active={tab === "login"} onClick={() => setTab("login")} />
+        <TabButton id="signup" label={t("auth.tab.signup")} active={tab === "signup"} onClick={() => setTab("signup")} />
+        <TabButton id="magic" label={t("auth.tab.magic")} active={tab === "magic"} onClick={() => setTab("magic")} />
       </div>
       {tab === "login" && <LoginForm onSuccess={onAuthed} />}
       {tab === "signup" && <SignupForm onSuccess={onAuthed} />}
@@ -78,11 +125,22 @@ function UnauthenticatedView({ onAuthed }: { onAuthed: () => void }) {
   );
 }
 
-function TabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+function TabButton({
+  id,
+  label,
+  active,
+  onClick,
+}: {
+  id: string;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
+      data-testid={`tab-${id}`}
       className={`flex-1 px-3 py-1.5 rounded-md text-sm transition ${
         active
           ? "bg-slate-800 text-slate-100 ring-1 ring-slate-700"
@@ -95,6 +153,7 @@ function TabButton({ label, active, onClick }: { label: string; active: boolean;
 }
 
 function LoginForm({ onSuccess }: { onSuccess: () => void }) {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const mutation = useMutation({
@@ -109,17 +168,18 @@ function LoginForm({ onSuccess }: { onSuccess: () => void }) {
         mutation.mutate();
       }}
     >
-      <Field label="E-mail" type="email" value={email} onChange={setEmail} required />
-      <Field label="Heslo" type="password" value={password} onChange={setPassword} required />
+      <Field label={t("auth.label.email")} type="email" value={email} onChange={setEmail} required />
+      <Field label={t("auth.label.password")} type="password" value={password} onChange={setPassword} required />
       <FormError error={mutation.error as ApiError | null} />
       <Button type="submit" loading={mutation.isPending}>
-        Přihlásit se
+        {t("auth.button.login")}
       </Button>
     </form>
   );
 }
 
 function SignupForm({ onSuccess }: { onSuccess: () => void }) {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -136,14 +196,14 @@ function SignupForm({ onSuccess }: { onSuccess: () => void }) {
       }}
     >
       <Field
-        label="Přezdívka (volitelně)"
+        label={t("auth.label.displayName")}
         type="text"
         value={displayName}
         onChange={setDisplayName}
       />
-      <Field label="E-mail" type="email" value={email} onChange={setEmail} required />
+      <Field label={t("auth.label.email")} type="email" value={email} onChange={setEmail} required />
       <Field
-        label="Heslo (min. 8 znaků)"
+        label={t("auth.label.passwordMin")}
         type="password"
         value={password}
         onChange={setPassword}
@@ -152,16 +212,15 @@ function SignupForm({ onSuccess }: { onSuccess: () => void }) {
       />
       <FormError error={mutation.error as ApiError | null} />
       <Button type="submit" loading={mutation.isPending}>
-        Vytvořit účet
+        {t("auth.button.signup")}
       </Button>
-      <p className="text-xs text-slate-500">
-        Ověřovací e-mail dorazí v MailHogu na <code>http://localhost:8025</code>.
-      </p>
+      <p className="text-xs text-slate-500">{t("auth.signup.mailhogHint", { url: "http://localhost:8025" })}</p>
     </form>
   );
 }
 
 function MagicLinkForm() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const mutation = useMutation({
@@ -171,10 +230,8 @@ function MagicLinkForm() {
   if (sent) {
     return (
       <div className="space-y-2 text-sm text-slate-300">
-        <p>✓ Pokud je e-mail v naší databázi, odkaz byl odeslán.</p>
-        <p className="text-xs text-slate-500">
-          V dev prostředí otevři <code>http://localhost:8025</code> (MailHog) a klikni na odkaz.
-        </p>
+        <p>{t("auth.magicLink.sent")}</p>
+        <p className="text-xs text-slate-500">{t("auth.magicLink.devHint", { url: "http://localhost:8025" })}</p>
       </div>
     );
   }
@@ -186,13 +243,11 @@ function MagicLinkForm() {
         mutation.mutate();
       }}
     >
-      <p className="text-xs text-slate-400">
-        Pošleme ti odkaz, na který stačí kliknout a budeš přihlášen(a). Bez hesla.
-      </p>
-      <Field label="E-mail" type="email" value={email} onChange={setEmail} required />
+      <p className="text-xs text-slate-400">{t("auth.magicLink.intro")}</p>
+      <Field label={t("auth.label.email")} type="email" value={email} onChange={setEmail} required />
       <FormError error={mutation.error as ApiError | null} />
       <Button type="submit" loading={mutation.isPending}>
-        Poslat magic link
+        {t("auth.button.magic")}
       </Button>
     </form>
   );
@@ -201,14 +256,15 @@ function MagicLinkForm() {
 // ---- Authenticated view ----
 
 function AuthenticatedView({ me, onLogout }: { me: Me; onLogout: () => void }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-sm text-slate-400">Přihlášen(a) jako</p>
+        <p className="text-sm text-slate-400">{t("auth.loggedInAs")}</p>
         <p className="font-medium">{me.user.display_name}</p>
         <p className="text-xs text-slate-500">{me.user.email}</p>
         <p className="text-xs text-slate-500 mt-1">
-          E-mail {me.user.email_verified ? "✓ ověřen" : "⚠ neověřen — zkontroluj inbox"}
+          {t("auth.label.email")} {me.user.email_verified ? t("auth.emailVerified") : t("auth.emailUnverified")}
         </p>
       </div>
       <ProfilePreview profile={me.profile} />
@@ -217,20 +273,21 @@ function AuthenticatedView({ me, onLogout }: { me: Me; onLogout: () => void }) {
         onClick={onLogout}
         className="w-full bg-slate-800 hover:bg-slate-700 text-slate-100 rounded-md py-2 text-sm font-medium ring-1 ring-slate-700 transition"
       >
-        Odhlásit se
+        {t("auth.button.logout")}
       </button>
     </div>
   );
 }
 
 function ProfilePreview({ profile }: { profile: Me["profile"] }) {
+  const { t } = useTranslation();
   return (
     <dl className="grid grid-cols-2 gap-3 text-xs">
-      <Stat label="Jazyk UI" value={profile.language.toUpperCase()} />
-      <Stat label="Timezone" value={profile.timezone_name} />
-      <Stat label="Viditelnost polohy" value={profile.location_visibility} />
+      <Stat label={t("profile.language")} value={profile.language.toUpperCase()} />
+      <Stat label={t("profile.timezone")} value={profile.timezone_name} />
+      <Stat label={t("profile.locationVisibility")} value={profile.location_visibility} />
       <Stat
-        label="Storage"
+        label={t("profile.storage")}
         value={`${(profile.storage_used_bytes / 1024 / 1024).toFixed(1)} / ${(profile.storage_quota_bytes / 1024 / 1024 / 1024).toFixed(0)} GB`}
       />
     </dl>

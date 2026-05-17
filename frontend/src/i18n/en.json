@@ -1,0 +1,49 @@
+{
+  "common": {
+    "brand": "Astrozor",
+    "loading": "Loading…",
+    "krok": "Step"
+  },
+  "lang": {
+    "cs": "Čeština",
+    "en": "English",
+    "switchTo": "Switch to {{lang}}"
+  },
+  "auth": {
+    "welcome": "Welcome to Astrozor. Please log in or sign up to continue.",
+    "tab": {
+      "login": "Log in",
+      "signup": "Sign up",
+      "magic": "Magic link"
+    },
+    "label": {
+      "email": "E-mail",
+      "password": "Password",
+      "passwordMin": "Password (min 8 chars)",
+      "displayName": "Display name (optional)"
+    },
+    "button": {
+      "signup": "Create account",
+      "login": "Log in",
+      "magic": "Send magic link",
+      "logout": "Log out"
+    },
+    "magicLink": {
+      "intro": "We'll send you a link that signs you in. No password needed.",
+      "sent": "✓ If the email is registered, a link was sent.",
+      "devHint": "In dev, open {{url}} (MailHog) and click the link."
+    },
+    "signup": {
+      "mailhogHint": "Verification e-mail arrives in MailHog at {{url}}."
+    },
+    "loggedInAs": "Logged in as",
+    "emailVerified": "✓ verified",
+    "emailUnverified": "⚠ not verified — check your inbox"
+  },
+  "profile": {
+    "language": "UI language",
+    "timezone": "Timezone",
+    "locationVisibility": "Location visibility",
+    "storage": "Storage"
+  }
+}

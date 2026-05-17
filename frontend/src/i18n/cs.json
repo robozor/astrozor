@@ -1,0 +1,49 @@
+{
+  "common": {
+    "brand": "Astrozor",
+    "loading": "Načítám…",
+    "krok": "Krok"
+  },
+  "lang": {
+    "cs": "Čeština",
+    "en": "English",
+    "switchTo": "Přepnout na {{lang}}"
+  },
+  "auth": {
+    "welcome": "Vítej v Astrozoru. Pro pokračování se přihlas nebo zaregistruj.",
+    "tab": {
+      "login": "Přihlášení",
+      "signup": "Registrace",
+      "magic": "Magic link"
+    },
+    "label": {
+      "email": "E-mail",
+      "password": "Heslo",
+      "passwordMin": "Heslo (min. 8 znaků)",
+      "displayName": "Přezdívka (volitelně)"
+    },
+    "button": {
+      "signup": "Vytvořit účet",
+      "login": "Přihlásit se",
+      "magic": "Poslat magic link",
+      "logout": "Odhlásit se"
+    },
+    "magicLink": {
+      "intro": "Pošleme ti odkaz, na který stačí kliknout a budeš přihlášen(a). Bez hesla.",
+      "sent": "✓ Pokud je e-mail v naší databázi, odkaz byl odeslán.",
+      "devHint": "V dev prostředí otevři {{url}} (MailHog) a klikni na odkaz."
+    },
+    "signup": {
+      "mailhogHint": "Ověřovací e-mail dorazí v MailHogu na {{url}}."
+    },
+    "loggedInAs": "Přihlášen(a) jako",
+    "emailVerified": "✓ ověřen",
+    "emailUnverified": "⚠ neověřen — zkontroluj inbox"
+  },
+  "profile": {
+    "language": "Jazyk UI",
+    "timezone": "Timezone",
+    "locationVisibility": "Viditelnost polohy",
+    "storage": "Storage"
+  }
+}

@@ -6,6 +6,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-05-17
+
+### Added — Krok 2: i18n + Weblate scaffold
+- Django i18n: `LocaleMiddleware`, `LOCALE_PATHS`, `LANGUAGE_COOKIE_NAME=astrozor_lang`.
+- `ProfileLanguageMiddleware` — for authenticated users, overrides request language with `profile.language`.
+- Frontend i18next setup with cs/en JSON bundles and `i18next-browser-languagedetector`.
+- All UI strings extracted to `frontend/src/i18n/{cs,en}.json` (common, lang, auth, profile namespaces).
+- `LanguageSwitcher` component in the header — CS / EN toggle. For authenticated users, the choice is persisted to `profile.language` via PATCH.
+- Weblate compose scaffold (`compose/docker-compose.weblate.yml`) behind `--profile weblate`. Includes weblate + dedicated postgres + reuses shared redis/mailhog.
+- Runbook: `docs/runbook/weblate.md` with setup procedure, GitHub integration steps.
+- 2 Playwright tests for Krok 2 acceptance (cs↔en switch + reload persistence, authenticated user profile sync).
+
+### Changed
+- `App.tsx` rewired to use `useTranslation()` and translation keys for every visible string.
+- `data-testid` attributes added to tabs (`tab-login`/`tab-signup`/`tab-magic`) and language buttons (`lang-cs`/`lang-en`) for stable E2E selectors that don't depend on translated text.
+
 ## [0.1.0] — 2026-05-17
 
 ### Added — Krok 1: Authentication & profile
