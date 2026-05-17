@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "apps.core",
     "apps.accounts",
     "apps.places",
+    "apps.presence",
 ]
 
 AUTH_USER_MODEL = "accounts.User"

@@ -16,6 +16,10 @@ app.conf.beat_schedule = {
         "task": "places.cleanup_expired_temporary",
         "schedule": 300.0,  # every 5 min
     },
+    "presence-cleanup-expired-checkins": {
+        "task": "presence.cleanup_expired_checkins",
+        "schedule": 60.0,  # every 60 s
+    },
 }
 
 
