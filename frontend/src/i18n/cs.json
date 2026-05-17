@@ -149,6 +149,18 @@
       "refresh": "Obnovit",
       "remove": "Odebrat",
       "issues": "issues"
+    },
+    "issues": {
+      "title": "Otevřené úkoly (issues)",
+      "toggle": "Issues",
+      "empty": "Žádné otevřené issues.",
+      "openOnGh": "Issues na GH",
+      "boards": "Project boards",
+      "openIssue": "Otevřít issue",
+      "claim": "Ujmout se úkolu",
+      "claimed": "Komentář odeslán",
+      "assignedTo": "Přiřazeno",
+      "needGhConnect": "Pro 'Ujmout se úkolu' potřebuješ propojený GitHub účet v Nastavení."
     }
   },
   "events": {

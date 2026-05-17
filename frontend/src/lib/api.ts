@@ -345,6 +345,24 @@ export type GHRepo = {
   last_status: string;
 };
 
+export type GHIssue = {
+  number: number;
+  title: string;
+  state: "open" | "closed";
+  html_url: string;
+  comments: number;
+  labels: { name: string; color: string }[];
+  assignees: { login: string; avatar_url: string; html_url: string }[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type GHIssueClaim = {
+  status: string;
+  html_url?: string;
+  detail?: string;
+};
+
 export const projects = {
   list: () => api.get<Project[]>("/projects"),
   get: (slug: string) => api.get<Project>(`/projects/${slug}`),
@@ -360,6 +378,11 @@ export const projects = {
     api.post<GHRepo>(`/projects/${slug}/repos`, { full_name }),
   refreshRepo: (repoId: string) => api.post<GHRepo>(`/repos/${repoId}/refresh`),
   removeRepo: (repoId: string) => api.del<void>(`/repos/${repoId}`),
+  issues: (repoId: string) => api.get<GHIssue[]>(`/repos/${repoId}/issues`),
+  claimIssue: (repoId: string, issueNumber: number, body?: string) =>
+    api.post<GHIssueClaim>(`/repos/${repoId}/issues/${issueNumber}/claim`, {
+      body: body ?? "",
+    }),
 };
 
 // ---- Events ----

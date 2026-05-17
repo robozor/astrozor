@@ -149,6 +149,18 @@
       "refresh": "Refresh",
       "remove": "Remove",
       "issues": "issues"
+    },
+    "issues": {
+      "title": "Open tasks (issues)",
+      "toggle": "Issues",
+      "empty": "No open issues.",
+      "openOnGh": "Issues on GH",
+      "boards": "Project boards",
+      "openIssue": "Open issue",
+      "claim": "Take this on",
+      "claimed": "Comment posted",
+      "assignedTo": "Assigned to",
+      "needGhConnect": "Connect your GitHub account in Settings to claim issues."
     }
   },
   "events": {

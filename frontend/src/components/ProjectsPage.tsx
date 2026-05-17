@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { projects, type GHRepo, type Me, type Project } from "../lib/api";
+import { auth, projects, type GHIssue, type GHRepo, type Me, type Project } from "../lib/api";
 
 type View = { kind: "list" } | { kind: "detail"; slug: string } | { kind: "new" };
 
@@ -179,6 +179,7 @@ function RepoCard({
 }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
+  const [showIssues, setShowIssues] = useState(false);
   const refresh = useMutation({
     mutationFn: () => projects.refreshRepo(repo.id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["project-repos", projectSlug] }),
@@ -215,25 +216,202 @@ function RepoCard({
       {repo.last_status && repo.last_status !== "ok" && (
         <p className="text-xs text-amber-400 mt-1">⚠ {repo.last_status}</p>
       )}
-      {canManage && (
-        <div className="flex gap-2 mt-2">
-          <button
-            type="button"
-            onClick={() => refresh.mutate()}
-            disabled={refresh.isPending}
-            className="text-xs text-slate-400 hover:text-slate-200"
-          >
-            {refresh.isPending ? "…" : t("projects.repos.refresh")}
-          </button>
-          <button
-            type="button"
-            onClick={() => remove.mutate()}
-            className="text-xs text-rose-400 hover:text-rose-300"
-          >
-            {t("projects.repos.remove")}
-          </button>
-        </div>
+      <div className="flex flex-wrap gap-3 mt-2">
+        <button
+          type="button"
+          onClick={() => setShowIssues((s) => !s)}
+          className="text-xs text-indigo-300 hover:text-indigo-200"
+          data-testid={`repo-toggle-issues-${repo.id}`}
+        >
+          {showIssues ? "▾" : "▸"} {t("projects.issues.toggle")}
+        </button>
+        <a
+          href={`${repo.html_url}/issues`}
+          target="_blank"
+          rel="noopener"
+          className="text-xs text-slate-400 hover:text-slate-200"
+        >
+          {t("projects.issues.openOnGh")} ↗
+        </a>
+        <a
+          href={`${repo.html_url}/projects`}
+          target="_blank"
+          rel="noopener"
+          className="text-xs text-slate-400 hover:text-slate-200"
+        >
+          {t("projects.issues.boards")} ↗
+        </a>
+        {canManage && (
+          <>
+            <button
+              type="button"
+              onClick={() => refresh.mutate()}
+              disabled={refresh.isPending}
+              className="text-xs text-slate-400 hover:text-slate-200 ml-auto"
+            >
+              {refresh.isPending ? "…" : t("projects.repos.refresh")}
+            </button>
+            <button
+              type="button"
+              onClick={() => remove.mutate()}
+              className="text-xs text-rose-400 hover:text-rose-300"
+            >
+              {t("projects.repos.remove")}
+            </button>
+          </>
+        )}
+      </div>
+      {showIssues && <IssuesPanel repo={repo} />}
+    </li>
+  );
+}
+
+function IssuesPanel({ repo }: { repo: GHRepo }) {
+  const { t } = useTranslation();
+  const issues = useQuery({
+    queryKey: ["repo-issues", repo.id],
+    queryFn: () => projects.issues(repo.id),
+  });
+  const identities = useQuery({
+    queryKey: ["identities"],
+    queryFn: () => auth.listIdentities(),
+  });
+  const hasGhIdentity = !!identities.data?.some(
+    (i) => i.provider === "github" && i.has_token,
+  );
+
+  return (
+    <div className="mt-3 border-t border-slate-800 pt-3">
+      <h4 className="text-xs font-medium text-slate-300 mb-2">
+        {t("projects.issues.title")}
+      </h4>
+      {issues.isLoading && (
+        <p className="text-xs text-slate-500">{t("common.loading")}</p>
       )}
+      {issues.isSuccess && issues.data.length === 0 && (
+        <p className="text-xs text-slate-500">{t("projects.issues.empty")}</p>
+      )}
+      <ul className="space-y-2">
+        {issues.data?.map((issue) => (
+          <IssueRow
+            key={issue.number}
+            issue={issue}
+            repo={repo}
+            canClaim={hasGhIdentity}
+          />
+        ))}
+      </ul>
+      {!hasGhIdentity && issues.data && issues.data.length > 0 && (
+        <p className="text-xs text-slate-500 mt-2">
+          {t("projects.issues.needGhConnect")}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function IssueRow({
+  issue,
+  repo,
+  canClaim,
+}: {
+  issue: GHIssue;
+  repo: GHRepo;
+  canClaim: boolean;
+}) {
+  const { t } = useTranslation();
+  const [claimed, setClaimed] = useState<string | null>(null);
+  const claim = useMutation({
+    mutationFn: () => projects.claimIssue(repo.id, issue.number),
+    onSuccess: (res) => {
+      if (res.status === "ok" && res.html_url) {
+        setClaimed(res.html_url);
+      }
+    },
+  });
+
+  const ghLink = issue.html_url || `${repo.html_url}/issues/${issue.number}`;
+
+  return (
+    <li
+      className="bg-slate-900/60 ring-1 ring-slate-800 rounded-md p-2"
+      data-testid={`issue-${issue.number}`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <a
+            href={ghLink}
+            target="_blank"
+            rel="noopener"
+            className="text-sm text-slate-100 hover:text-indigo-300"
+          >
+            #{issue.number} {issue.title}
+          </a>
+          <div className="flex flex-wrap gap-1 mt-1">
+            {issue.labels.map((lab) => (
+              <span
+                key={lab.name}
+                className="text-[10px] px-1.5 py-0.5 rounded font-mono"
+                style={{
+                  background: `#${lab.color || "475569"}33`,
+                  color: `#${lab.color || "94a3b8"}`,
+                  border: `1px solid #${lab.color || "475569"}66`,
+                }}
+              >
+                {lab.name}
+              </span>
+            ))}
+          </div>
+          {issue.assignees.length > 0 && (
+            <p className="text-[10px] text-slate-500 mt-1">
+              {t("projects.issues.assignedTo")}:{" "}
+              {issue.assignees.map((a) => a.login).join(", ")}
+            </p>
+          )}
+        </div>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <span className="text-[10px] text-slate-500 font-mono">{issue.state}</span>
+          {issue.comments > 0 && (
+            <span className="text-[10px] text-slate-500">💬 {issue.comments}</span>
+          )}
+        </div>
+      </div>
+      <div className="flex gap-2 mt-2">
+        <a
+          href={ghLink}
+          target="_blank"
+          rel="noopener"
+          className="text-xs text-slate-400 hover:text-slate-200"
+        >
+          {t("projects.issues.openIssue")} ↗
+        </a>
+        {canClaim && !claimed && (
+          <button
+            type="button"
+            onClick={() => claim.mutate()}
+            disabled={claim.isPending}
+            className="text-xs text-emerald-400 hover:text-emerald-300 disabled:opacity-50"
+            data-testid={`issue-claim-${issue.number}`}
+          >
+            {claim.isPending ? "…" : t("projects.issues.claim")}
+          </button>
+        )}
+        {claimed && (
+          <a
+            href={claimed}
+            target="_blank"
+            rel="noopener"
+            className="text-xs text-emerald-400 hover:text-emerald-300"
+          >
+            ✓ {t("projects.issues.claimed")} ↗
+          </a>
+        )}
+        {claim.data && claim.data.status !== "ok" && (
+          <span className="text-xs text-rose-400">
+            {claim.data.status}: {claim.data.detail}
+          </span>
+        )}
+      </div>
     </li>
   );
 }

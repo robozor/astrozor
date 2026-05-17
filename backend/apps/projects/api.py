@@ -4,9 +4,15 @@ from django.http import HttpRequest
 from django.utils.text import slugify
 from ninja import Router
 
-from .github import fetch_repo_metadata
+from ninja import Schema
+
+from .github import fetch_repo_issues, fetch_repo_metadata, post_issue_comment
 from .models import GHRepo, Membership, Project
 from .schemas import GHRepoIn, GHRepoOut, ProjectIn, ProjectOut
+
+
+class IssueClaimIn(Schema):
+    body: str = ""
 
 router = Router(tags=["projects"])
 
@@ -161,6 +167,41 @@ def refresh_repo(request: HttpRequest, repo_id: str):
     fetch_repo_metadata(r, user=request.user)
     r.refresh_from_db()
     return 200, _repo_out(r)
+
+
+@router.get("/repos/{repo_id}/issues", response={200: list[dict], 404: dict})
+def list_repo_issues(request: HttpRequest, repo_id: str):
+    """List open GH issues for a linked repo (live from GitHub API)."""
+    try:
+        r = GHRepo.objects.get(id=repo_id)
+    except (GHRepo.DoesNotExist, ValueError):
+        return 404, {"detail": "Repo not found"}
+    user = request.user if request.user.is_authenticated else None
+    return 200, fetch_repo_issues(r, user=user)
+
+
+@router.post(
+    "/repos/{repo_id}/issues/{issue_number}/claim",
+    response={200: dict, 401: dict, 404: dict},
+)
+def claim_repo_issue(
+    request: HttpRequest, repo_id: str, issue_number: int, payload: IssueClaimIn
+):
+    """Post a 'I'd like to take this on' comment on the GH issue using the
+    caller's connected GitHub access_token. Requires the user to have a
+    connected GH identity. Returns the comment URL on success.
+    """
+    if not _require_auth(request):
+        return 401, {"detail": "Authentication required"}
+    try:
+        r = GHRepo.objects.get(id=repo_id)
+    except (GHRepo.DoesNotExist, ValueError):
+        return 404, {"detail": "Repo not found"}
+    body = (payload.body or "").strip() or (
+        "🙋 I'd like to take this on. — via Astrozor"
+    )
+    result = post_issue_comment(r, issue_number, body, request.user)
+    return 200, result
 
 
 @router.delete("/repos/{repo_id}", response={204: None, 401: dict, 404: dict})
