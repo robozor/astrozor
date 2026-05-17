@@ -6,6 +6,7 @@ import { SUPPORTED_LANGUAGES, type LanguageCode } from "./i18n";
 import { MapView } from "./components/MapView";
 import { SettingsPage } from "./components/SettingsPage";
 import { ArticlesPage } from "./components/ArticlesPage";
+import { NotificationsBell } from "./components/NotificationsBell";
 
 type Page = "map" | "settings" | "articles";
 
@@ -77,6 +78,7 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
             />
           </nav>
           <div className="ml-auto flex items-center gap-2">
+            <NotificationsBell />
             <span className="text-xs text-slate-400 hidden sm:inline">{me.user.display_name}</span>
             <LanguageSwitcher isAuthed={true} />
             <button

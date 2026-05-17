@@ -5,6 +5,11 @@
     "krok": "Step",
     "cancel": "Cancel"
   },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "No notifications",
+    "markAllRead": "Mark all as read"
+  },
   "articles": {
     "new": "New article",
     "back": "Back to list",

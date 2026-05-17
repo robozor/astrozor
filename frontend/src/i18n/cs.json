@@ -5,6 +5,11 @@
     "krok": "Krok",
     "cancel": "Zrušit"
   },
+  "notifications": {
+    "title": "Notifikace",
+    "empty": "Žádné notifikace",
+    "markAllRead": "Označit vše jako přečtené"
+  },
   "articles": {
     "new": "Nový článek",
     "back": "Zpět na seznam",
