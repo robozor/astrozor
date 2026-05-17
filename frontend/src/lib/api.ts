@@ -535,7 +535,8 @@ export const articles = {
     api.post<Article>("/articles", data),
   patch: (slug: string, data: Partial<{ title: string; summary: string; content_md: string }>) =>
     api.patch<Article>(`/articles/${slug}`, data),
-  publish: (slug: string) => api.post<Article>(`/articles/${slug}/publish`),
+  publish: (slug: string, options?: { mint_doi?: boolean }) =>
+    api.post<Article>(`/articles/${slug}/publish`, { mint_doi: !!options?.mint_doi }),
   remove: (slug: string) => api.del<void>(`/articles/${slug}`),
   comments: (slug: string) =>
     api.get<{ count: number; items: Comment[] }>(`/articles/${slug}/comments`),

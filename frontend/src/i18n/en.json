@@ -50,7 +50,10 @@
       "summaryPlaceholder": "Short summary (optional)",
       "saveDraft": "Save draft",
       "saveChanges": "Save changes",
-      "publish": "Publish (mints DOI)",
+      "publish": "Publish",
+      "mintDoi": "Mint DOI",
+      "doiHint": "On publish a DOI will be issued on your connected Zenodo account.",
+      "doiUnavailable": "To mint a DOI, first add a Zenodo token in Settings → Integrations.",
       "edit": "Edit",
       "editing": "Editing article"
     }

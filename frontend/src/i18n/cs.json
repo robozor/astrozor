@@ -50,7 +50,10 @@
       "summaryPlaceholder": "Krátké shrnutí (volitelně)",
       "saveDraft": "Uložit koncept",
       "saveChanges": "Uložit změny",
-      "publish": "Publikovat (vystaví DOI)",
+      "publish": "Publikovat",
+      "mintDoi": "Vystavit DOI",
+      "doiHint": "Při publikaci se vygeneruje DOI na tvůj propojený Zenodo účet.",
+      "doiUnavailable": "Pro vystavení DOI nejprve vlož Zenodo token v Nastavení → Integrace.",
       "edit": "Upravit",
       "editing": "Úprava článku"
     }

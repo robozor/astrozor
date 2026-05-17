@@ -8,10 +8,18 @@ from django.utils.text import slugify
 from ninja import Query, Router
 
 from apps.accounts.mastodon_post import post_status as mastodon_post_status
+from ninja import Schema
 
 from .doi import mint_doi
 from .models import Article, Comment
 from .rendering import render_markdown
+
+
+class PublishIn(Schema):
+    # Authors must explicitly opt-in to DOI minting each time they publish.
+    # Defaults to False so the publish step never accidentally burns a
+    # Zenodo deposit (or hits the MOCK fallback when no token is configured).
+    mint_doi: bool = False
 from .schemas import (
     ArticleCreateIn,
     ArticleListItem,
@@ -183,7 +191,7 @@ def update_article(request: HttpRequest, slug: str, payload: ArticlePatchIn):
 
 
 @router.post("/articles/{slug}/publish", response={200: ArticleOut, 401: dict, 403: dict, 404: dict})
-def publish_article(request: HttpRequest, slug: str):
+def publish_article(request: HttpRequest, slug: str, payload: PublishIn = PublishIn()):
     if not _require_auth(request):
         return 401, {"detail": "Authentication required"}
     try:
@@ -195,7 +203,9 @@ def publish_article(request: HttpRequest, slug: str):
 
     a.status = Article.Status.PUBLISHED
     a.published_at = timezone.now()
-    if not a.doi:
+    # DOI minting is opt-in per publish. Re-publishing an article (e.g. to
+    # restart Mastodon share flow) won't re-mint if a.doi is already set.
+    if payload.mint_doi and not a.doi:
         a.doi = mint_doi(a.id, a.title, user=a.author, description=a.summary)
     if a.content_md and not a.content_html:
         a.content_html = render_markdown(a.content_md)

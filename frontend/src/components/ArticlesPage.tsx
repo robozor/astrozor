@@ -316,6 +316,8 @@ function ArticleEditor({
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [contentMd, setContentMd] = useState(isEdit ? "" : NEW_TEMPLATE);
+  const [mintDoi, setMintDoi] = useState(false);
+  const doiAvailable = me.profile.has_zenodo_token;
   // Baseline for the Diff view — the text we started from (either the
   // template for new articles, or the last saved version for edits).
   // Captured once at hydration, never updated mid-session so the diff
@@ -354,7 +356,7 @@ function ArticleEditor({
         content_md: contentMd,
         language: i18n.language.startsWith("cs") ? "cs" : "en",
       });
-      return articles.publish(a.slug);
+      return articles.publish(a.slug, { mint_doi: mintDoi && doiAvailable });
     },
     onSuccess: (a) => onDone(a.slug),
   });
@@ -370,7 +372,7 @@ function ArticleEditor({
   const publishExisting = useMutation({
     mutationFn: async () => {
       await articles.patch(editSlug!, { title, summary, content_md: contentMd });
-      return articles.publish(editSlug!);
+      return articles.publish(editSlug!, { mint_doi: mintDoi && doiAvailable });
     },
     onSuccess: (a) => {
       queryClient.invalidateQueries({ queryKey: ["article", a.slug] });
@@ -441,7 +443,7 @@ function ArticleEditor({
         )}
       </div>
 
-      <div className="mt-4 flex gap-2">
+      <div className="mt-4 flex items-center gap-3 flex-wrap">
         {!isEdit && (
           <>
             <button
@@ -460,6 +462,11 @@ function ArticleEditor({
             >
               {createAndPublish.isPending ? "…" : t("articles.editor.publish")}
             </button>
+            <DoiCheckbox
+              checked={mintDoi}
+              onChange={setMintDoi}
+              available={doiAvailable}
+            />
           </>
         )}
         {isEdit && (
@@ -478,14 +485,21 @@ function ArticleEditor({
                   : t("articles.editor.saveDraft")}
             </button>
             {!isPublished && (
-              <button
-                type="button"
-                onClick={() => publishExisting.mutate()}
-                disabled={!title.trim() || pending}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-100 text-sm px-4 py-2 rounded-md ring-1 ring-slate-700 transition"
-              >
-                {publishExisting.isPending ? "…" : t("articles.editor.publish")}
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => publishExisting.mutate()}
+                  disabled={!title.trim() || pending}
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-100 text-sm px-4 py-2 rounded-md ring-1 ring-slate-700 transition"
+                >
+                  {publishExisting.isPending ? "…" : t("articles.editor.publish")}
+                </button>
+                <DoiCheckbox
+                  checked={mintDoi}
+                  onChange={setMintDoi}
+                  available={doiAvailable}
+                />
+              </>
             )}
           </>
         )}
@@ -495,5 +509,39 @@ function ArticleEditor({
         <p className="mt-2 text-xs text-rose-400">{error.message}</p>
       )}
     </section>
+  );
+}
+
+function DoiCheckbox({
+  checked,
+  onChange,
+  available,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  available: boolean;
+}) {
+  const { t } = useTranslation();
+  return (
+    <label
+      className={`flex items-center gap-2 text-xs select-none ${
+        available ? "text-slate-300 cursor-pointer" : "text-slate-600 cursor-not-allowed"
+      }`}
+      title={
+        available
+          ? t("articles.editor.doiHint")
+          : t("articles.editor.doiUnavailable")
+      }
+    >
+      <input
+        type="checkbox"
+        checked={available && checked}
+        disabled={!available}
+        onChange={(e) => onChange(e.target.checked)}
+        data-testid="mint-doi"
+        className="accent-indigo-500"
+      />
+      <span>{t("articles.editor.mintDoi")}</span>
+    </label>
   );
 }
