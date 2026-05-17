@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { Map, Marker, type MapStyle } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { places, type Me, type Place } from "../lib/api";
+import { places, subscriptions, type Me, type Place } from "../lib/api";
+import { MapMarker } from "./MapMarker";
 import { PlaceDetailPanel } from "./PlaceDetailPanel";
 
 // OSM raster style — dev only. Production target = self-hosted PMTiles (ADR-005).
@@ -21,15 +22,17 @@ const OSM_STYLE: MapStyle = {
   layers: [{ id: "osm", type: "raster", source: "osm" }],
 };
 
-const KIND_COLOR: Record<Place["kind"], string> = {
-  observatory_public: "#22d3ee", // cyan
-  observatory_private: "#a78bfa", // purple
-  spot_permanent: "#fbbf24", // amber
-  spot_temporary: "#f472b6", // pink
-};
-
 export function MapView({ me }: { me?: Me | null } = {}) {
   const placesQuery = useQuery({ queryKey: ["places"], queryFn: () => places.list() });
+  const subsQuery = useQuery({
+    queryKey: ["subscriptions"],
+    queryFn: () => subscriptions.list(),
+    enabled: !!me,
+  });
+  const subscribedIds = useMemo(
+    () => new Set((subsQuery.data ?? []).filter((s) => s.kind === "place").map((s) => s.target_id)),
+    [subsQuery.data],
+  );
   const [selected, setSelected] = useState<Place | null>(null);
 
   // Center of CR by default
@@ -50,23 +53,18 @@ export function MapView({ me }: { me?: Me | null } = {}) {
             key={p.id}
             longitude={p.lon}
             latitude={p.lat}
-            anchor="bottom"
+            anchor="center"
             onClick={(e) => {
               e.originalEvent.stopPropagation();
               setSelected(p);
             }}
           >
-            <div
-              data-testid={`marker-${p.slug}`}
-              role="button"
-              aria-label={p.name}
-              title={p.name}
-              className="rounded-full ring-2 ring-slate-950 shadow-lg cursor-pointer"
-              style={{
-                width: 16,
-                height: 16,
-                background: KIND_COLOR[p.kind] ?? "#fff",
-              }}
+            <MapMarker
+              kind={p.kind}
+              active={p.active_checkin_count > 0}
+              subscribed={subscribedIds.has(p.id)}
+              testid={`marker-${p.slug}`}
+              ariaLabel={p.name}
             />
           </Marker>
         ))}
