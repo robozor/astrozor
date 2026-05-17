@@ -7,19 +7,54 @@
 .astrozor-mdx {
   /* Soften the library's near-black to align with slate-950 */
   background: #020617;
+  /* User-resizable vertical handle on the wrapper itself */
+  resize: vertical;
+  overflow: hidden;
+  /* Default sizing — generous, can be dragged smaller/larger by the
+     resize handle in the bottom-right corner */
+  min-height: 400px;
+  height: 60vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .astrozor-mdx [class*="_toolbarRoot"] {
   background: #0f172a;
   border-bottom: 1px solid #1e293b;
+  flex: 0 0 auto;
 }
 
-/* Editable content area — typography for the article body */
-.astrozor-mdx .astrozor-mdx-content {
-  min-height: 280px;
+/* Editor root (contains the toolbar + content area) needs to fill the
+   resized wrapper, and the contenteditable area inside scrolls. */
+.astrozor-mdx [class*="_editorRoot"],
+.astrozor-mdx [class*="_editorWrapper"],
+.astrozor-mdx [class*="_rootContentEditableWrapper"] {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The editable surface (rich-text OR source / diff codemirror) takes
+   all remaining space and scrolls internally */
+.astrozor-mdx .astrozor-mdx-content,
+.astrozor-mdx [class*="_sourceView"],
+.astrozor-mdx [class*="_diffSourceWrapper"] .cm-editor,
+.astrozor-mdx [class*="_diffSourceWrapper"] [class*="_diffView"] {
+  flex: 1 1 auto;
+  min-height: 320px;
+  max-height: none;
+  overflow: auto;
   padding: 1rem;
   font-size: 0.95rem;
   line-height: 1.6;
+}
+
+/* CodeMirror (source view + code blocks) needs explicit fill behavior */
+.astrozor-mdx [class*="_sourceView"] .cm-editor,
+.astrozor-mdx [class*="_diffSourceWrapper"] .cm-editor {
+  height: 100% !important;
+  min-height: 320px;
 }
 
 .astrozor-mdx .astrozor-mdx-content :is(h1, h2, h3, h4) {

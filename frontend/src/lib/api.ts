@@ -232,6 +232,7 @@ export type Article = ArticleListItem & {
   engine: string;
   author_email: string;
   license: string;
+  content_md: string;
   content_html: string;
   updated_at: string;
 };

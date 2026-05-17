@@ -47,7 +47,10 @@
       "titlePlaceholder": "Název článku",
       "summaryPlaceholder": "Krátké shrnutí (volitelně)",
       "saveDraft": "Uložit koncept",
-      "publish": "Publikovat (vystaví DOI)"
+      "saveChanges": "Uložit změny",
+      "publish": "Publikovat (vystaví DOI)",
+      "edit": "Upravit",
+      "editing": "Úprava článku"
     }
   },
   "lang": {

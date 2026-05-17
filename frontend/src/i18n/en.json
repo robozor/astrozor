@@ -47,7 +47,10 @@
       "titlePlaceholder": "Article title",
       "summaryPlaceholder": "Short summary (optional)",
       "saveDraft": "Save draft",
-      "publish": "Publish (mints DOI)"
+      "saveChanges": "Save changes",
+      "publish": "Publish (mints DOI)",
+      "edit": "Edit",
+      "editing": "Editing article"
     }
   },
   "lang": {

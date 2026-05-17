@@ -61,6 +61,7 @@ def _article_out(a: Article) -> dict:
         "author_display_name": _author_display(a.author),
         "license": a.license,
         "doi": a.doi,
+        "content_md": a.content_md,
         "content_html": a.content_html,
         "published_at": a.published_at,
         "created_at": a.created_at,

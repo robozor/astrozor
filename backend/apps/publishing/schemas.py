@@ -35,6 +35,7 @@ class ArticleOut(Schema):
     author_display_name: str
     license: str
     doi: str
+    content_md: str
     content_html: str
     published_at: datetime | None
     created_at: datetime

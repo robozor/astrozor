@@ -4,16 +4,43 @@ import { useTranslation } from "react-i18next";
 import { articles, type ArticleListItem, type Me } from "../lib/api";
 import { MarkdownEditor } from "./MarkdownEditor";
 
-type View = { kind: "list" } | { kind: "detail"; slug: string } | { kind: "new" };
+type View =
+  | { kind: "list" }
+  | { kind: "detail"; slug: string }
+  | { kind: "new" }
+  | { kind: "edit"; slug: string };
 
 export function ArticlesPage({ me }: { me: Me }) {
   const [view, setView] = useState<View>({ kind: "list" });
 
   if (view.kind === "detail") {
-    return <ArticleDetail slug={view.slug} me={me} onBack={() => setView({ kind: "list" })} />;
+    return (
+      <ArticleDetail
+        slug={view.slug}
+        me={me}
+        onBack={() => setView({ kind: "list" })}
+        onEdit={() => setView({ kind: "edit", slug: view.slug })}
+      />
+    );
   }
   if (view.kind === "new") {
-    return <ArticleEditor me={me} onDone={(slug) => setView({ kind: "detail", slug })} onCancel={() => setView({ kind: "list" })} />;
+    return (
+      <ArticleEditor
+        me={me}
+        onDone={(slug) => setView({ kind: "detail", slug })}
+        onCancel={() => setView({ kind: "list" })}
+      />
+    );
+  }
+  if (view.kind === "edit") {
+    return (
+      <ArticleEditor
+        me={me}
+        editSlug={view.slug}
+        onDone={(slug) => setView({ kind: "detail", slug })}
+        onCancel={() => setView({ kind: "detail", slug: view.slug })}
+      />
+    );
   }
   return <ArticleList onOpen={(slug) => setView({ kind: "detail", slug })} onNew={() => setView({ kind: "new" })} />;
 }
@@ -89,7 +116,17 @@ function ArticleCard({ article, onOpen }: { article: ArticleListItem; onOpen: ()
 
 // ---- Detail ----
 
-function ArticleDetail({ slug, me, onBack }: { slug: string; me: Me; onBack: () => void }) {
+function ArticleDetail({
+  slug,
+  me,
+  onBack,
+  onEdit,
+}: {
+  slug: string;
+  me: Me;
+  onBack: () => void;
+  onEdit: () => void;
+}) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const detail = useQuery({
@@ -113,17 +150,30 @@ function ArticleDetail({ slug, me, onBack }: { slug: string; me: Me; onBack: () 
   if (detail.isLoading) return <p className="text-slate-500 text-sm">{t("common.loading")}</p>;
   if (detail.isError) return <p className="text-rose-400 text-sm">404</p>;
   const article = detail.data!;
-  const isOwnDraft = article.author_email === me.user.email && article.status !== "published";
+  const isAuthor = article.author_email === me.user.email;
+  const isOwnDraft = isAuthor && article.status !== "published";
 
   return (
     <article>
-      <button
-        type="button"
-        onClick={onBack}
-        className="text-sm text-slate-400 hover:text-slate-200 mb-4"
-      >
-        ← {t("articles.back")}
-      </button>
+      <div className="flex items-center justify-between mb-4">
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-sm text-slate-400 hover:text-slate-200"
+        >
+          ← {t("articles.back")}
+        </button>
+        {isAuthor && (
+          <button
+            type="button"
+            onClick={onEdit}
+            data-testid="article-edit"
+            className="text-sm bg-slate-800 hover:bg-slate-700 text-slate-100 px-3 py-1 rounded-md ring-1 ring-slate-700 transition"
+          >
+            ✎ {t("articles.editor.edit")}
+          </button>
+        )}
+      </div>
 
       <header className="mb-6">
         <h2 className="text-2xl font-semibold">{article.title}</h2>
@@ -196,21 +246,48 @@ function ArticleDetail({ slug, me, onBack }: { slug: string; me: Me; onBack: () 
   );
 }
 
-// ---- Editor (minimal: textarea Markdown + publish) ----
+// ---- Editor: create new + edit existing ----
 
 function ArticleEditor({
   me,
+  editSlug,
   onDone,
   onCancel,
 }: {
   me: Me;
+  editSlug?: string;
   onDone: (slug: string) => void;
   onCancel: () => void;
 }) {
   const { t, i18n } = useTranslation();
+  const queryClient = useQueryClient();
+  const isEdit = !!editSlug;
+  void me;
+
+  // When editing, fetch existing article to prefill form
+  const existing = useQuery({
+    queryKey: ["article", editSlug],
+    queryFn: () => articles.get(editSlug!),
+    enabled: isEdit,
+  });
+
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
-  const [contentMd, setContentMd] = useState("# Title\n\nWrite something **in Markdown**.\n");
+  const [contentMd, setContentMd] = useState(
+    isEdit ? "" : "# Title\n\nWrite something **in Markdown**.\n",
+  );
+  const [hydrated, setHydrated] = useState(!isEdit);
+
+  // Hydrate form once when the existing article arrives
+  useEffect(() => {
+    if (isEdit && existing.isSuccess && !hydrated) {
+      const a = existing.data;
+      setTitle(a.title);
+      setSummary(a.summary);
+      setContentMd(a.content_md || "");
+      setHydrated(true);
+    }
+  }, [isEdit, existing.isSuccess, existing.data, hydrated]);
 
   const create = useMutation({
     mutationFn: () =>
@@ -234,13 +311,52 @@ function ArticleEditor({
     },
     onSuccess: (a) => onDone(a.slug),
   });
+  const update = useMutation({
+    mutationFn: () =>
+      articles.patch(editSlug!, { title, summary, content_md: contentMd }),
+    onSuccess: (a) => {
+      queryClient.invalidateQueries({ queryKey: ["article", a.slug] });
+      queryClient.invalidateQueries({ queryKey: ["articles"] });
+      onDone(a.slug);
+    },
+  });
+  const publishExisting = useMutation({
+    mutationFn: async () => {
+      await articles.patch(editSlug!, { title, summary, content_md: contentMd });
+      return articles.publish(editSlug!);
+    },
+    onSuccess: (a) => {
+      queryClient.invalidateQueries({ queryKey: ["article", a.slug] });
+      queryClient.invalidateQueries({ queryKey: ["articles"] });
+      onDone(a.slug);
+    },
+  });
 
-  void me; // unused for now; later for permissions
+  if (isEdit && existing.isLoading) {
+    return <p className="text-slate-500 text-sm">{t("common.loading")}</p>;
+  }
+  if (isEdit && existing.isError) {
+    return <p className="text-rose-400 text-sm">404</p>;
+  }
+
+  const isPublished = isEdit && existing.data?.status === "published";
+  const pending =
+    create.isPending ||
+    createAndPublish.isPending ||
+    update.isPending ||
+    publishExisting.isPending;
+  const error =
+    (create.error as Error | null) ||
+    (createAndPublish.error as Error | null) ||
+    (update.error as Error | null) ||
+    (publishExisting.error as Error | null);
 
   return (
     <section>
       <header className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold">{t("articles.new")}</h2>
+        <h2 className="text-xl font-semibold">
+          {isEdit ? t("articles.editor.editing") : t("articles.new")}
+        </h2>
         <button
           type="button"
           onClick={onCancel}
@@ -273,28 +389,57 @@ function ArticleEditor({
       </div>
 
       <div className="mt-4 flex gap-2">
-        <button
-          type="button"
-          onClick={() => create.mutate()}
-          disabled={!title.trim() || create.isPending}
-          className="bg-slate-800 hover:bg-slate-700 text-slate-100 text-sm px-4 py-2 rounded-md ring-1 ring-slate-700 transition"
-        >
-          {create.isPending ? "…" : t("articles.editor.saveDraft")}
-        </button>
-        <button
-          type="button"
-          onClick={() => createAndPublish.mutate()}
-          disabled={!title.trim() || createAndPublish.isPending}
-          className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-4 py-2 rounded-md transition"
-        >
-          {createAndPublish.isPending ? "…" : t("articles.editor.publish")}
-        </button>
+        {!isEdit && (
+          <>
+            <button
+              type="button"
+              onClick={() => create.mutate()}
+              disabled={!title.trim() || pending}
+              className="bg-slate-800 hover:bg-slate-700 text-slate-100 text-sm px-4 py-2 rounded-md ring-1 ring-slate-700 transition"
+            >
+              {create.isPending ? "…" : t("articles.editor.saveDraft")}
+            </button>
+            <button
+              type="button"
+              onClick={() => createAndPublish.mutate()}
+              disabled={!title.trim() || pending}
+              className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-4 py-2 rounded-md transition"
+            >
+              {createAndPublish.isPending ? "…" : t("articles.editor.publish")}
+            </button>
+          </>
+        )}
+        {isEdit && (
+          <>
+            <button
+              type="button"
+              onClick={() => update.mutate()}
+              disabled={!title.trim() || pending}
+              data-testid="article-save"
+              className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-4 py-2 rounded-md transition"
+            >
+              {update.isPending
+                ? "…"
+                : isPublished
+                  ? t("articles.editor.saveChanges")
+                  : t("articles.editor.saveDraft")}
+            </button>
+            {!isPublished && (
+              <button
+                type="button"
+                onClick={() => publishExisting.mutate()}
+                disabled={!title.trim() || pending}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-100 text-sm px-4 py-2 rounded-md ring-1 ring-slate-700 transition"
+              >
+                {publishExisting.isPending ? "…" : t("articles.editor.publish")}
+              </button>
+            )}
+          </>
+        )}
       </div>
 
-      {(create.isError || createAndPublish.isError) && (
-        <p className="mt-2 text-xs text-rose-400">
-          {(create.error || createAndPublish.error)?.toString()}
-        </p>
+      {error && (
+        <p className="mt-2 text-xs text-rose-400">{error.message}</p>
       )}
     </section>
   );
