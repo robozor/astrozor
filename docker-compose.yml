@@ -189,6 +189,11 @@ services:
     volumes:
       - astrozor_caddy_data:/data
       - astrozor_caddy_config:/config
+      # Dev convenience: bind-mount the Caddyfile so edits don't need
+      # an image rebuild. After editing, run:
+      #   docker compose -p astrozor exec proxy caddy reload --config /etc/caddy/Caddyfile
+      # (or `docker compose restart proxy`).
+      - ./docker/proxy/Caddyfile:/etc/caddy/Caddyfile:ro
     restart: unless-stopped
 
 volumes:
