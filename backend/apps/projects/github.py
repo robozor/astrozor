@@ -130,6 +130,16 @@ def fetch_repo_issues(repo: GHRepo, user=None, limit: int = 30) -> list[dict]:
             resp.headers.get("x-oauth-scopes", ""),
         )
         return []
+
+    # Repo is reachable. If stored metadata says otherwise (e.g. because
+    # it was first added with a less-privileged token), refresh it now so
+    # the UI's stale "unreachable" warning auto-clears on next read.
+    if repo.last_status != "ok":
+        try:
+            fetch_repo_metadata(repo, user=user)
+        except Exception as e:  # pragma: no cover
+            logger.warning("auto-refresh after issues fetch failed: %s", e)
+
     items = []
     for it in resp.json():
         if "pull_request" in it:  # skip PRs

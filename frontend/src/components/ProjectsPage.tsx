@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { auth, projects, type GHIssue, type GHRepo, type Me, type Project } from "../lib/api";
@@ -290,6 +290,7 @@ function RepoStatusWarning({ status }: { status: string }) {
 
 function IssuesPanel({ repo }: { repo: GHRepo }) {
   const { t } = useTranslation();
+  const qc = useQueryClient();
   const issues = useQuery({
     queryKey: ["repo-issues", repo.id],
     queryFn: () => projects.issues(repo.id),
@@ -301,6 +302,15 @@ function IssuesPanel({ repo }: { repo: GHRepo }) {
   const hasGhIdentity = !!identities.data?.some(
     (i) => i.provider === "github" && i.has_token,
   );
+
+  // If issues load successfully but stored repo metadata still says
+  // "not_found", the backend just side-effect-refreshed it. Invalidate
+  // the parent repos query so the stale warning disappears.
+  useEffect(() => {
+    if (issues.isSuccess && repo.last_status && repo.last_status !== "ok") {
+      qc.invalidateQueries({ queryKey: ["project-repos", repo.project_slug] });
+    }
+  }, [issues.isSuccess, repo.last_status, repo.project_slug, qc]);
 
   const repoUnreachable = repo.last_status === "not_found";
   return (
