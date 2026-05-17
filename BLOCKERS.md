@@ -18,7 +18,9 @@ When the autonomous developer needs something from the human that cannot be self
 
 #### ~~B-1 — GitHub OAuth~~ — **resolved 2026-05-17**
 
-OAuth App `Ov23liDVuKvNiSyzAEhb` registered. Backend wired:
+OAuth App `Ov23liDVuKvNiSyzAEhb` registered. Callback URL **must be** `http://astrozor.localhost/api/v1/auth/github/callback` (with `/api/v1/` prefix). Production instance updates this in the same place to the public hostname.
+
+Backend wired:
 - `GET  /api/v1/auth/github/start` redirects to GitHub authorize
 - `GET  /api/v1/auth/github/callback` exchanges code, creates/links `Identity`, stores access_token, logs in
 - `GET  /api/v1/accounts/identities` — list own connected providers
@@ -41,7 +43,7 @@ Frontend has "Sign in with GitHub" button in unauth view. Profile UI for connect
 **How to resolve:**
 1. https://console.cloud.google.com/apis/credentials
 2. Create project `Astrozor (dev)` → OAuth client ID → Web application
-3. Authorized redirect URIs: `http://astrozor.localhost/auth/google/callback`
+3. Authorized redirect URIs: `http://astrozor.localhost/api/v1/auth/google/callback`
 4. Add to `.env` as `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`
 
 **Workaround:** Stejné jako B-1 — email-only auth funguje, Google OAuth doplníme.
