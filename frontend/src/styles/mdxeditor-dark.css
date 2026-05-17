@@ -1,0 +1,114 @@
+/* MDXEditor — dark theme tuned for Astrozor's slate palette.
+   Override the editor's CSS variables; the library renders inside the
+   `.astrozor-mdx` container, so all rules are scoped to that selector. */
+
+.astrozor-mdx {
+  --baseBg: #020617;          /* slate-950 */
+  --baseBgHover: #0f172a;     /* slate-900 */
+  --baseBgActive: #1e293b;    /* slate-800 */
+  --baseBorder: #1e293b;
+  --baseBorderHover: #334155; /* slate-700 */
+
+  --baseText: #e2e8f0;        /* slate-200 */
+  --baseTextContrast: #f1f5f9;
+  --baseFaint: #94a3b8;       /* slate-400 */
+
+  --accentBase: #4f46e5;      /* indigo-600 */
+  --accentText: #ffffff;
+  --accentSolid: #6366f1;     /* indigo-500 */
+  --accentSolidHover: #818cf8;
+
+  --admonitionTipBg: #082f49;
+  --admonitionNoteBg: #1e1b4b;
+  --admonitionWarningBg: #422006;
+  --admonitionCautionBg: #3f0a0a;
+  --admonitionDangerBg: #450a0a;
+
+  --linkColor: #818cf8;       /* indigo-400 */
+  --linkVisitedColor: #a78bfa;
+}
+
+.astrozor-mdx [class*="_toolbarRoot"] {
+  background: #0f172a;
+  border-bottom: 1px solid #1e293b;
+}
+
+.astrozor-mdx .astrozor-mdx-content {
+  min-height: 280px;
+  padding: 1rem;
+  color: #e2e8f0;
+  background: transparent;
+}
+
+.astrozor-mdx .astrozor-mdx-content :is(h1, h2, h3, h4) {
+  color: #f1f5f9;
+  font-weight: 600;
+  margin: 0.75em 0 0.4em;
+}
+.astrozor-mdx .astrozor-mdx-content h1 { font-size: 1.6rem; }
+.astrozor-mdx .astrozor-mdx-content h2 { font-size: 1.35rem; }
+.astrozor-mdx .astrozor-mdx-content h3 { font-size: 1.15rem; }
+
+.astrozor-mdx .astrozor-mdx-content p {
+  line-height: 1.6;
+  margin: 0.5em 0;
+}
+
+.astrozor-mdx .astrozor-mdx-content a {
+  color: #818cf8;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.astrozor-mdx .astrozor-mdx-content code {
+  background: #1e293b;
+  color: #fbbf24;
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  font-size: 0.92em;
+}
+
+.astrozor-mdx .astrozor-mdx-content pre,
+.astrozor-mdx .astrozor-mdx-content .cm-editor {
+  background: #0f172a !important;
+  color: #e2e8f0 !important;
+  border-radius: 6px;
+}
+
+.astrozor-mdx .astrozor-mdx-content blockquote {
+  border-left: 3px solid #334155;
+  padding-left: 1em;
+  color: #94a3b8;
+  margin: 0.75em 0;
+}
+
+.astrozor-mdx .astrozor-mdx-content ul,
+.astrozor-mdx .astrozor-mdx-content ol {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+.astrozor-mdx .astrozor-mdx-content li { margin: 0.2em 0; }
+
+.astrozor-mdx .astrozor-mdx-content table {
+  border-collapse: collapse;
+  margin: 1em 0;
+}
+.astrozor-mdx .astrozor-mdx-content :is(th, td) {
+  border: 1px solid #334155;
+  padding: 0.4em 0.7em;
+}
+.astrozor-mdx .astrozor-mdx-content th {
+  background: #1e293b;
+  font-weight: 600;
+}
+
+.astrozor-mdx .astrozor-mdx-content hr {
+  border: none;
+  border-top: 1px solid #334155;
+  margin: 1.25em 0;
+}
+
+/* Toolbar button polish */
+.astrozor-mdx button[aria-pressed="true"] {
+  background: #1e293b;
+}

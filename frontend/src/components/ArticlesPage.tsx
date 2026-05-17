@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { articles, type ArticleListItem, type Me } from "../lib/api";
+import { MarkdownEditor } from "./MarkdownEditor";
 
 type View = { kind: "list" } | { kind: "detail"; slug: string } | { kind: "new" };
 
@@ -264,12 +265,10 @@ function ArticleEditor({
           placeholder={t("articles.editor.summaryPlaceholder")}
           className="w-full bg-slate-950 ring-1 ring-slate-700 focus:ring-slate-500 rounded-md px-3 py-2 text-slate-100 outline-none text-sm"
         />
-        <textarea
-          value={contentMd}
-          onChange={(e) => setContentMd(e.target.value)}
-          rows={14}
-          className="w-full bg-slate-950 ring-1 ring-slate-700 focus:ring-slate-500 rounded-md px-3 py-2 text-slate-100 outline-none text-sm font-mono"
-          placeholder="Markdown…"
+        <MarkdownEditor
+          markdown={contentMd}
+          onChange={setContentMd}
+          placeholder="Začni psát článek…"
         />
       </div>
 
