@@ -152,11 +152,17 @@ def dispatch_event(kind: str, payload: dict[str, Any]) -> int:
     for pref in prefs:
         webhook = getattr(pref.user.profile, "discord_webhook_url", "") or ""
         if not webhook:
+            log.debug(
+                "discord_dispatch: skip %s (kind=%s) — no webhook configured",
+                pref.user_id,
+                kind,
+            )
             continue
-        # Don't notify the actor about their own action — common Discord etiquette
-        actor_id = payload.get("actor_user_id")
-        if actor_id and str(pref.user_id) == str(actor_id):
-            continue
+        # Note: we deliberately do NOT exclude the actor (the user who
+        # triggered the event). The webhook target is THE USER's own
+        # Discord channel, set up explicitly to log their own activity
+        # too — they can untick the pref if they don't want their own
+        # actions to show up.
         # PLACE_FOLLOWED_CHECKIN: also require Subscription row
         if pref.kind == DiscordPreference.Kind.PLACE_FOLLOWED_CHECKIN:
             place_id = payload.get("place_id")
@@ -167,6 +173,19 @@ def dispatch_event(kind: str, payload: dict[str, Any]) -> int:
         if not _matches(pref, payload):
             continue
         embed = _build_embed(kind, payload)
-        _send_webhook(webhook, embed)
+        ok = _send_webhook(webhook, embed)
+        log.info(
+            "discord_dispatch: sent %s to %s (kind=%s) → %s",
+            kind,
+            pref.user.email,
+            kind,
+            "ok" if ok else "fail",
+        )
         sent += 1
+    if sent == 0:
+        log.info(
+            "discord_dispatch: no eligible subscribers for kind=%s (payload keys=%s)",
+            kind,
+            list(payload.keys()),
+        )
     return sent
