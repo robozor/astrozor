@@ -122,6 +122,13 @@ def fetch_repo_issues(repo: GHRepo, user=None, limit: int = 30) -> list[dict]:
         logger.warning("issues fetch failed for %s: %s", repo.full_name, e)
         return []
     if resp.status_code != 200:
+        logger.warning(
+            "issues fetch %s returned HTTP %s (token=%s, scopes=%s)",
+            repo.full_name,
+            resp.status_code,
+            "yes" if token else "no",
+            resp.headers.get("x-oauth-scopes", ""),
+        )
         return []
     items = []
     for it in resp.json():

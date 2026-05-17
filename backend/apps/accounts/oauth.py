@@ -91,7 +91,7 @@ class GitHubProvider:
         params = {
             "client_id": self.client_id,
             "redirect_uri": callback_url(self.name, request=request),
-            "scope": "read:user user:email",
+            "scope": "read:user user:email repo",
             "state": state,
             "allow_signup": "true",
         }
