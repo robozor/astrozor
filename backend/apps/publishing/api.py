@@ -7,6 +7,8 @@ from django.utils import timezone
 from django.utils.text import slugify
 from ninja import Query, Router
 
+from apps.accounts.mastodon_post import post_status as mastodon_post_status
+
 from .doi import mint_doi
 from .models import Article, Comment
 from .rendering import render_markdown
@@ -197,6 +199,17 @@ def publish_article(request: HttpRequest, slug: str):
     if a.content_md and not a.content_html:
         a.content_html = render_markdown(a.content_md)
     a.save()
+
+    # Best-effort cross-post to the author's connected Mastodon, if any.
+    # Failures are swallowed inside mastodon_post_status so they never block.
+    host = request.get_host()
+    scheme = "https" if request.is_secure() else "http"
+    article_url = f"{scheme}://{host}/articles/{a.slug}"
+    summary_part = f"\n\n{a.summary}" if a.summary else ""
+    mastodon_post_status(
+        a.author,
+        f"📰 {a.title}{summary_part}\n\n{article_url}",
+    )
     return 200, _article_out(a)
 
 

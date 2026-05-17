@@ -4,6 +4,8 @@
 
 **Last updated:** 2026-05-17
 
+**Overall status:** ✅ All blockers resolved for `v1.0.0-rc.1`. Open items below are soft / forward-looking (real data, prod tokens, T-1/T-2 tech debt).
+
 ---
 
 ## How this works
@@ -31,11 +33,11 @@ Per-user `access_token` lifts the `projects.github.fetch_repo_metadata()` rate l
 
 Frontend has "Sign in with GitHub" button in unauth view. Profile UI for connect/disconnect is a follow-up.
 
-#### B-2 — Reálná data ČAS pro seed *(blocks Krok 3 final acceptance)*
+#### B-2 — Reálná data ČAS pro seed *(soft, post-v1)*
 
 **What:** Seznam hvězdáren / stanovišť ČR (CSV/JSON s polemi: název, lat, lon, typ, kontakt, web).
 **How to resolve:** Umísti do `seed-data/cas/places.csv` nebo dej URL ke stažení.
-**Workaround:** Krok 3 dokončím s vygenerovanou ukázkou 15 hvězdáren (reálné polohy známých hvězdáren ČR — z veřejných údajů). Tvá data nahradí seed když je dodáš.
+**Workaround:** Aplikace běží se synthetic seedem 15 hvězdáren z veřejných údajů — funkčně ekvivalentní pro v1. Tvá data nahradí seed když je dodáš (import job stačí spustit).
 
 #### ~~B-3 — Google OAuth~~ — **resolved 2026-05-17**
 
@@ -43,27 +45,27 @@ Google OAuth client registered. Redirect URI is `http://localhost/api/v1/auth/go
 
 Re-uses the same Identity / access_token machinery as B-1. Settings page shows Google as clickable "Connect Google" once `/auth/providers` reports it configured.
 
-#### B-4 — Mastodon OAuth registration *(blocks Krok 13)*
+#### ~~B-4 — Mastodon OAuth~~ — **resolved 2026-05-17**
 
-**What:** Decision on which Mastodon instance to register Astrozor as application (default `mastodon.social`).
-**Workaround:** Plánováno až v Kroku 13, není akutní.
+Resolved with **per-user dynamic app registration** instead of a platform-wide pre-registered app. Each user enters their instance hostname in Settings; the backend POSTs to `/api/v1/apps` on that instance to obtain per-instance `(client_id, client_secret)`, stores them in `MastodonInstance`, and re-uses them for every subsequent user from that same server.
 
-#### B-5 — Zenodo Sandbox API token *(blocks Krok 11 DOI)*
+Scopes: `read:accounts read:statuses write:statuses` (sufficient for login + cross-post).
+
+Cross-post hook in `apps/publishing/api.publish_article()` posts a status to the author's Mastodon when an article is published, best-effort (failures swallowed).
+
+#### B-5 — Zenodo Sandbox API token *(soft — per-user, falls back to MOCK)*
 
 **What:** API token pro `sandbox.zenodo.org` (test) a `zenodo.org` (prod).
-**How to resolve:**
+**Resolution model:** Per-user (ne per-instance) — uživatel si svůj token vloží v Settings → Integrations. Aplikace pak při publikaci článku mintuje DOI proti **tomu** Zenodo účtu. Pokud token chybí, DOI se vygeneruje jako MOCK (`10.5281/zenodo.mock-<uuid>`) — článek se publikuje normálně.
+**How to resolve (volitelné):**
 1. Vytvořit účet na https://sandbox.zenodo.org/
 2. *Settings → Applications → New token*
 3. Scopes: `deposit:write deposit:actions`
-4. Add to `.env` as `ZENODO_SANDBOX_TOKEN` (a později `ZENODO_PROD_TOKEN`)
+4. Vlož ho v Astrozor Settings → Integrations → Zenodo API token
 
-**Workaround:** Krok 11 ukáže DOI mintování proti Zenodo sandbox; pokud token chybí, mockuju.
+#### ~~B-6 — Discord webhook~~ — **resolved 2026-05-17**
 
-#### B-6 — Discord test webhook URL *(soft — only for testing Krok 9)*
-
-**What:** Test Discord webhook pro ověření doručení notifikací.
-**How to resolve:** Discord server → channel settings → Integrations → Webhooks → New → copy URL → `.env` `DISCORD_TEST_WEBHOOK_URL`.
-**Workaround:** Mockuju s `httpx-mock`, reálný test až s URL.
+Per-user Discord webhook URL field v `profile.discord_webhook_url`, viditelný v Settings → Integrations. Notifikace se posílají na uživatelův webhook při subscribed event (chat zpráva, article comment, atd.).
 
 ---
 

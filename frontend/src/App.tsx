@@ -6,9 +6,12 @@ import { SUPPORTED_LANGUAGES, type LanguageCode } from "./i18n";
 import { MapView } from "./components/MapView";
 import { SettingsPage } from "./components/SettingsPage";
 import { ArticlesPage } from "./components/ArticlesPage";
+import { ProjectsPage } from "./components/ProjectsPage";
+import { EventsPage } from "./components/EventsPage";
+import { CampaignsPage } from "./components/CampaignsPage";
 import { NotificationsBell } from "./components/NotificationsBell";
 
-type Page = "map" | "settings" | "articles";
+type Page = "map" | "settings" | "articles" | "projects" | "events" | "campaigns";
 
 export function App() {
   const queryClient = useQueryClient();
@@ -59,7 +62,14 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
     if (typeof window === "undefined") return "map";
     const params = new URLSearchParams(window.location.search);
     const fromParam = params.get("from");
-    if (fromParam === "settings" || fromParam === "articles") return fromParam;
+    if (
+      fromParam === "settings" ||
+      fromParam === "articles" ||
+      fromParam === "projects" ||
+      fromParam === "events" ||
+      fromParam === "campaigns"
+    )
+      return fromParam;
     return "map";
   })();
   const [page, setPage] = useState<Page>(initialPage);
@@ -114,13 +124,31 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
             ☆
           </span>
           <h1 className="text-2xl font-semibold tracking-tight">{t("common.brand")}</h1>
-          <nav className="flex items-center gap-1 ml-2">
+          <nav className="flex items-center gap-1 ml-2 flex-wrap">
             <NavTab id="map" active={page === "map"} label={t("nav.map")} onClick={() => setPage("map")} />
             <NavTab
               id="articles"
               active={page === "articles"}
               label={t("nav.articles")}
               onClick={() => setPage("articles")}
+            />
+            <NavTab
+              id="projects"
+              active={page === "projects"}
+              label={t("nav.projects")}
+              onClick={() => setPage("projects")}
+            />
+            <NavTab
+              id="events"
+              active={page === "events"}
+              label={t("nav.events")}
+              onClick={() => setPage("events")}
+            />
+            <NavTab
+              id="campaigns"
+              active={page === "campaigns"}
+              label={t("nav.campaigns")}
+              onClick={() => setPage("campaigns")}
             />
             <NavTab
               id="settings"
@@ -146,6 +174,9 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
 
         {page === "map" && <AuthenticatedMapView me={me} />}
         {page === "articles" && <ArticlesPage me={me} />}
+        {page === "projects" && <ProjectsPage me={me} />}
+        {page === "events" && <EventsPage me={me} />}
+        {page === "campaigns" && <CampaignsPage me={me} />}
         {page === "settings" && <SettingsPage me={me} />}
       </div>
     </main>

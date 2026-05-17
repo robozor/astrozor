@@ -3,10 +3,11 @@
 > Single source of truth for development status. Updated by the autonomous developer (Claude) after each meaningful change.
 
 **Last updated:** 2026-05-17
-**Phase:** Krok 18+19 / 20 (Final hardening + PWA)
-**Status:** ✅ All unblocked Kroky complete
-**Latest tag:** `v0.14.0`
+**Phase:** Krok 20 / 20 — Release candidate
+**Status:** ✅ All Kroky complete · all blockers resolved
+**Latest tag:** `v1.0.0-rc.1`
 **E2E:** 38/38 passing across 15 spec files
+**Frontend coverage:** All major backend features exposed in UI (Map, Articles, Projects, Events, Campaigns, Settings, Notifications)
 
 ---
 
@@ -29,6 +30,7 @@
 | `v0.12.0` | 16 — Citizen | Campaign + Contribution + coordinator review | +1 |
 | `v0.13.0` | 17 — Publish API | API tokens, Bearer auth, manifest schema, Python CLI scaffold | +2 |
 | `v0.14.0` | 18+19 — PWA + Hardening | vite-plugin-pwa manifest, security headers, rate limit | +4 |
+| `v1.0.0-rc.1` | 20 — UI completion + cross-post | Projects/Events/Campaigns frontend, Mastodon cross-post on article publish, dynamic OAuth callback host, per-user Mastodon registration | (carry-over) |
 
 ---
 

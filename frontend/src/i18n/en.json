@@ -3,7 +3,8 @@
     "brand": "Astrozor",
     "loading": "Loading…",
     "krok": "Step",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "back": "Back"
   },
   "notifications": {
     "title": "Notifications",
@@ -116,8 +117,89 @@
     "map": "Map",
     "settings": "Settings",
     "articles": "Articles",
+    "projects": "Projects",
+    "events": "Events",
+    "campaigns": "Campaigns",
     "feed": "Feed",
     "logout": "Log out"
+  },
+  "projects": {
+    "title": "Projects",
+    "new": "New project",
+    "create": "Create project",
+    "delete": "Delete project",
+    "confirmDelete": "Really delete this project?",
+    "by": "by",
+    "empty": "No projects yet",
+    "emptyHint": "Click 'New project' — track GitHub repos and collaborators.",
+    "field": {
+      "name": "Name",
+      "description": "Description",
+      "visibility": "Visibility"
+    },
+    "visibility": {
+      "public": "Public",
+      "internal": "Internal (logged-in only)",
+      "private": "Private"
+    },
+    "repos": {
+      "title": "GitHub repositories",
+      "empty": "No repos linked yet.",
+      "add": "Add",
+      "refresh": "Refresh",
+      "remove": "Remove",
+      "issues": "issues"
+    }
+  },
+  "events": {
+    "title": "Events",
+    "new": "New event",
+    "create": "Create event",
+    "empty": "No upcoming events",
+    "organizer": "Organizer",
+    "attendees": "attendees",
+    "register": "Register",
+    "cancelRegistration": "Cancel registration",
+    "downloadIcal": "Add to calendar",
+    "organizerActions": "Change status (organizer)",
+    "field": {
+      "title": "Title",
+      "description": "Description",
+      "kind": "Kind",
+      "placeSlug": "Place (slug)",
+      "startsAt": "Starts at",
+      "endsAt": "Ends at (optional)",
+      "capacity": "Capacity (0 = unlimited)"
+    }
+  },
+  "campaigns": {
+    "title": "Citizen science campaigns",
+    "new": "New campaign",
+    "create": "Create campaign",
+    "empty": "No active campaigns",
+    "emptyHint": "Create a campaign to coordinate measurements with contributors.",
+    "coordinator": "Coordinator",
+    "methodology": "Methodology",
+    "contributions": "Contributions",
+    "noContributions": "No contributions yet.",
+    "submitContribution": "Contribute",
+    "submit": "Submit",
+    "dataLabel": "Data",
+    "reviewComment": "Reviewer comment",
+    "reviewCommentPlaceholder": "Review comment (optional)",
+    "accept": "Accept",
+    "needsRevision": "Needs revision",
+    "reject": "Reject",
+    "field": {
+      "projectSlug": "Project slug",
+      "title": "Title",
+      "description": "Description",
+      "methodology": "Methodology",
+      "kind": "Kind",
+      "data": "Data (JSON)",
+      "comment": "Comment",
+      "schema": "Contribution schema (JSON)"
+    }
   },
   "settings": {
     "title": "Account settings",

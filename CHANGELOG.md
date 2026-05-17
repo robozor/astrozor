@@ -6,6 +6,28 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 
 ## [Unreleased]
 
+## [1.0.0-rc.1] — 2026-05-17
+
+### Added — Krok 20: UI completion + cross-post
+
+- **Projects UI** (`frontend/src/components/ProjectsPage.tsx`): list, detail with linked GitHub repos (stars / forks / issues / language), refresh & remove buttons, create form. Owner-only management. Re-uses user's connected GitHub `access_token` for per-user rate limit (5000 req/h vs anon 60).
+- **Events UI** (`frontend/src/components/EventsPage.tsx`): list with status color-coding (7-state FSM), detail with register / cancel registration, iCal download link, organizer-only status transition controls.
+- **Citizen science campaigns UI** (`frontend/src/components/CampaignsPage.tsx`): campaigns list with progress (accepted / total), detail with methodology, contribution submission form pre-filled from `contribution_schema`, coordinator review (accept / reject / needs_revision) with comments.
+- **Top-nav tabs** in `App.tsx`: Map / Articles / Projects / Events / Campaigns / Settings.
+- **Mastodon cross-post hook** (`backend/apps/accounts/mastodon_post.py` + wired in `apps/publishing/api.publish_article`): when an author with a connected Mastodon Identity publishes an article, post a status to their instance with title + summary + URL. Best-effort — failures swallowed so they never block publish.
+- **i18n** keys `projects.*`, `events.*`, `campaigns.*`, `common.back` in both `cs.json` and `en.json`.
+- Typed API clients for `projects`, `events`, `campaigns` in `frontend/src/lib/api.ts`.
+
+### Fixed
+
+- `oauth_start` now forwards `?instance=` query to `get_provider("mastodon", instance_url=…)` so per-user Mastodon registration flow can complete.
+- OAuth callback URL is now derived from request Host so it works on both `http://localhost` (required by Google Cloud Console) and `http://astrozor.localhost`.
+
+### Status
+
+- All blockers resolved (`B-1`..`B-6`). Soft items remaining: replace synthetic ČAS seed with real data, opt-in Zenodo prod token per-user.
+- 38/38 E2E tests passing.
+
 ## [0.3.0] — 2026-05-17
 
 ### Added — Krok 3: Map + Places (read-only)

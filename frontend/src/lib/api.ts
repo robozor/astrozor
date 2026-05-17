@@ -312,3 +312,180 @@ export const subscriptions = {
     api.post<Subscription>("/subscriptions", { kind, target_id }),
   remove: (id: string) => api.del<void>(`/subscriptions/${id}`),
 };
+
+// ---- Projects ----
+
+export type Project = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  visibility: "public" | "private" | "internal";
+  status: string;
+  language: string;
+  created_by_email: string;
+  member_count: number;
+  repo_count: number;
+  created_at: string;
+};
+
+export type GHRepo = {
+  id: string;
+  project_slug: string;
+  full_name: string;
+  description: string;
+  stars: number;
+  forks: number;
+  language: string;
+  open_issues: number;
+  default_branch: string;
+  last_commit_at: string | null;
+  html_url: string;
+  last_fetched_at: string | null;
+  last_status: string;
+};
+
+export const projects = {
+  list: () => api.get<Project[]>("/projects"),
+  get: (slug: string) => api.get<Project>(`/projects/${slug}`),
+  create: (data: {
+    name: string;
+    description?: string;
+    visibility?: "public" | "private" | "internal";
+    language?: string;
+  }) => api.post<Project>("/projects", data),
+  remove: (slug: string) => api.del<void>(`/projects/${slug}`),
+  repos: (slug: string) => api.get<GHRepo[]>(`/projects/${slug}/repos`),
+  addRepo: (slug: string, full_name: string) =>
+    api.post<GHRepo>(`/projects/${slug}/repos`, { full_name }),
+  refreshRepo: (repoId: string) => api.post<GHRepo>(`/repos/${repoId}/refresh`),
+  removeRepo: (repoId: string) => api.del<void>(`/repos/${repoId}`),
+};
+
+// ---- Events ----
+
+export type Event = {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  kind: string;
+  language: string;
+  status:
+    | "draft"
+    | "planned"
+    | "registration_open"
+    | "registration_closed"
+    | "happening"
+    | "done"
+    | "cancelled";
+  place_slug: string | null;
+  starts_at: string;
+  ends_at: string | null;
+  capacity: number;
+  organizer_email: string;
+  registration_count: number;
+  created_at: string;
+};
+
+export type Registration = {
+  id: string;
+  event_slug: string;
+  user_email: string;
+  status: "confirmed" | "waitlisted" | "cancelled";
+  created_at: string;
+};
+
+export const events = {
+  list: (params?: { kind?: string; status?: string; place_slug?: string }) => {
+    const search = new URLSearchParams();
+    if (params?.kind) search.set("kind", params.kind);
+    if (params?.status) search.set("status", params.status);
+    if (params?.place_slug) search.set("place_slug", params.place_slug);
+    const qs = search.toString();
+    return api.get<Event[]>(`/events${qs ? "?" + qs : ""}`);
+  },
+  get: (slug: string) => api.get<Event>(`/events/${slug}`),
+  create: (data: {
+    title: string;
+    description?: string;
+    kind?: string;
+    language?: string;
+    place_slug?: string;
+    starts_at: string;
+    ends_at?: string;
+    capacity?: number;
+  }) => api.post<Event>("/events", data),
+  patch: (slug: string, data: Partial<Event>) => api.patch<Event>(`/events/${slug}`, data),
+  transition: (slug: string, status: Event["status"]) =>
+    api.post<Event>(`/events/${slug}/transition`, { status }),
+  register: (slug: string) => api.post<Registration>(`/events/${slug}/register`),
+  cancelRegistration: (slug: string) => api.del<void>(`/events/${slug}/register`),
+  icalUrl: (slug: string) => `${BASE}/events/${slug}/ical`,
+};
+
+// ---- Citizen science ----
+
+export type Campaign = {
+  id: string;
+  project_slug: string;
+  slug: string;
+  title: string;
+  description: string;
+  methodology: string;
+  kind: string;
+  status: "draft" | "open" | "closed" | "archived";
+  coordinator_email: string;
+  starts_at: string | null;
+  ends_at: string | null;
+  contribution_schema: Record<string, unknown>;
+  contribution_count: number;
+  accepted_count: number;
+  created_at: string;
+};
+
+export type Contribution = {
+  id: string;
+  campaign_slug: string;
+  user_email: string;
+  user_display_name: string;
+  title: string;
+  data: Record<string, unknown>;
+  comment: string;
+  status: "submitted" | "accepted" | "rejected" | "needs_revision";
+  review_comment: string;
+  reviewed_by_email: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+};
+
+export const campaigns = {
+  list: (params?: { project_slug?: string; status?: string }) => {
+    const search = new URLSearchParams();
+    if (params?.project_slug) search.set("project_slug", params.project_slug);
+    if (params?.status) search.set("status", params.status);
+    const qs = search.toString();
+    return api.get<Campaign[]>(`/campaigns${qs ? "?" + qs : ""}`);
+  },
+  get: (slug: string) => api.get<Campaign>(`/campaigns/${slug}`),
+  create: (data: {
+    project_slug: string;
+    title: string;
+    description?: string;
+    methodology?: string;
+    kind?: string;
+    starts_at?: string;
+    ends_at?: string;
+    contribution_schema?: Record<string, unknown>;
+  }) => api.post<Campaign>("/campaigns", data),
+  contributions: (slug: string, status?: string) => {
+    const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+    return api.get<Contribution[]>(`/campaigns/${slug}/contributions${qs}`);
+  },
+  submit: (slug: string, data: { title: string; data: Record<string, unknown>; comment?: string }) =>
+    api.post<Contribution>(`/campaigns/${slug}/contributions`, data),
+  review: (
+    contributionId: string,
+    payload: { status: "accepted" | "rejected" | "needs_revision"; review_comment?: string },
+  ) => api.post<Contribution>(`/contributions/${contributionId}/review`, payload),
+};

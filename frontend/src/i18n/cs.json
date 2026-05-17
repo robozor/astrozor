@@ -3,7 +3,8 @@
     "brand": "Astrozor",
     "loading": "Načítám…",
     "krok": "Krok",
-    "cancel": "Zrušit"
+    "cancel": "Zrušit",
+    "back": "Zpět"
   },
   "place": {
     "subscribe": "Sledovat místo",
@@ -116,8 +117,89 @@
     "map": "Mapa",
     "settings": "Nastavení",
     "articles": "Články",
+    "projects": "Projekty",
+    "events": "Akce",
+    "campaigns": "Kampaně",
     "feed": "Feed",
     "logout": "Odhlásit se"
+  },
+  "projects": {
+    "title": "Projekty",
+    "new": "Nový projekt",
+    "create": "Vytvořit projekt",
+    "delete": "Smazat projekt",
+    "confirmDelete": "Opravdu smazat tento projekt?",
+    "by": "vytvořil",
+    "empty": "Žádný projekt",
+    "emptyHint": "Klikni na 'Nový projekt' — můžeš v něm sledovat GitHub repozitáře.",
+    "field": {
+      "name": "Název",
+      "description": "Popis",
+      "visibility": "Viditelnost"
+    },
+    "visibility": {
+      "public": "Veřejný",
+      "internal": "Pouze přihlášení",
+      "private": "Soukromý"
+    },
+    "repos": {
+      "title": "GitHub repozitáře",
+      "empty": "Zatím žádný repozitář není přiřazený.",
+      "add": "Přidat",
+      "refresh": "Obnovit",
+      "remove": "Odebrat",
+      "issues": "issues"
+    }
+  },
+  "events": {
+    "title": "Akce",
+    "new": "Nová akce",
+    "create": "Vytvořit akci",
+    "empty": "Žádné nadcházející akce",
+    "organizer": "Organizátor",
+    "attendees": "účastníků",
+    "register": "Přihlásit se",
+    "cancelRegistration": "Zrušit přihlášení",
+    "downloadIcal": "Stáhnout do kalendáře",
+    "organizerActions": "Změnit stav (organizátor)",
+    "field": {
+      "title": "Název",
+      "description": "Popis",
+      "kind": "Typ",
+      "placeSlug": "Místo (slug)",
+      "startsAt": "Začátek",
+      "endsAt": "Konec (volitelně)",
+      "capacity": "Kapacita (0 = neomezeno)"
+    }
+  },
+  "campaigns": {
+    "title": "Občanskovědné kampaně",
+    "new": "Nová kampaň",
+    "create": "Vytvořit kampaň",
+    "empty": "Žádné aktivní kampaně",
+    "emptyHint": "Vytvoř kampaň pro koordinované pozorování — uživatelé budou přispívat měřením.",
+    "coordinator": "Koordinátor",
+    "methodology": "Metodika",
+    "contributions": "Příspěvky",
+    "noContributions": "Žádné příspěvky.",
+    "submitContribution": "Přispět",
+    "submit": "Odeslat",
+    "dataLabel": "Data",
+    "reviewComment": "Komentář recenzenta",
+    "reviewCommentPlaceholder": "Komentář k recenzi (volitelně)",
+    "accept": "Přijmout",
+    "needsRevision": "Vrátit",
+    "reject": "Odmítnout",
+    "field": {
+      "projectSlug": "Slug projektu",
+      "title": "Název",
+      "description": "Popis",
+      "methodology": "Metodika",
+      "kind": "Typ",
+      "data": "Data (JSON)",
+      "comment": "Komentář",
+      "schema": "Schéma příspěvku (JSON)"
+    }
   },
   "settings": {
     "title": "Nastavení účtu",
