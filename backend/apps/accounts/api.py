@@ -123,44 +123,47 @@ def magic_link_request(request: HttpRequest, payload: MagicLinkRequestIn):
 # ---- Magic link consume ----
 
 
-@router.get("/auth/magic/{token}", response={200: UserOut, 400: StatusOut})
+@router.get("/auth/magic/{token}")
 def magic_link_consume(request: HttpRequest, token: str):
+    """Consume a magic-link token: validate, log the user in, redirect home."""
     try:
         et = EmailToken.objects.select_related("user").get(
             token=token, purpose=EmailToken.Purpose.MAGIC_LINK
         )
     except EmailToken.DoesNotExist:
-        return 400, {"status": "error", "detail": "Invalid token"}
+        return HttpResponseRedirect("/?magic_error=invalid")
 
     if not et.is_valid:
-        return 400, {"status": "error", "detail": "Token expired or already used"}
+        return HttpResponseRedirect("/?magic_error=expired")
 
     et.consume()
     et.user.email_verified = True
     et.user.save(update_fields=["email_verified"])
+    et.user.backend = "django.contrib.auth.backends.ModelBackend"
     auth_login(request, et.user)
-    return 200, _user_out(et.user)
+    return HttpResponseRedirect("/?verified=1")
 
 
 # ---- Email verification consume ----
 
 
-@router.get("/auth/verify/{token}", response={200: StatusOut, 400: StatusOut})
+@router.get("/auth/verify/{token}")
 def verify_email(request: HttpRequest, token: str):
+    """Consume a verification token: mark email verified, redirect home."""
     try:
         et = EmailToken.objects.select_related("user").get(
             token=token, purpose=EmailToken.Purpose.VERIFY
         )
     except EmailToken.DoesNotExist:
-        return 400, {"status": "error", "detail": "Invalid token"}
+        return HttpResponseRedirect("/?verify_error=invalid")
 
     if not et.is_valid:
-        return 400, {"status": "error", "detail": "Token expired or already used"}
+        return HttpResponseRedirect("/?verify_error=expired")
 
     et.consume()
     et.user.email_verified = True
     et.user.save(update_fields=["email_verified"])
-    return 200, {"status": "ok", "detail": "Email verified"}
+    return HttpResponseRedirect("/?verified=1")
 
 
 # ---- Logout ----

@@ -11,7 +11,7 @@ from django.core.mail import send_mail
 
 def _link(path: str, token: str) -> str:
     base = getattr(settings, "PUBLIC_BASE_URL", "http://astrozor.localhost")
-    return f"{base}{path}{token}/"
+    return f"{base}/api/v1{path}{token}"
 
 
 def send_verification_email(email: str, token: str) -> None:
