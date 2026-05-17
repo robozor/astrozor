@@ -76,6 +76,7 @@ export type Profile = {
   discord_webhook_url: string;
   has_zenodo_token: boolean;
   zenodo_use_sandbox: boolean;
+  mastodon_autopost_checkin: boolean;
   storage_used_bytes: number;
   storage_quota_bytes: number;
   onboarding_completed: boolean;
@@ -263,6 +264,50 @@ export const admin = {
 
 export const mapConfig = {
   get: () => api.get<MapConfig>("/map/config"),
+};
+
+// ---- Mastodon timeline ----
+
+export type MastoStatus = {
+  id: string;
+  url: string;
+  created_at: string;
+  content_text: string;
+  content_html: string;
+  spoiler_text: string;
+  reblogs_count: number;
+  favourites_count: number;
+  replies_count: number;
+  tags: string[];
+  media: {
+    url: string;
+    preview_url: string;
+    type: string;
+    description: string;
+  }[];
+  account: {
+    acct: string;
+    display_name: string;
+    avatar: string;
+    url: string;
+  };
+};
+
+export type MastoTimeline = {
+  items: MastoStatus[];
+  instance?: string;
+  detail?: string;
+};
+
+export const mastodon = {
+  timeline: (kind: "home" | "hashtag" | "public" = "home", tag = "", limit = 20) => {
+    const search = new URLSearchParams({
+      kind,
+      tag,
+      limit: String(limit),
+    });
+    return api.get<MastoTimeline>(`/mastodon/timeline?${search.toString()}`);
+  },
 };
 
 export const meta = {

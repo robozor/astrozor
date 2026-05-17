@@ -11,9 +11,14 @@ class FeedSource(models.Model):
         PLACE = "place", "Place"
         # PROJECT = "project", "Project"   # Krok 14
 
+    class Kind(models.TextChoices):
+        RSS = "rss", "RSS / Atom"
+        MASTODON_HASHTAG = "mastodon_hashtag", "Mastodon hashtag"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     url = models.URLField(max_length=400)
     name = models.CharField(max_length=160, blank=True)
+    kind = models.CharField(max_length=24, choices=Kind.choices, default=Kind.RSS)
     target_kind = models.CharField(max_length=16, choices=TargetKind.choices, default=TargetKind.PLACE)
     target_id = models.CharField(max_length=64, help_text="Slug of target")
     poll_interval_seconds = models.IntegerField(default=1800)  # 30 min

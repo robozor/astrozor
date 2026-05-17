@@ -71,6 +71,7 @@ class ProfileOut(Schema):
     # Zenodo token never echoed back; UI shows masked state via has_zenodo_token
     has_zenodo_token: bool
     zenodo_use_sandbox: bool
+    mastodon_autopost_checkin: bool
     storage_used_bytes: int
     storage_quota_bytes: int
     onboarding_completed: bool
@@ -91,6 +92,7 @@ class ProfilePatch(Schema):
     discord_webhook_url: str | None = None
     zenodo_token: str | None = None  # write-only; set empty string to clear
     zenodo_use_sandbox: bool | None = None
+    mastodon_autopost_checkin: bool | None = None
     onboarding_completed: bool | None = None
 
 

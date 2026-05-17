@@ -7,6 +7,7 @@ from ninja import NinjaAPI
 from ninja.security import django_auth
 
 from apps.accounts.api import router as accounts_router
+from apps.accounts.mastodon_api import router as mastodon_router
 from apps.chat.api import router as chat_router
 from apps.citizen.api import router as citizen_router
 from apps.core.api import router as core_router
@@ -32,6 +33,7 @@ api = NinjaAPI(
 
 api.add_router("", core_router)
 api.add_router("", accounts_router)
+api.add_router("", mastodon_router)
 api.add_router("", places_router)
 api.add_router("", presence_router)
 api.add_router("", chat_router)

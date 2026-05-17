@@ -56,6 +56,7 @@ def _profile_out(user: User) -> dict:
         # Never echo the Zenodo token; UI shows only whether one is set
         "has_zenodo_token": bool(profile.zenodo_token),
         "zenodo_use_sandbox": profile.zenodo_use_sandbox,
+        "mastodon_autopost_checkin": profile.mastodon_autopost_checkin,
         "storage_used_bytes": profile.storage_used_bytes,
         "storage_quota_bytes": profile.storage_quota_bytes,
         "onboarding_completed": profile.onboarding_completed,

@@ -87,6 +87,9 @@ class Profile(models.Model):
     # Storage usage tracking (F-Auth-8)
     storage_used_bytes = models.BigIntegerField(default=0)
     storage_quota_bytes = models.BigIntegerField(default=5 * 1024 * 1024 * 1024)  # 5 GiB
+    # When set, presence check-ins also post a status to the user's
+    # connected Mastodon (best-effort, swallowed failure).
+    mastodon_autopost_checkin = models.BooleanField(default=False)
     onboarding_completed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

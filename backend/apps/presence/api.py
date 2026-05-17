@@ -50,6 +50,25 @@ def create_checkin(request: HttpRequest, slug: str, payload: CheckinIn):
         anonymous=payload.anonymous,
         expires_at=expires_at,
     )
+
+    # Best-effort Mastodon cross-post if the user opted in. Anonymous
+    # check-ins are explicitly NOT posted — anonymity means we don't
+    # reveal who's at the place.
+    if (
+        not payload.anonymous
+        and getattr(request.user, "profile", None)
+        and request.user.profile.mastodon_autopost_checkin
+    ):
+        from apps.accounts.mastodon_post import post_status
+
+        text_parts = [f"🔭 Pozoruji z {place.name}"]
+        if payload.comment:
+            text_parts.append(payload.comment[:200])
+        host = request.get_host()
+        scheme = "https" if request.is_secure() else "http"
+        text_parts.append(f"{scheme}://{host}/places/{place.slug}")
+        post_status(request.user, "\n\n".join(text_parts))
+
     return 201, _to_out(checkin)
 
 

@@ -123,6 +123,7 @@
     "projects": "Projects",
     "events": "Events",
     "campaigns": "Campaigns",
+    "mastodon": "Mastodon",
     "admin": "Admin",
     "feed": "Feed",
     "logout": "Log out"
@@ -290,7 +291,21 @@
       "zenodoPlaceholder": "Paste token — we never display it back",
       "zenodoSandbox": "Use Zenodo sandbox (test, recommended)",
       "zenodoHint": "When you publish an article, the DOI is registered on your Zenodo account. Generate a token at",
-      "zenodoClear": "Clear token"
+      "zenodoClear": "Clear token",
+      "mastodonAutopost": "Mastodon — auto cross-post",
+      "autopostCheckin": "Auto-post check-ins to my Mastodon",
+      "autopostCheckinHint": "When you check in at a place, Astrozor posts a \"🔭 Observing from …\" status to your Mastodon instance. Requires a connected Mastodon account. Anonymous check-ins are never posted."
+    }
+  },
+  "mastodon": {
+    "title": "Mastodon feed",
+    "empty": "No statuses in this tab.",
+    "tagPlaceholder": "astronomy",
+    "applyTag": "Apply",
+    "kind": {
+      "home": "Home",
+      "hashtag": "Hashtag",
+      "public": "Local"
     }
   },
   "map": {

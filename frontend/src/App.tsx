@@ -10,6 +10,7 @@ import { ProjectsPage } from "./components/ProjectsPage";
 import { EventsPage } from "./components/EventsPage";
 import { CampaignsPage } from "./components/CampaignsPage";
 import { AdminPage } from "./components/AdminPage";
+import { MastodonFeedPage } from "./components/MastodonFeedPage";
 import { NotificationsBell } from "./components/NotificationsBell";
 
 type Page =
@@ -19,6 +20,7 @@ type Page =
   | "projects"
   | "events"
   | "campaigns"
+  | "mastodon"
   | "admin";
 
 export function App() {
@@ -76,6 +78,7 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
       fromParam === "projects" ||
       fromParam === "events" ||
       fromParam === "campaigns" ||
+      fromParam === "mastodon" ||
       fromParam === "admin"
     )
       return fromParam;
@@ -160,6 +163,12 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
               onClick={() => setPage("campaigns")}
             />
             <NavTab
+              id="mastodon"
+              active={page === "mastodon"}
+              label={t("nav.mastodon")}
+              onClick={() => setPage("mastodon")}
+            />
+            <NavTab
               id="settings"
               active={page === "settings"}
               label={t("nav.settings")}
@@ -194,6 +203,7 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
         {page === "projects" && <ProjectsPage me={me} />}
         {page === "events" && <EventsPage me={me} />}
         {page === "campaigns" && <CampaignsPage me={me} />}
+        {page === "mastodon" && <MastodonFeedPage me={me} />}
         {page === "settings" && <SettingsPage me={me} />}
         {page === "admin" && <AdminPage me={me} />}
       </div>

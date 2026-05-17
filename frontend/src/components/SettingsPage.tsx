@@ -321,6 +321,9 @@ function IntegrationsSection({ me }: { me: Me }) {
   const [discord, setDiscord] = useState(me.profile.discord_webhook_url);
   const [zenodoToken, setZenodoToken] = useState("");
   const [zenodoSandbox, setZenodoSandbox] = useState(me.profile.zenodo_use_sandbox);
+  const [autopostCheckin, setAutopostCheckin] = useState(
+    me.profile.mastodon_autopost_checkin,
+  );
   const hasZenodo = me.profile.has_zenodo_token;
 
   const save = useMutation({
@@ -384,6 +387,24 @@ function IntegrationsSection({ me }: { me: Me }) {
             </a>
           </p>
         </div>
+
+        <div>
+          <h4 className="text-sm text-slate-300 font-medium mb-2">
+            {t("settings.integrations.mastodonAutopost")}
+          </h4>
+          <label className="flex items-center gap-2 text-sm text-slate-200">
+            <input
+              type="checkbox"
+              checked={autopostCheckin}
+              onChange={(e) => setAutopostCheckin(e.target.checked)}
+              data-testid="autopost-checkin"
+            />
+            <span>{t("settings.integrations.autopostCheckin")}</span>
+          </label>
+          <p className="text-xs text-slate-500 mt-2">
+            {t("settings.integrations.autopostCheckinHint")}
+          </p>
+        </div>
       </div>
 
       <button
@@ -392,6 +413,7 @@ function IntegrationsSection({ me }: { me: Me }) {
           const patch: ProfilePatch = {
             discord_webhook_url: discord,
             zenodo_use_sandbox: zenodoSandbox,
+            mastodon_autopost_checkin: autopostCheckin,
           };
           if (zenodoToken) patch.zenodo_token = zenodoToken;
           save.mutate(patch);
