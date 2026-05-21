@@ -1,0 +1,338 @@
+/*
+ * Astrozor dark theme overrides for nbconvert HTML output.
+ *
+ * Layered on top of nbconvert's stock ``lab`` template stylesheet
+ * via a ``<style>`` block injected into the rendered HTML. Targets
+ * the .jp-* class hierarchy the lab template uses, plus CodeMirror
+ * tokens (.cm-*) and Pygments tokens (.highlight .* / .o, .p, .s,
+ * .n, …) that show up inside cell sources and rich outputs.
+ *
+ * Color palette mirrors the running Astrozor UI so an article reads
+ * as a continuation of the surrounding chrome:
+ *   #0f172a  slate-900   — page BG
+ *   #020617  slate-950   — code / pre / nested panel BG
+ *   #1e293b  slate-800   — header strip BG, table head, divider
+ *   #334155  slate-700   — borders / quote bar
+ *   #94a3b8  slate-400   — secondary text
+ *   #e2e8f0  slate-200   — body text
+ *   #f8fafc  slate-50    — heading text
+ *   #818cf8  indigo-400  — links
+ *   #a5b4fc  indigo-300  — link hover
+ */
+
+/* ===== Page chrome ============================================ */
+
+html,
+body,
+.jp-Notebook,
+.jp-Cell {
+  background-color: #0f172a !important;
+  color: #e2e8f0 !important;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif !important;
+}
+
+/* Headings — keep them legible against slate-900 */
+h1, h2, h3, h4, h5, h6,
+.jp-RenderedHTMLCommon h1,
+.jp-RenderedHTMLCommon h2,
+.jp-RenderedHTMLCommon h3,
+.jp-RenderedHTMLCommon h4,
+.jp-RenderedHTMLCommon h5,
+.jp-RenderedHTMLCommon h6 {
+  color: #f8fafc !important;
+  border-bottom-color: #334155 !important;
+}
+
+/* Links — Astrozor indigo */
+a,
+a:visited,
+.jp-RenderedHTMLCommon a {
+  color: #818cf8 !important;
+}
+a:hover,
+.jp-RenderedHTMLCommon a:hover {
+  color: #a5b4fc !important;
+}
+
+/* Horizontal rule */
+hr,
+.jp-RenderedHTMLCommon hr {
+  border-color: #334155 !important;
+  background-color: #334155 !important;
+}
+
+/* ===== Cell layout ============================================ */
+
+/* Code cell input area (the editor box) */
+.jp-CodeCell .jp-InputArea,
+.jp-CodeCell .jp-Cell-inputArea,
+.jp-InputArea-editor,
+.jp-CodeMirrorEditor,
+.jp-RenderedHTMLCommon pre {
+  background-color: #020617 !important;
+  border: 1px solid #1e293b !important;
+  border-radius: 6px;
+  color: #e2e8f0 !important;
+}
+
+/* Output area — usually transparent, but force when nbconvert wraps
+   in a colored container */
+.jp-OutputArea,
+.jp-OutputArea-output {
+  background-color: transparent !important;
+  color: #e2e8f0 !important;
+}
+
+/* Stream output (print / logs) */
+.jp-OutputArea-output[data-mime-type="text/plain"],
+.jp-OutputArea-output[data-mime-type="application/vnd.jupyter.stderr"] {
+  background-color: #020617 !important;
+  color: #cbd5e1 !important;
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+
+/* Error tracebacks — keep readable, dim background */
+.jp-OutputArea-output[data-mime-type="application/vnd.jupyter.error"] {
+  background-color: #1f1010 !important;
+  color: #fca5a5 !important;
+}
+
+/* Execution prompts (In [n]: / Out [n]:) */
+.jp-InputPrompt,
+.jp-OutputPrompt {
+  color: #64748b !important;
+}
+
+/* ===== Markdown rendering ===================================== */
+
+.jp-RenderedHTMLCommon,
+.jp-MarkdownCell .jp-Cell-outputArea {
+  color: #e2e8f0 !important;
+}
+
+.jp-RenderedHTMLCommon strong { color: #f8fafc !important; }
+.jp-RenderedHTMLCommon em { color: #cbd5e1 !important; }
+
+/* Blockquotes — left bar */
+.jp-RenderedHTMLCommon blockquote {
+  border-left: 3px solid #334155 !important;
+  background-color: transparent !important;
+  color: #cbd5e1 !important;
+  padding: 4px 0 4px 12px;
+  margin-left: 0;
+}
+
+/* Inline code */
+.jp-RenderedHTMLCommon code {
+  background-color: #1e293b !important;
+  color: #fbbf24 !important;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+/* Code blocks inside markdown — distinct from inline */
+.jp-RenderedHTMLCommon pre,
+.jp-RenderedHTMLCommon pre code {
+  background-color: #020617 !important;
+  color: #e2e8f0 !important;
+  border-radius: 6px;
+}
+
+/* Tables — borders + striped rows */
+.jp-RenderedHTMLCommon table {
+  border-collapse: collapse !important;
+  background-color: #0f172a !important;
+  color: #e2e8f0 !important;
+  margin: 8px 0;
+}
+.jp-RenderedHTMLCommon thead,
+.jp-RenderedHTMLCommon th {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+}
+.jp-RenderedHTMLCommon th,
+.jp-RenderedHTMLCommon td {
+  border: 1px solid #334155 !important;
+  padding: 4px 8px;
+}
+.jp-RenderedHTMLCommon tbody tr:nth-child(even) {
+  background-color: rgba(30, 41, 59, 0.35) !important;
+}
+
+/* ===== CodeMirror code colorization =========================== */
+/* Modern lab template uses CodeMirror 6 with .cm-* token classes;
+   colors picked from the One Dark / Slate palette family so they
+   pop against #020617 without being neon. */
+
+.cm-editor .cm-content {
+  color: #e2e8f0 !important;
+}
+.cm-line { color: #e2e8f0 !important; }
+.cm-keyword,
+.cm-atom { color: #c084fc !important; }   /* purple — def/class/import */
+.cm-string,
+.cm-string-2 { color: #86efac !important; } /* green */
+.cm-number { color: #fbbf24 !important; }   /* amber */
+.cm-comment { color: #64748b !important; font-style: italic; }
+.cm-operator,
+.cm-punctuation { color: #cbd5e1 !important; }
+.cm-builtin,
+.cm-property { color: #60a5fa !important; } /* blue */
+.cm-variable,
+.cm-variable-2 { color: #e2e8f0 !important; }
+.cm-def { color: #fde047 !important; }     /* function names — yellow */
+.cm-tag { color: #fb7185 !important; }
+.cm-attribute { color: #fcd34d !important; }
+.cm-cursor { border-left-color: #f8fafc !important; }
+.cm-activeLine { background-color: rgba(30, 41, 59, 0.5) !important; }
+.cm-gutters {
+  background-color: #020617 !important;
+  border-right: 1px solid #1e293b !important;
+  color: #475569 !important;
+}
+
+/* ===== Pygments syntax (in rich text/html outputs) ============ */
+/* When pandoc / nbconvert renders cell sources statically via
+   Pygments, the tokens come out as ``.highlight .{tk}``. Mirror the
+   CodeMirror palette so the page looks consistent. */
+.highlight,
+.highlight pre {
+  background-color: #020617 !important;
+  color: #e2e8f0 !important;
+}
+.highlight .k,  /* Keyword */
+.highlight .kn,
+.highlight .kr,
+.highlight .kc { color: #c084fc !important; }
+.highlight .s,  /* String */
+.highlight .s1,
+.highlight .s2,
+.highlight .sb,
+.highlight .sd { color: #86efac !important; }
+.highlight .m,  /* Number */
+.highlight .mi,
+.highlight .mf { color: #fbbf24 !important; }
+.highlight .c,  /* Comment */
+.highlight .c1,
+.highlight .cm { color: #64748b !important; font-style: italic; }
+.highlight .nb,  /* Builtin name */
+.highlight .nf,
+.highlight .nc { color: #60a5fa !important; }
+.highlight .o,  /* Operator */
+.highlight .p { color: #cbd5e1 !important; }
+.highlight .n { color: #e2e8f0 !important; }
+
+/* ===== Image polish =========================================== */
+.jp-RenderedImage img,
+.jp-OutputArea-output img {
+  background: transparent;
+  border-radius: 4px;
+  /* Subtle drop shadow so images don't merge into slate-900 BG */
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* ===== Plotly graph containers + controls ===================== */
+/* Plotly renders into its own <div> with white background by default;
+   our notebook explicitly sets paper_bgcolor, but force it here too
+   so old / re-published notebooks without that setting blend in. */
+.js-plotly-plot .plotly,
+.js-plotly-plot .plotly .main-svg {
+  background-color: transparent !important;
+}
+
+/* Modebar (top-right toolbar with zoom/pan/save/etc buttons) — by
+ * default the icons are dark grey, invisible on slate-900 BG. */
+.js-plotly-plot .modebar,
+.js-plotly-plot .modebar-container {
+  background: rgba(15, 23, 42, 0.6) !important;
+  border-radius: 4px;
+}
+.js-plotly-plot .modebar-btn path {
+  fill: #94a3b8 !important;
+}
+.js-plotly-plot .modebar-btn:hover path,
+.js-plotly-plot .modebar-btn.active path {
+  fill: #f8fafc !important;
+}
+.js-plotly-plot .modebar-btn.active path {
+  fill: #818cf8 !important;
+}
+
+/* Updatemenus (Play / Pause / dropdowns above the graph) — Plotly
+ * renders them as SVG <rect> + <text>. Default fill is white on white
+ * which leaves the label invisible. Override to slate panel + light
+ * text. Hover gives a slightly brighter rect. */
+.js-plotly-plot .updatemenu-button rect,
+.js-plotly-plot .updatemenu-dropdown-button rect {
+  fill: #1e293b !important;
+  stroke: #475569 !important;
+}
+.js-plotly-plot .updatemenu-button text,
+.js-plotly-plot .updatemenu-dropdown-button text,
+.js-plotly-plot .updatemenu-item-rect + text,
+.js-plotly-plot .updatemenu-item-text {
+  fill: #e2e8f0 !important;
+}
+.js-plotly-plot .updatemenu-button:hover rect,
+.js-plotly-plot .updatemenu-dropdown-button:hover rect {
+  fill: #334155 !important;
+}
+/* Active / pressed state of an updatemenu button — Plotly uses a
+ * darker fill which on dark theme looks invisible. Brighten. */
+.js-plotly-plot .updatemenu-button-active rect,
+.js-plotly-plot .updatemenu-dropdown-button-active rect {
+  fill: #4f46e5 !important;
+  stroke: #818cf8 !important;
+}
+
+/* Slider — the bar with frame indicators. Default rail is white, grip
+ * is dark — both invisible on slate-900 BG. */
+.js-plotly-plot .slider-rail-rect,
+.js-plotly-plot .slider-rail-touch-rect {
+  fill: #1e293b !important;
+}
+.js-plotly-plot .slider-grip-rect {
+  fill: #4f46e5 !important;
+  stroke: #818cf8 !important;
+}
+.js-plotly-plot .slider-label-group text,
+.js-plotly-plot .slider-currentvalue text,
+.js-plotly-plot .slider-current-value text {
+  fill: #cbd5e1 !important;
+}
+.js-plotly-plot .slider-tick-rect {
+  fill: #475569 !important;
+}
+
+/* Hover tooltip box — Plotly draws a white box with dark text by
+ * default; invert to match the dark theme. */
+.js-plotly-plot .hoverlayer .hovertext path {
+  fill: #1e293b !important;
+  stroke: #475569 !important;
+}
+.js-plotly-plot .hoverlayer .hovertext text {
+  fill: #e2e8f0 !important;
+}
+
+/* Legend background — same trick, transparent so it sits on the
+ * paper_bgcolor we set. Legend text colour comes from plotly_dark
+ * template already. */
+.js-plotly-plot .legend rect.bg {
+  fill: transparent !important;
+  stroke: #334155 !important;
+}
+
+/* ===== Scrollbars (WebKit) ==================================== */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #0f172a; }
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover { background: #334155; }

@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "astrozorpub"
+version = "0.1.0"
+description = "Publish Jupyter notebooks to an Astrozor instance"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Astrozor Project", email = "noreply@astrozor.cz" },
+]
+requires-python = ">=3.9"
+keywords = ["jupyter", "nbconvert", "publishing", "astrozor"]
+classifiers = [
+    "Framework :: Jupyter",
+    "Framework :: Jupyter :: JupyterLab",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Scientific/Engineering :: Astronomy",
+]
+dependencies = [
+    # nbconvert ships a HTMLExporter that we drive through our dark
+    # theme template; bundle it explicitly so a fresh Jupyter install
+    # works without separate prep.
+    "nbconvert>=7.0",
+    # Multipart upload is straightforward with httpx; also gives async
+    # if we later want a non-blocking publish from JupyterLab UIs.
+    "httpx>=0.27",
+    # Server extension uses Tornado handlers exposed by jupyter_server.
+    # Required for the Lab toolbar button flow; CLI use only would
+    # technically work without it but the dep is light and shared
+    # with JupyterLab anyway.
+    "jupyter_server>=2.0",
+]
+
+[project.optional-dependencies]
+# When the user wants the ipywidgets dialog (small GUI inside a
+# notebook cell, mirrors the RStudio gadget). Optional so the core
+# CLI / magic flow has no widget dependency.
+widgets = ["ipywidgets>=8.0"]
+
+[project.scripts]
+astrozorpub = "astrozorpub.cli:main"
+
+[project.urls]
+Homepage = "https://astrozor.cz"
+Source = "https://github.com/robozor/astrozor/tree/main/jupyter-addin"
+
+[tool.setuptools.packages.find]
+include = ["astrozorpub*"]
+
+[tool.setuptools.package-data]
+"astrozorpub" = [
+    "themes/*.css",
+    "themes/*.html.j2",
+    "_startup_template.py",
+]
+
+# Ship the Jupyter server-extension config so ``pip install`` is
+# enough to auto-enable the /astrozorpub/publish endpoints. Drops
+# the JSON into ``etc/jupyter/jupyter_server_config.d/`` which the
+# running Jupyter server reads on startup.
+[tool.setuptools.data-files]
+"etc/jupyter/jupyter_server_config.d" = [
+    "jupyter-config/jupyter_server_config.d/astrozorpub.json",
+]

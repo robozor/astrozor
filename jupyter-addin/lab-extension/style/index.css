@@ -1,0 +1,46 @@
+/*
+ * Toolbar button styling for the JupyterLab extension.
+ *
+ * We follow JupyterLab's theme tokens (--jp-...) so the button blends
+ * into whichever Lab theme the user has active (light or dark).
+ */
+
+.jp-astrozor-publish-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.jp-astrozor-publish-button .jp-ToolbarButtonComponent-label {
+  font-size: var(--jp-ui-font-size1);
+}
+
+.jp-astrozor-dialog {
+  min-width: 380px;
+}
+
+.jp-astrozor-dialog label {
+  display: block;
+  font-size: var(--jp-ui-font-size1);
+  color: var(--jp-ui-font-color1);
+  margin-top: 8px;
+  margin-bottom: 2px;
+}
+
+.jp-astrozor-dialog input,
+.jp-astrozor-dialog textarea {
+  width: 100%;
+  font-family: var(--jp-ui-font-family);
+  font-size: var(--jp-ui-font-size1);
+  padding: 4px 6px;
+  background: var(--jp-input-background);
+  color: var(--jp-ui-font-color0);
+  border: 1px solid var(--jp-input-border-color);
+  border-radius: 3px;
+}
+
+.jp-astrozor-dialog .jp-astrozor-hint {
+  font-size: var(--jp-ui-font-size0);
+  color: var(--jp-ui-font-color2);
+  margin-top: 4px;
+}

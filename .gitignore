@@ -34,6 +34,15 @@ venv/
 .ruff_cache/
 .coverage
 htmlcov/
+*.egg-info/
+build/
+
+# Jupyter addin local build artifacts
+jupyter-addin/lab-extension/.yarn/
+jupyter-addin/lab-extension/node_modules/
+jupyter-addin/lab-extension/lib/
+jupyter-addin/lab-extension/yarn.lock
+jupyter-addin/lab-extension/tsconfig.tsbuildinfo
 
 # Django / Celery runtime
 celerybeat-schedule*
@@ -58,8 +67,12 @@ test-results/
 /citizen-*.png
 /discord-*.png
 /events-*.png
+/map-*.png
 /place-*.png
 /projects-*.png
+
+# Playwright artifacts dropped in repo root
+/map-*.yml
 
 # Docker / build cache
 .docker/
