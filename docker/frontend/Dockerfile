@@ -19,6 +19,10 @@ ENV NODE_ENV=development \
 EXPOSE 5173
 
 HEALTHCHECK --interval=15s --timeout=5s --retries=10 --start-period=15s \
-    CMD wget -qO- http://localhost:5173/ >/dev/null 2>&1 || exit 1
+    CMD wget -qO- http://127.0.0.1:5173/ >/dev/null 2>&1 || exit 1
+# Note: explicit 127.0.0.1, not "localhost". In this container "localhost"
+# resolves to ::1 (IPv6) but Vite binds to 0.0.0.0 (IPv4 only), so the
+# default name resolution refuses the connection and Docker reports
+# unhealthy even though the dev server is fine.
 
 CMD ["npm", "run", "dev"]

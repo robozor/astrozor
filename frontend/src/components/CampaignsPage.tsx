@@ -1,7 +1,15 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { campaigns, type Campaign, type Contribution, type Me } from "../lib/api";
+import {
+  campaigns,
+  zooniverse,
+  type Campaign,
+  type Contribution,
+  type Me,
+} from "../lib/api";
+import { DateTimePicker } from "./DateTimePicker";
+import { TagFilter, TagInput, TagsList } from "./Tags";
 
 type View = { kind: "list" } | { kind: "detail"; slug: string } | { kind: "new" };
 
@@ -36,19 +44,28 @@ function CampaignList({
 }) {
   const { t } = useTranslation();
   const list = useQuery({ queryKey: ["campaigns"], queryFn: () => campaigns.list() });
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
+  const filtered = (list.data ?? []).filter((c) => {
+    if (tagFilter.length === 0) return true;
+    const tagSet = new Set((c.tags ?? []).map((t) => t.toLowerCase()));
+    return tagFilter.every((t) => tagSet.has(t.toLowerCase()));
+  });
 
   return (
     <section data-testid="campaigns-list">
-      <header className="flex items-center justify-between mb-4">
+      <header className="flex items-center justify-between mb-4 gap-2 flex-wrap">
         <h2 className="text-xl font-semibold">{t("campaigns.title")}</h2>
-        <button
-          type="button"
-          onClick={onNew}
-          data-testid="campaign-new"
-          className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-3 py-1.5 rounded-md transition"
-        >
-          {t("campaigns.new")}
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <TagFilter kind="campaigns" selected={tagFilter} onChange={setTagFilter} />
+          <button
+            type="button"
+            onClick={onNew}
+            data-testid="campaign-new"
+            className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-3 py-1.5 rounded-md transition"
+          >
+            {t("campaigns.new")}
+          </button>
+        </div>
       </header>
 
       {list.isLoading && <p className="text-slate-500 text-sm">{t("common.loading")}</p>}
@@ -60,7 +77,7 @@ function CampaignList({
       )}
 
       <ul className="space-y-3">
-        {list.data?.map((c) => (
+        {filtered.map((c) => (
           <li
             key={c.id}
             className="bg-slate-950/60 ring-1 ring-slate-800 hover:ring-slate-700 rounded-xl p-4 cursor-pointer transition"
@@ -83,6 +100,11 @@ function CampaignList({
             </div>
             {c.description && (
               <p className="text-sm text-slate-400 mt-2 line-clamp-2">{c.description}</p>
+            )}
+            {c.tags && c.tags.length > 0 && (
+              <div className="mt-2">
+                <TagsList tags={c.tags} size="xs" />
+              </div>
             )}
           </li>
         ))}
@@ -382,6 +404,30 @@ function CampaignEditor({
   const [methodology, setMethodology] = useState("");
   const [kind, setKind] = useState("observation");
   const [schemaJson, setSchemaJson] = useState('{\n  "target_object": "",\n  "magnitude": 0\n}');
+  const [tags, setTags] = useState<string[]>([]);
+  // Date range — campaign as a time-boxed sprint. Optional; an empty
+  // value means "ongoing" / no fixed end.
+  const [startsAt, setStartsAt] = useState("");
+  const [endsAt, setEndsAt] = useState("");
+  // Optional Zooniverse linkage. When set, the campaign appears on the
+  // matching project detail under "Astrozor campaigns for this project"
+  // and lands on the events calendar.
+  const [zooniverseZid, setZooniverseZid] = useState<number | null>(null);
+  const [zooniverseWorkflowId, setZooniverseWorkflowId] = useState<number | null>(null);
+
+  const zooProjects = useQuery({
+    queryKey: ["zooniverse-projects"],
+    queryFn: () => zooniverse.listProjects(false),
+    staleTime: 5 * 60_000,
+  });
+
+  // Workflows for the currently selected project. Filter to active
+  // ones because campaigns target whatever's currently runnable.
+  const activeWorkflows = useMemo(() => {
+    if (!zooniverseZid) return [];
+    const p = (zooProjects.data ?? []).find((x) => x.zooniverse_id === zooniverseZid);
+    return (p?.workflows ?? []).filter((w) => w.active);
+  }, [zooniverseZid, zooProjects.data]);
 
   const create = useMutation({
     mutationFn: () => {
@@ -398,6 +444,11 @@ function CampaignEditor({
         methodology,
         kind,
         contribution_schema: schema,
+        tags,
+        starts_at: startsAt || null,
+        ends_at: endsAt || null,
+        zooniverse_project_zid: zooniverseZid,
+        zooniverse_workflow_id: zooniverseWorkflowId,
       });
     },
     onSuccess: (c: Campaign) => {
@@ -473,6 +524,86 @@ function CampaignEditor({
             <option value="generic">generic</option>
           </select>
         </label>
+
+        {/* Date range — from / to. Empty = ongoing. Used by the
+            calendar dot and "Astrozor campaigns for this project"
+            listings on the Zooniverse project detail. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="block">
+            <span className="text-xs text-slate-400 mb-1 block">
+              {t("campaigns.field.startsAt")}
+            </span>
+            <DateTimePicker
+              value={startsAt}
+              onChange={setStartsAt}
+              testId="campaign-starts"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs text-slate-400 mb-1 block">
+              {t("campaigns.field.endsAt")}
+            </span>
+            <DateTimePicker
+              value={endsAt}
+              onChange={setEndsAt}
+              testId="campaign-ends"
+            />
+          </label>
+        </div>
+
+        {/* Zooniverse linkage — optional. Dropdown of catalogued
+            projects (loaded via the same query the grid uses, so it's
+            already cached on a typical navigation). Workflow picker
+            depends on the chosen project. */}
+        <label className="block">
+          <span className="text-xs text-slate-400 mb-1 block">
+            {t("campaigns.field.zooniverseProject")}
+          </span>
+          <select
+            value={zooniverseZid ?? ""}
+            onChange={(e) => {
+              const v = e.target.value ? parseInt(e.target.value, 10) : null;
+              setZooniverseZid(Number.isFinite(v) ? v : null);
+              setZooniverseWorkflowId(null);
+            }}
+            className="w-full bg-slate-950 ring-1 ring-slate-700 focus:ring-slate-500 rounded-md px-3 py-2 text-slate-100 outline-none transition"
+            data-testid="campaign-zooniverse-project"
+          >
+            <option value="">{t("campaigns.field.zooniverseProjectNone")}</option>
+            {(zooProjects.data ?? []).map((p) => (
+              <option key={p.zooniverse_id} value={p.zooniverse_id}>
+                {p.title} (#{p.zooniverse_id})
+              </option>
+            ))}
+          </select>
+          <span className="text-[10px] text-slate-500 mt-1 block">
+            {t("campaigns.field.zooniverseProjectHint")}
+          </span>
+        </label>
+
+        {zooniverseZid !== null && activeWorkflows.length > 0 && (
+          <label className="block">
+            <span className="text-xs text-slate-400 mb-1 block">
+              {t("campaigns.field.zooniverseWorkflow")}
+            </span>
+            <select
+              value={zooniverseWorkflowId ?? ""}
+              onChange={(e) => {
+                const v = e.target.value ? parseInt(e.target.value, 10) : null;
+                setZooniverseWorkflowId(Number.isFinite(v) ? v : null);
+              }}
+              className="w-full bg-slate-950 ring-1 ring-slate-700 focus:ring-slate-500 rounded-md px-3 py-2 text-slate-100 outline-none transition"
+              data-testid="campaign-zooniverse-workflow"
+            >
+              <option value="">{t("campaigns.field.zooniverseWorkflowAny")}</option>
+              {activeWorkflows.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.display_name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="block">
           <span className="text-xs text-slate-400 mb-1 block">
             {t("campaigns.field.schema")}
@@ -483,6 +614,10 @@ function CampaignEditor({
             rows={5}
             className="w-full bg-slate-950 ring-1 ring-slate-700 focus:ring-slate-500 rounded-md px-3 py-2 text-xs font-mono text-slate-100 outline-none transition"
           />
+        </label>
+        <label className="block">
+          <span className="text-xs text-slate-400 mb-1 block">🏷 Tagy</span>
+          <TagInput value={tags} onChange={setTags} />
         </label>
         {create.error && (
           <p className="text-xs text-rose-400 bg-rose-950/40 ring-1 ring-rose-900/50 rounded-md px-3 py-2">

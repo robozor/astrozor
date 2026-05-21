@@ -92,9 +92,26 @@ def fetch_repo_metadata(repo: GHRepo, user=None) -> dict:
     repo.default_branch = data.get("default_branch") or ""
     repo.html_url = data.get("html_url") or ""
     repo.last_commit_at = _parse_iso(data.get("pushed_at"))
+    repo.topics = data.get("topics") or []
     repo.last_status = "ok"
     repo.last_fetched_at = dj_tz.now()
+
+    # Extended metadata — best-effort; each call's failure is
+    # tolerated independently (a missing release shouldn't blank the
+    # contributors list and vice versa). Saves one DB write per
+    # successful fetch via update_fields if we batched, but the cache
+    # is cold enough that an extra save is cheap.
+    _refresh_release(repo, token)
+    _refresh_contributors(repo, token)
     repo.save()
+    # Commit-date cache lives on the same model but is more expensive
+    # (paginated GH calls). Refresh it inline so a manual repo refresh
+    # also rebuilds the activity graph; the project-activity endpoint
+    # has its own TTL gate for lazy refreshes between manual ones.
+    try:
+        refresh_repo_commit_cache(repo, user=user)
+    except Exception:  # pragma: no cover — never block metadata refresh on commits
+        logger.warning("commit cache refresh failed for %s", repo.full_name)
 
     return {
         "status": "ok",
@@ -102,6 +119,66 @@ def fetch_repo_metadata(repo: GHRepo, user=None) -> dict:
         "forks": repo.forks,
         "language": repo.language,
     }
+
+
+def _refresh_release(repo: GHRepo, token: str | None) -> None:
+    """``GET /repos/{owner}/{name}/releases/latest`` — sets the
+    release fields on ``repo`` (no save). Tolerates 404 (no release
+    yet) and 403 (rate limited) silently."""
+    url = f"{GH_API}/repos/{repo.owner_login}/{repo.repo_name}/releases/latest"
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            r = client.get(url, headers=_headers(token))
+    except httpx.HTTPError:
+        return
+    if r.status_code != 200:
+        if r.status_code == 404:
+            # No releases — clear stale state.
+            repo.last_release_tag = ""
+            repo.last_release_name = ""
+            repo.last_release_at = None
+            repo.last_release_url = ""
+        return
+    d = r.json()
+    repo.last_release_tag = (d.get("tag_name") or "")[:120]
+    repo.last_release_name = (d.get("name") or d.get("tag_name") or "")[:200]
+    repo.last_release_at = _parse_iso(
+        d.get("published_at") or d.get("created_at")
+    )
+    repo.last_release_url = (d.get("html_url") or "")[:300]
+
+
+def _refresh_contributors(repo: GHRepo, token: str | None, *, top_n: int = 10) -> None:
+    """``GET /repos/{owner}/{name}/contributors?per_page=N`` — caches
+    top N contributors as a JSON list of avatar chips."""
+    url = f"{GH_API}/repos/{repo.owner_login}/{repo.repo_name}/contributors"
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            r = client.get(
+                url, headers=_headers(token), params={"per_page": top_n, "anon": 0}
+            )
+    except httpx.HTTPError:
+        return
+    if r.status_code != 200:
+        return
+    try:
+        data = r.json()
+    except ValueError:
+        return
+    out: list[dict] = []
+    for c in data[:top_n]:
+        login = c.get("login") or ""
+        if not login:
+            continue
+        out.append(
+            {
+                "login": login,
+                "avatar_url": (c.get("avatar_url") or "")[:300],
+                "html_url": (c.get("html_url") or "")[:300],
+                "contributions": int(c.get("contributions") or 0),
+            }
+        )
+    repo.top_contributors = out
 
 
 def fetch_repo_issues(repo: GHRepo, user=None, limit: int = 30) -> list[dict]:
@@ -168,6 +245,279 @@ def fetch_repo_issues(repo: GHRepo, user=None, limit: int = 30) -> list[dict]:
             }
         )
     return items
+
+
+# Allowlist for GitHub-rendered content: avatars, repo assets, user
+# uploads. We only render markdown-derived HTML — never raw HTML from
+# the GH response — so the rules are about which image/link hosts are
+# safe to keep when bleach scrubs the output.
+_GH_CONTENT_HOSTS = {
+    "github.com",
+    "www.github.com",
+    "user-images.githubusercontent.com",
+    "private-user-images.githubusercontent.com",
+    "objects.githubusercontent.com",
+    "raw.githubusercontent.com",
+    "avatars.githubusercontent.com",
+    "camo.githubusercontent.com",
+    "media.githubusercontent.com",
+}
+
+
+def _render_gh_markdown(body: str) -> str:
+    """Render GitHub-flavoured markdown body to safe HTML.
+
+    The body comes back as raw markdown from the GH issues API. We
+    don't trust it, so we render server-side via ``markdown-it`` and
+    scrub the result via bleach with an issue-specific tag/host
+    allowlist. The same approach we use for Zooniverse Talk; the
+    allowlist of image hosts differs (GH user-content vs Panoptes
+    uploads).
+    """
+    if not body:
+        return ""
+    import bleach
+    from markdown_it import MarkdownIt
+    from urllib.parse import urlparse
+
+    allowed_tags = [
+        "b", "strong", "i", "em", "u", "s", "del",
+        "code", "pre",
+        "p", "br", "hr",
+        "ul", "ol", "li",
+        "blockquote",
+        "a", "img",
+        "h1", "h2", "h3", "h4", "h5", "h6",
+        "table", "thead", "tbody", "tr", "th", "td",
+    ]
+    allowed_attrs = {
+        "a": ["href", "title"],
+        "img": ["src", "alt", "title", "width", "height"],
+        "code": ["class"],  # language- for code highlighting
+        # GFM tables encode column alignment as ``style="text-align:..."``
+        # on th/td. Keep ``align`` (legacy) plus ``style`` restricted
+        # to text-align values.
+        "th": ["align", "style"],
+        "td": ["align", "style"],
+    }
+
+    def img_filter(tag: str, name: str, value: str) -> bool:
+        if tag != "img":
+            return name in allowed_attrs.get(tag, [])
+        if name == "src":
+            try:
+                host = (urlparse(value).hostname or "").lower()
+            except Exception:
+                return False
+            return host in _GH_CONTENT_HOSTS
+        return name in ("alt", "title", "width", "height")
+
+    def td_th_style_filter(tag: str, name: str, value: str) -> bool:
+        if name != "style":
+            return name in ("align",)
+        # Only ``text-align: left|right|center`` is allowed — that's
+        # the single style markdown-it emits for GFM table alignment.
+        v = (value or "").strip().rstrip(";").lower()
+        return v in (
+            "text-align:left",
+            "text-align: left",
+            "text-align:right",
+            "text-align: right",
+            "text-align:center",
+            "text-align: center",
+        )
+
+    # ``gfm-like`` preset turns on GFM-style extensions on top of
+    # CommonMark: tables, strikethrough (~~text~~), and proper task
+    # list handling. We add linkify + breaks to keep auto-linking
+    # of bare URLs and ``\n``-as-``<br>`` behaviour the user expects
+    # from a chat-y composer.
+    html = (
+        MarkdownIt("gfm-like", {"linkify": True, "breaks": True, "html": False})
+        .enable("linkify")
+        .render(body)
+    )
+    attrs = {
+        **allowed_attrs,
+        "img": img_filter,
+        "th": td_th_style_filter,
+        "td": td_th_style_filter,
+    }
+    return bleach.clean(
+        html,
+        tags=allowed_tags,
+        attributes=attrs,
+        protocols=["http", "https", "mailto"],
+        strip=True,
+    )
+
+
+def _user_avatar_dict(u: dict | None) -> dict:
+    """Slim down GH user envelope for inclusion in issue/comment payload."""
+    u = u or {}
+    return {
+        "login": u.get("login") or "",
+        "avatar_url": u.get("avatar_url") or "",
+        "html_url": u.get("html_url") or "",
+    }
+
+
+def fetch_issue_detail(repo: GHRepo, issue_number: int, user=None) -> dict:
+    """Fetch one GH issue + its comments, rendered ready for the
+    Astrozor detail panel.
+
+    Two REST calls:
+      * ``GET /repos/{o}/{n}/issues/{number}`` — body, author, state, etc.
+      * ``GET /repos/{o}/{n}/issues/{number}/comments`` — paginated
+        comments (we cap at 50 — anything more belongs on GH itself).
+
+    Returns a dict ready for serialisation, or ``{"status": "..."}``
+    when GH refuses. Both calls go through the user's bearer when
+    available so private repos work for connected accounts.
+    """
+    base = f"{GH_API}/repos/{repo.owner_login}/{repo.repo_name}/issues/{issue_number}"
+    token = _resolve_user_token(user) if user else None
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            r = client.get(base, headers=_headers(token))
+    except httpx.HTTPError as e:
+        return {"status": "error", "detail": str(e)}
+    if r.status_code == 404:
+        return {"status": "not_found"}
+    if r.status_code == 403:
+        return {"status": "rate_limited"}
+    if r.status_code != 200:
+        return {"status": f"http_{r.status_code}"}
+    issue = r.json()
+
+    comments: list[dict] = []
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            cr = client.get(
+                f"{base}/comments",
+                headers=_headers(token),
+                params={"per_page": 50},
+            )
+        if cr.status_code == 200:
+            for c in cr.json():
+                comments.append(
+                    {
+                        "id": c.get("id"),
+                        "body_html": _render_gh_markdown(c.get("body") or ""),
+                        "user": _user_avatar_dict(c.get("user")),
+                        "created_at": c.get("created_at"),
+                        "updated_at": c.get("updated_at"),
+                        "html_url": c.get("html_url") or "",
+                    }
+                )
+    except httpx.HTTPError:
+        pass
+
+    return {
+        "status": "ok",
+        "number": issue.get("number"),
+        "title": issue.get("title") or "",
+        "state": issue.get("state") or "open",
+        "body_html": _render_gh_markdown(issue.get("body") or ""),
+        "html_url": issue.get("html_url") or "",
+        "user": _user_avatar_dict(issue.get("user")),
+        "labels": [
+            {"name": lab.get("name"), "color": lab.get("color")}
+            for lab in (issue.get("labels") or [])
+        ],
+        "assignees": [
+            _user_avatar_dict(a) for a in (issue.get("assignees") or [])
+        ],
+        "milestone": (issue.get("milestone") or {}).get("title") or "",
+        "created_at": issue.get("created_at"),
+        "updated_at": issue.get("updated_at"),
+        "comments_count": issue.get("comments", 0),
+        "comments": comments,
+    }
+
+
+def fetch_commit_dates(
+    repo: GHRepo,
+    *,
+    days: int = 365,
+    user=None,
+    max_pages: int = 10,
+    per_page: int = 100,
+) -> dict[str, int]:
+    """``GET /repos/{o}/{n}/commits`` paginated, grouped by date.
+
+    Synchronous (unlike ``/stats/commit_activity`` which is computed
+    async by GitHub and returns 202 for cold caches). We page through
+    until the first commit older than ``since`` is hit, or until the
+    cap. Returns ``{"YYYY-MM-DD": count, ...}``.
+
+    Pagination cap: 10 × 100 = 1000 commits per refresh. Anything
+    busier than that and we'll undercount, but that's fine for a
+    52-week visualization — the user already gets dense colour on
+    the high-traffic days. Rate limit budget: 1–3 calls per repo
+    in steady state.
+    """
+    from datetime import datetime as dt, timedelta, timezone as tz
+
+    since = (dt.now(tz=tz.utc) - timedelta(days=days)).isoformat()
+    url = f"{GH_API}/repos/{repo.owner_login}/{repo.repo_name}/commits"
+    token = _resolve_user_token(user) if user else None
+    counts: dict[str, int] = {}
+    cutoff = dt.now(tz=tz.utc) - timedelta(days=days)
+    for page in range(1, max_pages + 1):
+        try:
+            with httpx.Client(timeout=15.0) as client:
+                r = client.get(
+                    url,
+                    headers=_headers(token),
+                    params={"since": since, "per_page": per_page, "page": page},
+                )
+        except httpx.HTTPError:
+            break
+        if r.status_code != 200:
+            break
+        try:
+            rows = r.json() or []
+        except ValueError:
+            break
+        if not rows:
+            break
+        oldest_in_window = True
+        for c in rows:
+            commit = c.get("commit") or {}
+            author = commit.get("author") or {}
+            committer = commit.get("committer") or {}
+            iso = author.get("date") or committer.get("date") or ""
+            if not iso:
+                continue
+            try:
+                t = dt.fromisoformat(iso.replace("Z", "+00:00"))
+            except ValueError:
+                continue
+            if t < cutoff:
+                # Reached the edge of our window — drop this and stop
+                # the outer loop. /commits is sorted desc by date, so
+                # nothing after this will be in-window either.
+                oldest_in_window = False
+                break
+            key = t.date().isoformat()
+            counts[key] = counts.get(key, 0) + 1
+        if not oldest_in_window:
+            break
+        if len(rows) < per_page:
+            # Last page reached.
+            break
+    return counts
+
+
+def refresh_repo_commit_cache(repo: GHRepo, *, user=None, days: int = 365) -> None:
+    """Rebuild ``GHRepo.daily_commit_counts`` from the GH commits API
+    and stamp ``commits_synced_at``. Safe to call repeatedly — the
+    aggregation endpoint uses ``commits_synced_at`` as a TTL gate."""
+    counts = fetch_commit_dates(repo, days=days, user=user)
+    repo.daily_commit_counts = counts
+    repo.commits_synced_at = dj_tz.now()
+    repo.save(update_fields=["daily_commit_counts", "commits_synced_at"])
 
 
 def post_issue_comment(

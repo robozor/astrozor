@@ -1,0 +1,30 @@
+Package: astrozorpub
+Type: Package
+Title: Publish Quarto / RMarkdown Documents to Astrozor
+Version: 0.1.0
+Authors@R:
+    person("Astrozor", "Project", email = "noreply@astrozor.cz", role = c("aut", "cre"))
+Description:
+    RStudio addin and helper functions for publishing rendered Quarto or
+    RMarkdown documents (HTML output + assets) to an Astrozor instance.
+    Bundles the rendered HTML directory into a ZIP and POSTs it to the
+    site's /publish/quarto endpoint using a personal access token stored
+    in .Renviron as ASTROZOR_TOKEN.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Depends:
+    R (>= 4.1)
+Imports:
+    httr2 (>= 1.0.0),
+    jsonlite,
+    fs,
+    cli,
+    miniUI,
+    shiny,
+    rstudioapi,
+    zip
+Suggests:
+    quarto,
+    rmarkdown,
+    testthat (>= 3.0.0)
+RoxygenNote: 7.3.0

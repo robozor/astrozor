@@ -1,21 +1,57 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { auth, projects, type GHIssue, type GHRepo, type Me, type Project } from "../lib/api";
+import {
+  auth,
+  projects,
+  type GHContributor,
+  type GHIssue,
+  type GHIssueComment,
+  type GHIssueDetail,
+  type GHRepo,
+  type Me,
+  type Project,
+  type ProjectMember,
+} from "../lib/api";
+import { MarkdownComposer } from "./MarkdownComposer";
+import { ProjectActivityGraph } from "./ProjectActivityGraph";
+import { proseMarkdownClass } from "./proseClasses";
+import { TagFilter, TagInput, TagsList } from "./Tags";
 
-type View = { kind: "list" } | { kind: "detail"; slug: string } | { kind: "new" };
+type View =
+  | { kind: "list" }
+  | { kind: "detail"; slug: string }
+  | { kind: "new" }
+  | { kind: "edit"; slug: string };
 
 export function ProjectsPage({ me }: { me: Me }) {
   const [view, setView] = useState<View>({ kind: "list" });
 
   if (view.kind === "detail") {
-    return <ProjectDetail slug={view.slug} me={me} onBack={() => setView({ kind: "list" })} />;
+    return (
+      <ProjectDetail
+        slug={view.slug}
+        me={me}
+        onBack={() => setView({ kind: "list" })}
+        onEdit={() => setView({ kind: "edit", slug: view.slug })}
+      />
+    );
   }
   if (view.kind === "new") {
     return (
       <ProjectEditor
+        existingSlug={null}
         onDone={(slug) => setView({ kind: "detail", slug })}
         onCancel={() => setView({ kind: "list" })}
+      />
+    );
+  }
+  if (view.kind === "edit") {
+    return (
+      <ProjectEditor
+        existingSlug={view.slug}
+        onDone={(slug) => setView({ kind: "detail", slug })}
+        onCancel={() => setView({ kind: "detail", slug: view.slug })}
       />
     );
   }
@@ -27,25 +63,40 @@ export function ProjectsPage({ me }: { me: Me }) {
   );
 }
 
-function ProjectList({ onOpen, onNew }: { onOpen: (slug: string) => void; onNew: () => void }) {
+function ProjectList({
+  onOpen,
+  onNew,
+}: {
+  onOpen: (slug: string) => void;
+  onNew: () => void;
+}) {
   const { t } = useTranslation();
   const list = useQuery({
     queryKey: ["projects"],
     queryFn: () => projects.list(),
   });
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
+  const filtered = (list.data ?? []).filter((p) => {
+    if (tagFilter.length === 0) return true;
+    const tagSet = new Set((p.tags ?? []).map((t) => t.toLowerCase()));
+    return tagFilter.every((t) => tagSet.has(t.toLowerCase()));
+  });
 
   return (
     <section data-testid="projects-list">
-      <header className="flex items-center justify-between mb-4">
+      <header className="flex items-center justify-between mb-4 gap-2 flex-wrap">
         <h2 className="text-xl font-semibold">{t("projects.title")}</h2>
-        <button
-          type="button"
-          onClick={onNew}
-          data-testid="project-new"
-          className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-3 py-1.5 rounded-md transition"
-        >
-          {t("projects.new")}
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <TagFilter kind="projects" selected={tagFilter} onChange={setTagFilter} />
+          <button
+            type="button"
+            onClick={onNew}
+            data-testid="project-new"
+            className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-3 py-1.5 rounded-md transition"
+          >
+            {t("projects.new")}
+          </button>
+        </div>
       </header>
 
       {list.isLoading && <p className="text-slate-500 text-sm">{t("common.loading")}</p>}
@@ -57,7 +108,7 @@ function ProjectList({ onOpen, onNew }: { onOpen: (slug: string) => void; onNew:
       )}
 
       <ul className="space-y-3">
-        {list.data?.map((p) => (
+        {filtered.map((p) => (
           <li
             key={p.id}
             className="bg-slate-950/60 ring-1 ring-slate-800 hover:ring-slate-700 rounded-xl p-4 cursor-pointer transition"
@@ -72,13 +123,18 @@ function ProjectList({ onOpen, onNew }: { onOpen: (slug: string) => void; onNew:
               <div className="text-xs text-slate-500 flex gap-2 shrink-0">
                 <Badge>{p.visibility}</Badge>
                 <span>·</span>
-                <span>{p.member_count} 👥</span>
+                <span>👥 {p.member_count}</span>
                 <span>·</span>
-                <span>{p.repo_count} 📦</span>
+                <span>📦 {p.repo_count}</span>
               </div>
             </div>
             {p.description && (
               <p className="text-sm text-slate-400 mt-2 line-clamp-2">{p.description}</p>
+            )}
+            {p.tags && p.tags.length > 0 && (
+              <div className="mt-2">
+                <TagsList tags={p.tags} size="xs" />
+              </div>
             )}
           </li>
         ))}
@@ -91,17 +147,23 @@ function ProjectDetail({
   slug,
   me,
   onBack,
+  onEdit,
 }: {
   slug: string;
   me: Me;
   onBack: () => void;
+  onEdit: () => void;
 }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
-  const project = useQuery({ queryKey: ["project", slug], queryFn: () => projects.get(slug) });
-  const repos = useQuery({ queryKey: ["project-repos", slug], queryFn: () => projects.repos(slug) });
-
-  const isOwner = project.data?.created_by_email === me.user.email;
+  const project = useQuery({
+    queryKey: ["project", slug],
+    queryFn: () => projects.get(slug),
+  });
+  const repos = useQuery({
+    queryKey: ["project-repos", slug],
+    queryFn: () => projects.repos(slug),
+  });
 
   const remove = useMutation({
     mutationFn: () => projects.remove(slug),
@@ -110,6 +172,25 @@ function ProjectDetail({
       onBack();
     },
   });
+  const join = useMutation({
+    mutationFn: () => projects.join(slug),
+    onSuccess: (p) => {
+      qc.setQueryData(["project", slug], p);
+      qc.invalidateQueries({ queryKey: ["project-members", slug] });
+      qc.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+  const leave = useMutation({
+    mutationFn: () => projects.leave(slug),
+    onSuccess: (p) => {
+      qc.setQueryData(["project", slug], p);
+      qc.invalidateQueries({ queryKey: ["project-members", slug] });
+      qc.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+
+  const p = project.data;
+  const canEdit = !!p?.can_edit;
 
   return (
     <section data-testid="project-detail">
@@ -122,50 +203,243 @@ function ProjectDetail({
       </button>
 
       {project.isLoading && <p className="text-slate-500 text-sm">{t("common.loading")}</p>}
-      {project.isSuccess && (
+      {project.isSuccess && p && (
         <article className="space-y-4">
-          <header className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="text-2xl font-semibold text-slate-100">{project.data.name}</h2>
+          <header className="flex items-start justify-between gap-3 flex-wrap">
+            <div className="min-w-0">
+              <h2 className="text-2xl font-semibold text-slate-100">{p.name}</h2>
               <p className="text-xs text-slate-500 mt-1">
-                {t("projects.by")} {project.data.created_by_email} ·{" "}
-                <Badge>{project.data.visibility}</Badge>
+                {t("projects.by")} {p.created_by_email} · <Badge>{p.visibility}</Badge>
+                {p.status !== "active" && (
+                  <>
+                    {" · "}
+                    <Badge>{p.status}</Badge>
+                  </>
+                )}
               </p>
             </div>
-            {isOwner && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm(t("projects.confirmDelete"))) remove.mutate();
-                }}
-                className="text-xs text-rose-400 hover:text-rose-300"
-              >
-                {t("projects.delete")}
-              </button>
-            )}
+            <div className="flex items-center gap-2 shrink-0">
+              {p.is_member ? (
+                <button
+                  type="button"
+                  onClick={() => leave.mutate()}
+                  disabled={leave.isPending || p.created_by_email === me.user.email}
+                  className="text-xs bg-slate-800 hover:bg-slate-700 disabled:bg-slate-900 disabled:text-slate-600 text-slate-300 ring-1 ring-slate-700 px-3 py-1.5 rounded transition"
+                  title={
+                    p.created_by_email === me.user.email
+                      ? t("projects.creatorCantLeave")
+                      : undefined
+                  }
+                >
+                  {t("projects.leave")}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => join.mutate()}
+                  disabled={join.isPending}
+                  className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded transition"
+                  data-testid="project-join"
+                >
+                  {t("projects.join")}
+                </button>
+              )}
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 ring-1 ring-slate-700 px-3 py-1.5 rounded transition"
+                  data-testid="project-edit"
+                >
+                  {t("projects.edit")}
+                </button>
+              )}
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm(t("projects.confirmDelete"))) remove.mutate();
+                  }}
+                  className="text-xs text-rose-400 hover:text-rose-300 px-2 py-1.5"
+                >
+                  {t("projects.delete")}
+                </button>
+              )}
+            </div>
           </header>
 
-          {project.data.description && (
-            <p className="text-slate-300 whitespace-pre-wrap">{project.data.description}</p>
+          {p.description && (
+            <p className="text-slate-300 whitespace-pre-wrap">{p.description}</p>
           )}
+          {p.tags.length > 0 && <TagsList tags={p.tags} size="xs" />}
+
+          <MembersWidget slug={slug} memberCount={p.member_count} />
+
+          <ProjectActivityGraph slug={slug} />
 
           <div>
-            <h3 className="font-medium text-slate-200 mb-2">{t("projects.repos.title")}</h3>
+            <h3 className="font-medium text-slate-200 mb-2">
+              {t("projects.repos.title")}{" "}
+              <span className="text-xs text-slate-500 font-normal">
+                · {p.repo_count}
+              </span>
+            </h3>
             {repos.isSuccess && repos.data.length === 0 && (
               <p className="text-slate-500 text-sm">{t("projects.repos.empty")}</p>
             )}
-            <ul className="space-y-2">
+            <ul className="space-y-3">
               {repos.data?.map((r) => (
-                <RepoCard key={r.id} repo={r} canManage={isOwner} projectSlug={slug} />
+                <RepoCard
+                  key={r.id}
+                  repo={r}
+                  canManage={canEdit}
+                  projectSlug={slug}
+                />
               ))}
             </ul>
 
-            {isOwner && <AddRepoForm projectSlug={slug} />}
+            {canEdit && <AddRepoForm projectSlug={slug} />}
           </div>
         </article>
       )}
     </section>
   );
+}
+
+function MembersWidget({
+  slug,
+  memberCount,
+}: {
+  slug: string;
+  memberCount: number;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const members = useQuery({
+    queryKey: ["project-members", slug],
+    queryFn: () => projects.members(slug),
+    enabled: open,
+    staleTime: 60_000,
+  });
+  return (
+    <div className="bg-slate-950/60 ring-1 ring-slate-800 rounded-xl p-3">
+      <button
+        type="button"
+        onClick={() => setOpen((s) => !s)}
+        className="flex items-center justify-between w-full text-left"
+        data-testid="project-members-toggle"
+      >
+        <span className="text-sm font-medium text-slate-200">
+          👥 {t("projects.members.heading")}{" "}
+          <span className="text-xs text-slate-500 ml-1">· {memberCount}</span>
+        </span>
+        <span className="text-slate-500 text-xs">{open ? "▾" : "▸"}</span>
+      </button>
+      {open && (
+        <div className="mt-3">
+          {members.isLoading && (
+            <p className="text-xs text-slate-500">{t("common.loading")}</p>
+          )}
+          {members.data && members.data.length === 0 && (
+            <p className="text-xs text-slate-500 italic">
+              {t("projects.members.empty")}
+            </p>
+          )}
+          {members.data && members.data.length > 0 && (
+            <ul className="space-y-1.5">
+              {members.data.map((m) => (
+                <MemberRow key={m.user_email} member={m} />
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MemberRow({ member }: { member: ProjectMember }) {
+  const { t } = useTranslation();
+  return (
+    <li
+      className="flex items-center gap-2 text-xs"
+      data-testid={`member-${member.user_email}`}
+    >
+      <Avatar src={member.avatar_url} name={member.user_display_name} size={24} />
+      <span className="text-slate-200 truncate flex-1 min-w-0">
+        {member.user_display_name}
+      </span>
+      {member.is_creator && (
+        <span className="text-[9px] bg-amber-900/40 text-amber-200 ring-1 ring-amber-900/60 px-1 py-0.5 rounded">
+          {t("projects.members.creator")}
+        </span>
+      )}
+      <span className="text-[10px] text-slate-500 font-mono uppercase">
+        {member.role}
+      </span>
+    </li>
+  );
+}
+
+function Avatar({
+  src,
+  name,
+  size = 24,
+}: {
+  src: string;
+  name: string;
+  size?: number;
+}) {
+  const initials = name
+    .split(/\s+/)
+    .map((s) => s[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={name}
+        width={size}
+        height={size}
+        loading="lazy"
+        className="rounded-full ring-1 ring-slate-800 object-cover shrink-0"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+  return (
+    <div
+      className="rounded-full ring-1 ring-slate-800 bg-slate-800 grid place-items-center text-[10px] text-slate-400 shrink-0"
+      style={{ width: size, height: size }}
+      aria-hidden
+    >
+      {initials || "?"}
+    </div>
+  );
+}
+
+function relTime(iso: string | null, locale: string): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  const diffMs = d.getTime() - Date.now();
+  const diffSec = Math.round(diffMs / 1000);
+  const units: [Intl.RelativeTimeFormatUnit, number][] = [
+    ["year", 60 * 60 * 24 * 365],
+    ["month", 60 * 60 * 24 * 30],
+    ["week", 60 * 60 * 24 * 7],
+    ["day", 60 * 60 * 24],
+    ["hour", 60 * 60],
+    ["minute", 60],
+  ];
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  for (const [unit, sec] of units) {
+    if (Math.abs(diffSec) >= sec) {
+      return rtf.format(Math.round(diffSec / sec), unit);
+    }
+  }
+  return rtf.format(diffSec, "second");
 }
 
 function RepoCard({
@@ -177,7 +451,7 @@ function RepoCard({
   canManage: boolean;
   projectSlug: string;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const qc = useQueryClient();
   const [showIssues, setShowIssues] = useState(false);
   const refresh = useMutation({
@@ -191,39 +465,93 @@ function RepoCard({
 
   return (
     <li
-      className="bg-slate-950/60 ring-1 ring-slate-800 rounded-xl p-3"
+      className="bg-slate-950/60 ring-1 ring-slate-800 rounded-xl p-4 space-y-3"
       data-testid={`repo-card-${repo.id}`}
     >
-      <div className="flex items-center justify-between gap-3">
-        <a
-          href={repo.html_url}
-          target="_blank"
-          rel="noopener"
-          className="font-mono text-sm text-indigo-300 hover:text-indigo-200 truncate"
-        >
-          {repo.full_name}
-        </a>
-        <div className="text-xs text-slate-500 flex gap-3 shrink-0">
-          <span>★ {repo.stars}</span>
-          <span>⑂ {repo.forks}</span>
-          <span>{repo.open_issues} {t("projects.repos.issues")}</span>
-          {repo.language && <span>· {repo.language}</span>}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 space-y-1">
+          <a
+            href={repo.html_url}
+            target="_blank"
+            rel="noopener"
+            className="font-mono text-sm text-indigo-300 hover:text-indigo-200 truncate inline-block max-w-full"
+          >
+            📦 {repo.full_name}
+          </a>
+          {repo.description && (
+            <p className="text-xs text-slate-400 line-clamp-2">{repo.description}</p>
+          )}
+          {repo.topics && repo.topics.length > 0 && (
+            <div className="flex flex-wrap gap-1 pt-0.5">
+              {repo.topics.slice(0, 8).map((topic) => (
+                <span
+                  key={topic}
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-900/40 text-indigo-200 ring-1 ring-indigo-900/60"
+                >
+                  {topic}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="text-xs text-slate-500 flex gap-3 shrink-0 items-center">
+          <span title={t("projects.repos.stars")}>★ {repo.stars}</span>
+          <span title={t("projects.repos.forks")}>⑂ {repo.forks}</span>
+          {repo.language && (
+            <span className="font-mono text-[10px] bg-slate-800/60 px-1.5 py-0.5 rounded">
+              {repo.language}
+            </span>
+          )}
         </div>
       </div>
-      {repo.description && (
-        <p className="text-xs text-slate-400 mt-1 line-clamp-2">{repo.description}</p>
-      )}
+
       {repo.last_status && repo.last_status !== "ok" && (
         <RepoStatusWarning status={repo.last_status} />
       )}
-      <div className="flex flex-wrap gap-3 mt-2">
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+        <RepoMetric
+          icon="📅"
+          label={t("projects.repos.lastCommit")}
+          value={
+            repo.last_commit_at ? relTime(repo.last_commit_at, i18n.language) : "—"
+          }
+          title={repo.last_commit_at ?? undefined}
+        />
+        <RepoMetric
+          icon="🏷"
+          label={t("projects.repos.lastRelease")}
+          value={
+            repo.last_release_tag
+              ? `${repo.last_release_tag} · ${relTime(repo.last_release_at, i18n.language)}`
+              : t("projects.repos.noReleases")
+          }
+          href={repo.last_release_url || undefined}
+        />
+        <RepoMetric
+          icon="🐛"
+          label={t("projects.repos.openIssuesLabel")}
+          value={String(repo.open_issues)}
+        />
+      </div>
+
+      {repo.top_contributors && repo.top_contributors.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="text-[10px] uppercase tracking-wider text-slate-500">
+            {t("projects.repos.team")}
+          </div>
+          <ContributorsRow contributors={repo.top_contributors} />
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-3 pt-1">
         <button
           type="button"
           onClick={() => setShowIssues((s) => !s)}
-          className="text-xs text-indigo-300 hover:text-indigo-200"
+          className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1 rounded transition"
           data-testid={`repo-toggle-issues-${repo.id}`}
         >
-          {showIssues ? "▾" : "▸"} {t("projects.issues.toggle")}
+          {showIssues ? "▾" : "▸"} {t("projects.issues.toggle", { count: repo.open_issues })}
         </button>
         <a
           href={`${repo.html_url}/issues`}
@@ -232,14 +560,6 @@ function RepoCard({
           className="text-xs text-slate-400 hover:text-slate-200"
         >
           {t("projects.issues.openOnGh")} ↗
-        </a>
-        <a
-          href={`${repo.html_url}/projects`}
-          target="_blank"
-          rel="noopener"
-          className="text-xs text-slate-400 hover:text-slate-200"
-        >
-          {t("projects.issues.boards")} ↗
         </a>
         {canManage && (
           <>
@@ -261,8 +581,66 @@ function RepoCard({
           </>
         )}
       </div>
+
       {showIssues && <IssuesPanel repo={repo} />}
     </li>
+  );
+}
+
+function RepoMetric({
+  icon,
+  label,
+  value,
+  href,
+  title,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  href?: string;
+  title?: string;
+}) {
+  const inner = (
+    <div
+      className="bg-slate-900/60 ring-1 ring-slate-800 rounded px-2.5 py-1.5"
+      title={title}
+    >
+      <div className="text-[10px] uppercase text-slate-500">
+        {icon} {label}
+      </div>
+      <div className="font-mono text-slate-200 text-xs truncate">{value}</div>
+    </div>
+  );
+  if (href) {
+    return (
+      <a href={href} target="_blank" rel="noopener" className="block hover:ring-slate-700">
+        {inner}
+      </a>
+    );
+  }
+  return inner;
+}
+
+function ContributorsRow({ contributors }: { contributors: GHContributor[] }) {
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      {contributors.slice(0, 10).map((c) => (
+        <a
+          key={c.login}
+          href={c.html_url}
+          target="_blank"
+          rel="noopener"
+          title={`${c.login} · ${c.contributions} commits`}
+        >
+          <Avatar src={c.avatar_url} name={c.login} size={28} />
+        </a>
+      ))}
+      {contributors.length > 10 && (
+        <span className="text-[10px] text-slate-500 font-mono">
+          +{contributors.length - 10}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -281,11 +659,75 @@ function RepoStatusWarning({ status }: { status: string }) {
     hint = status.slice(6).trim();
   }
   return (
-    <div className="mt-2 bg-amber-950/40 ring-1 ring-amber-900/50 rounded-md px-2 py-1.5">
+    <div className="bg-amber-950/40 ring-1 ring-amber-900/50 rounded-md px-2 py-1.5">
       <p className="text-xs text-amber-200 font-medium">⚠ {title}</p>
       {hint && <p className="text-xs text-amber-300/80 mt-0.5">{hint}</p>}
     </div>
   );
+}
+
+type IssueStateFilter = "all" | "new" | "in_progress" | "blocked";
+type IssuePriorityFilter = "all" | "high" | "normal" | "low";
+type IssueSort = "priority" | "newest" | "oldest" | "updated" | "comments";
+
+/** Numeric weight for priority sort — higher = appears first.
+ *  Tie-breaker is created_at (newest first) so within "high" you
+ *  still see the freshest issue on top. */
+function priorityRank(p: IssuePriorityFilter): number {
+  if (p === "high") return 3;
+  if (p === "normal") return 2;
+  if (p === "low") return 1;
+  return 0;
+}
+
+/** Derive a workflow sub-state from an issue's labels + assignees.
+ *
+ * GitHub itself has only ``open`` / ``closed`` — projects use labels
+ * to express finer states (in-progress, blocked, etc.). We inspect
+ * common conventions; anything that doesn't match falls under "new".
+ */
+function issueSubState(issue: GHIssue): IssueStateFilter {
+  const labels = issue.labels.map((l) => l.name.toLowerCase());
+  if (labels.some((l) => l.includes("block"))) return "blocked";
+  if (
+    issue.assignees.length > 0 ||
+    labels.some(
+      (l) =>
+        l.includes("in progress") ||
+        l.includes("in-progress") ||
+        l === "wip" ||
+        l.includes("doing"),
+    )
+  ) {
+    return "in_progress";
+  }
+  return "new";
+}
+
+function issuePriority(issue: GHIssue): IssuePriorityFilter {
+  const labels = issue.labels.map((l) => l.name.toLowerCase());
+  if (
+    labels.some(
+      (l) =>
+        l.includes("p0") ||
+        l.includes("p1") ||
+        l.includes("priority:high") ||
+        l === "high" ||
+        l.includes("urgent") ||
+        l.includes("critical"),
+    )
+  ) {
+    return "high";
+  }
+  if (
+    labels.some(
+      (l) =>
+        l.includes("priority:low") || l === "low" || l.includes("trivial"),
+    )
+  ) {
+    return "low";
+  }
+  return "normal";
 }
 
 function IssuesPanel({ repo }: { repo: GHRepo }) {
@@ -303,33 +745,123 @@ function IssuesPanel({ repo }: { repo: GHRepo }) {
     (i) => i.provider === "github" && i.has_token,
   );
 
-  // If issues load successfully but stored repo metadata still says
-  // "not_found", the backend just side-effect-refreshed it. Invalidate
-  // the parent repos query so the stale warning disappears.
+  const [stateFilter, setStateFilter] = useState<IssueStateFilter>("all");
+  const [priorityFilter, setPriorityFilter] =
+    useState<IssuePriorityFilter>("all");
+  // Priority-first by default — the user sees the highest-priority
+  // issues at the top without picking a sort each time. Ties fall
+  // back to newest-first inside the same priority bucket.
+  const [sort, setSort] = useState<IssueSort>("priority");
+
   useEffect(() => {
     if (issues.isSuccess && repo.last_status && repo.last_status !== "ok") {
       qc.invalidateQueries({ queryKey: ["project-repos", repo.project_slug] });
     }
   }, [issues.isSuccess, repo.last_status, repo.project_slug, qc]);
 
+  const filteredSorted = useMemo(() => {
+    const all = issues.data ?? [];
+    const filtered = all.filter((it) => {
+      if (stateFilter !== "all" && issueSubState(it) !== stateFilter) return false;
+      if (priorityFilter !== "all" && issuePriority(it) !== priorityFilter)
+        return false;
+      return true;
+    });
+    const sorted = [...filtered].sort((a, b) => {
+      switch (sort) {
+        case "oldest":
+          return a.created_at.localeCompare(b.created_at);
+        case "updated":
+          return b.updated_at.localeCompare(a.updated_at);
+        case "comments":
+          return b.comments - a.comments;
+        case "priority": {
+          const diff = priorityRank(issuePriority(b)) - priorityRank(issuePriority(a));
+          if (diff !== 0) return diff;
+          // Same priority → newest-first tie-breaker so freshest
+          // high-priority bug bubbles to the top of its bucket.
+          return b.created_at.localeCompare(a.created_at);
+        }
+        case "newest":
+        default:
+          return b.created_at.localeCompare(a.created_at);
+      }
+    });
+    return sorted;
+  }, [issues.data, stateFilter, priorityFilter, sort]);
+
   const repoUnreachable = repo.last_status === "not_found";
+  const totalCount = issues.data?.length ?? 0;
+  const filteredCount = filteredSorted.length;
   return (
-    <div className="mt-3 border-t border-slate-800 pt-3">
-      <h4 className="text-xs font-medium text-slate-300 mb-2">
-        {t("projects.issues.title")}
-      </h4>
+    <div className="border-t border-slate-800 pt-3 space-y-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <h4 className="text-xs font-medium text-slate-300">
+          {t("projects.issues.title")}
+          {issues.data && (
+            <span className="text-slate-500 font-normal ml-1">
+              · {filteredCount === totalCount
+                ? totalCount
+                : `${filteredCount} / ${totalCount}`}
+            </span>
+          )}
+        </h4>
+        {issues.data && issues.data.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <IssueSelect
+              value={stateFilter}
+              onChange={(v) => setStateFilter(v as IssueStateFilter)}
+              label={t("projects.issues.filterState")}
+              options={[
+                ["all", t("projects.issues.stateAll")],
+                ["new", t("projects.issues.stateNew")],
+                ["in_progress", t("projects.issues.stateInProgress")],
+                ["blocked", t("projects.issues.stateBlocked")],
+              ]}
+            />
+            <IssueSelect
+              value={priorityFilter}
+              onChange={(v) => setPriorityFilter(v as IssuePriorityFilter)}
+              label={t("projects.issues.filterPriority")}
+              options={[
+                ["all", t("projects.issues.priorityAll")],
+                ["high", t("projects.issues.priorityHigh")],
+                ["normal", t("projects.issues.priorityNormal")],
+                ["low", t("projects.issues.priorityLow")],
+              ]}
+            />
+            <IssueSelect
+              value={sort}
+              onChange={(v) => setSort(v as IssueSort)}
+              label={t("projects.issues.sort")}
+              options={[
+                ["priority", t("projects.issues.sortPriority")],
+                ["newest", t("projects.issues.sortNewest")],
+                ["oldest", t("projects.issues.sortOldest")],
+                ["updated", t("projects.issues.sortUpdated")],
+                ["comments", t("projects.issues.sortComments")],
+              ]}
+            />
+          </div>
+        )}
+      </div>
       {issues.isLoading && (
         <p className="text-xs text-slate-500">{t("common.loading")}</p>
       )}
-      {issues.isSuccess && issues.data.length === 0 && (
+      {issues.isSuccess && totalCount === 0 && (
         <p className="text-xs text-slate-500">
           {repoUnreachable
             ? t("projects.issues.repoUnreachable")
             : t("projects.issues.empty")}
         </p>
       )}
+      {issues.isSuccess && totalCount > 0 && filteredCount === 0 && (
+        <p className="text-xs text-slate-500 italic">
+          {t("projects.issues.filteredEmpty")}
+        </p>
+      )}
       <ul className="space-y-2">
-        {issues.data?.map((issue) => (
+        {filteredSorted.map((issue) => (
           <IssueRow
             key={issue.number}
             issue={issue}
@@ -347,6 +879,35 @@ function IssuesPanel({ repo }: { repo: GHRepo }) {
   );
 }
 
+function IssueSelect({
+  value,
+  onChange,
+  label,
+  options,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  label: string;
+  options: [string, string][];
+}) {
+  return (
+    <label className="text-[10px] text-slate-500 flex items-center gap-1">
+      <span>{label}:</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="bg-slate-950/60 ring-1 ring-slate-700 hover:ring-slate-600 focus:ring-indigo-500 rounded px-1.5 py-0.5 text-[11px] text-slate-200 outline-none transition"
+      >
+        {options.map(([v, lab]) => (
+          <option key={v} value={v}>
+            {lab}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function IssueRow({
   issue,
   repo,
@@ -357,33 +918,25 @@ function IssueRow({
   canClaim: boolean;
 }) {
   const { t } = useTranslation();
-  const [claimed, setClaimed] = useState<string | null>(null);
-  const claim = useMutation({
-    mutationFn: () => projects.claimIssue(repo.id, issue.number),
-    onSuccess: (res) => {
-      if (res.status === "ok" && res.html_url) {
-        setClaimed(res.html_url);
-      }
-    },
-  });
+  const [detailOpen, setDetailOpen] = useState(false);
 
   const ghLink = issue.html_url || `${repo.html_url}/issues/${issue.number}`;
 
   return (
     <li
-      className="bg-slate-900/60 ring-1 ring-slate-800 rounded-md p-2"
+      className="bg-slate-900/60 ring-1 ring-slate-800 rounded-md p-2 space-y-2"
       data-testid={`issue-${issue.number}`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <a
-            href={ghLink}
-            target="_blank"
-            rel="noopener"
-            className="text-sm text-slate-100 hover:text-indigo-300"
+          <button
+            type="button"
+            onClick={() => setDetailOpen((s) => !s)}
+            className="text-sm text-slate-100 hover:text-indigo-300 text-left"
+            data-testid={`issue-expand-${issue.number}`}
           >
-            #{issue.number} {issue.title}
-          </a>
+            {detailOpen ? "▾" : "▸"} #{issue.number} {issue.title}
+          </button>
           <div className="flex flex-wrap gap-1 mt-1">
             {issue.labels.map((lab) => (
               <span
@@ -413,7 +966,7 @@ function IssueRow({
           )}
         </div>
       </div>
-      <div className="flex gap-2 mt-2">
+      <div className="flex flex-wrap gap-2 items-center">
         <a
           href={ghLink}
           target="_blank"
@@ -422,34 +975,229 @@ function IssueRow({
         >
           {t("projects.issues.openIssue")} ↗
         </a>
-        {canClaim && !claimed && (
-          <button
-            type="button"
-            onClick={() => claim.mutate()}
-            disabled={claim.isPending}
-            className="text-xs text-emerald-400 hover:text-emerald-300 disabled:opacity-50"
-            data-testid={`issue-claim-${issue.number}`}
-          >
-            {claim.isPending ? "…" : t("projects.issues.claim")}
-          </button>
+      </div>
+      {detailOpen && (
+        <IssueDetailPanel
+          repoId={repo.id}
+          issueNumber={issue.number}
+          canPost={canClaim}
+        />
+      )}
+    </li>
+  );
+}
+
+/** Expanded issue panel: body + GH comments + unified GH comment
+ *  composer (no separate Astrozor chat — everything goes through
+ *  GitHub via the user's connected OAuth bearer).
+ */
+function IssueDetailPanel({
+  repoId,
+  issueNumber,
+  canPost,
+}: {
+  repoId: string;
+  issueNumber: number;
+  canPost: boolean;
+}) {
+  const { t, i18n } = useTranslation();
+  const qc = useQueryClient();
+  const detail = useQuery({
+    queryKey: ["issue-detail", repoId, issueNumber],
+    queryFn: () => projects.issueDetail(repoId, issueNumber),
+    staleTime: 60_000,
+  });
+  const [text, setText] = useState("");
+  const [postError, setPostError] = useState<string>("");
+  const post = useMutation({
+    mutationFn: () => projects.commentIssue(repoId, issueNumber, text.trim()),
+    onSuccess: (res) => {
+      if (res.status === "ok") {
+        setText("");
+        setPostError("");
+        qc.invalidateQueries({
+          queryKey: ["issue-detail", repoId, issueNumber],
+        });
+      } else {
+        setPostError(`${res.status}: ${res.detail ?? ""}`);
+      }
+    },
+  });
+
+  if (detail.isLoading) {
+    return (
+      <div className="border-t border-slate-800 pt-2 mt-2">
+        <p className="text-[11px] text-slate-500">{t("common.loading")}</p>
+      </div>
+    );
+  }
+  if (!detail.data) return null;
+  const d = detail.data;
+  return (
+    <div className="border-t border-slate-800 pt-3 mt-2 space-y-3">
+      <IssueBody body_html={d.body_html} user={d.user} created_at={d.created_at} locale={i18n.language} />
+      {d.comments.length > 0 && (
+        <ul className="space-y-2">
+          {d.comments.map((c) => (
+            <li key={c.id}>
+              <GHCommentBubble comment={c} locale={i18n.language} />
+            </li>
+          ))}
+        </ul>
+      )}
+      {!canPost && (
+        <p className="text-[11px] text-slate-500 italic">
+          {t("projects.issues.needGhConnect")}
+        </p>
+      )}
+      {canPost && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (text.trim()) post.mutate();
+          }}
+          className="space-y-2"
+        >
+          <MarkdownComposer
+            value={text}
+            onChange={setText}
+            placeholder={t("projects.issues.chatPlaceholder")}
+            rows={4}
+            testid={`issue-comment-input-${issueNumber}`}
+          />
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] text-slate-500 italic">
+              {t("projects.issues.postsToGh")}
+            </span>
+            <button
+              type="submit"
+              disabled={post.isPending || !text.trim()}
+              className="text-xs bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:text-slate-400 text-white px-3 py-1 rounded transition"
+            >
+              {post.isPending ? "…" : t("projects.issues.chatSend")}
+            </button>
+          </div>
+          {postError && (
+            <p className="text-[11px] text-rose-400">{postError}</p>
+          )}
+        </form>
+      )}
+    </div>
+  );
+}
+
+function IssueBody({
+  body_html,
+  user,
+  created_at,
+  locale,
+}: {
+  body_html: string;
+  user: GHIssueDetail["user"];
+  created_at: string | null;
+  locale: string;
+}) {
+  const created = created_at ? new Date(created_at) : null;
+  return (
+    <div className="bg-slate-950/60 ring-1 ring-slate-800 rounded p-3 space-y-2">
+      <div className="flex items-center gap-2 text-[11px] text-slate-400">
+        {user.avatar_url && (
+          <img
+            src={user.avatar_url}
+            alt={user.login}
+            width={20}
+            height={20}
+            className="rounded-full ring-1 ring-slate-800"
+          />
         )}
-        {claimed && (
-          <a
-            href={claimed}
-            target="_blank"
-            rel="noopener"
-            className="text-xs text-emerald-400 hover:text-emerald-300"
-          >
-            ✓ {t("projects.issues.claimed")} ↗
-          </a>
-        )}
-        {claim.data && claim.data.status !== "ok" && (
-          <span className="text-xs text-rose-400">
-            {claim.data.status}: {claim.data.detail}
+        <a
+          href={user.html_url}
+          target="_blank"
+          rel="noopener"
+          className="text-slate-200 hover:text-indigo-300"
+        >
+          {user.login || "anon"}
+        </a>
+        {created && (
+          <span>
+            {" · "}
+            {created.toLocaleString(locale, {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
           </span>
         )}
       </div>
-    </li>
+      {body_html ? (
+        <div
+          className={proseMarkdownClass}
+          dangerouslySetInnerHTML={{ __html: body_html }}
+        />
+      ) : (
+        <p className="text-[11px] text-slate-500 italic">—</p>
+      )}
+    </div>
+  );
+}
+
+function GHCommentBubble({
+  comment,
+  locale,
+}: {
+  comment: GHIssueComment;
+  locale: string;
+}) {
+  const created = comment.created_at ? new Date(comment.created_at) : null;
+  return (
+    <div className="bg-slate-900/60 ring-1 ring-slate-800 rounded p-2 space-y-1">
+      <div className="flex items-center gap-2 text-[11px] text-slate-400">
+        {comment.user.avatar_url && (
+          <img
+            src={comment.user.avatar_url}
+            alt={comment.user.login}
+            width={18}
+            height={18}
+            className="rounded-full ring-1 ring-slate-800"
+          />
+        )}
+        <a
+          href={comment.user.html_url}
+          target="_blank"
+          rel="noopener"
+          className="text-slate-200 hover:text-indigo-300"
+        >
+          {comment.user.login}
+        </a>
+        {created && (
+          <span>
+            {" · "}
+            {created.toLocaleString(locale, {
+              day: "numeric",
+              month: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </span>
+        )}
+        {comment.html_url && (
+          <a
+            href={comment.html_url}
+            target="_blank"
+            rel="noopener"
+            className="ml-auto text-[10px] text-slate-500 hover:text-slate-300"
+          >
+            GH ↗
+          </a>
+        )}
+      </div>
+      <div
+        className={proseMarkdownClass}
+        dangerouslySetInnerHTML={{ __html: comment.body_html }}
+      />
+    </div>
   );
 }
 
@@ -499,24 +1247,58 @@ function AddRepoForm({ projectSlug }: { projectSlug: string }) {
 }
 
 function ProjectEditor({
+  existingSlug,
   onDone,
   onCancel,
 }: {
+  existingSlug: string | null;
   onDone: (slug: string) => void;
   onCancel: () => void;
 }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
+  const existing = useQuery({
+    queryKey: ["project", existingSlug],
+    queryFn: () => projects.get(existingSlug!),
+    enabled: !!existingSlug,
+  });
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [visibility, setVisibility] = useState<"public" | "private" | "internal">("public");
+  const [visibility, setVisibility] = useState<"public" | "private" | "internal">(
+    "public",
+  );
+  const [tags, setTags] = useState<string[]>([]);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Hydrate from existing when in edit mode (one-shot — subsequent
+  // refetches shouldn't blow away the user's in-flight edits).
+  useEffect(() => {
+    if (existingSlug && existing.data && !hydrated) {
+      setName(existing.data.name);
+      setDescription(existing.data.description);
+      setVisibility(existing.data.visibility);
+      setTags(existing.data.tags || []);
+      setHydrated(true);
+    }
+  }, [existing.data, existingSlug, hydrated]);
+
   const create = useMutation({
-    mutationFn: () => projects.create({ name, description, visibility }),
+    mutationFn: () => projects.create({ name, description, visibility, tags }),
     onSuccess: (p) => {
       qc.invalidateQueries({ queryKey: ["projects"] });
       onDone(p.slug);
     },
   });
+  const patch = useMutation({
+    mutationFn: () =>
+      projects.patch(existingSlug!, { name, description, visibility, tags }),
+    onSuccess: (p) => {
+      qc.invalidateQueries({ queryKey: ["projects"] });
+      qc.setQueryData(["project", existingSlug], p);
+      onDone(p.slug);
+    },
+  });
+  const submit = existingSlug ? patch : create;
 
   return (
     <section data-testid="project-editor">
@@ -527,16 +1309,23 @@ function ProjectEditor({
       >
         ← {t("common.cancel")}
       </button>
-      <h2 className="text-xl font-semibold mb-4">{t("projects.new")}</h2>
+      <h2 className="text-xl font-semibold mb-4">
+        {existingSlug ? t("projects.editTitle") : t("projects.new")}
+      </h2>
+      {existingSlug && existing.isLoading && (
+        <p className="text-slate-500 text-sm">{t("common.loading")}</p>
+      )}
       <form
         className="space-y-3 max-w-2xl"
         onSubmit={(e) => {
           e.preventDefault();
-          if (name.trim()) create.mutate();
+          if (name.trim()) submit.mutate();
         }}
       >
         <label className="block">
-          <span className="text-xs text-slate-400 mb-1 block">{t("projects.field.name")}</span>
+          <span className="text-xs text-slate-400 mb-1 block">
+            {t("projects.field.name")}
+          </span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -570,18 +1359,26 @@ function ProjectEditor({
             <option value="private">{t("projects.visibility.private")}</option>
           </select>
         </label>
-        {create.error && (
+        <label className="block">
+          <span className="text-xs text-slate-400 mb-1 block">🏷 Tagy</span>
+          <TagInput value={tags} onChange={setTags} />
+        </label>
+        {submit.error && (
           <p className="text-xs text-rose-400 bg-rose-950/40 ring-1 ring-rose-900/50 rounded-md px-3 py-2">
-            {(create.error as Error).message}
+            {(submit.error as Error).message}
           </p>
         )}
         <button
           type="submit"
-          disabled={create.isPending || !name.trim()}
+          disabled={submit.isPending || !name.trim()}
           className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 text-white text-sm px-4 py-2 rounded-md transition"
-          data-testid="project-create"
+          data-testid={existingSlug ? "project-save" : "project-create"}
         >
-          {create.isPending ? "…" : t("projects.create")}
+          {submit.isPending
+            ? "…"
+            : existingSlug
+              ? t("projects.save")
+              : t("projects.create")}
         </button>
       </form>
     </section>

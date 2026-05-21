@@ -15,9 +15,20 @@ def _default_expires_at():
 
 
 class Checkin(models.Model):
+    class Source(models.TextChoices):
+        MANUAL = "manual", "Manual"
+        AUTO_SCHEDULE = "auto_schedule", "Auto (opening hours)"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="checkins"
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="checkins",
+        null=True,
+        blank=True,
+        help_text=(
+            "Null for system-generated check-ins (source=auto_schedule)."
+        ),
     )
     place = models.ForeignKey(
         "places.Place", on_delete=models.CASCADE, related_name="checkins"
@@ -26,6 +37,9 @@ class Checkin(models.Model):
         max_length=200, blank=True, help_text="Free text: 'M51 with 600s exposures'"
     )
     anonymous = models.BooleanField(default=False, help_text="Show as 'someone' on the map")
+    source = models.CharField(
+        max_length=20, choices=Source.choices, default=Source.MANUAL
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(default=_default_expires_at)
     ended_at = models.DateTimeField(null=True, blank=True)
@@ -36,6 +50,7 @@ class Checkin(models.Model):
         indexes = [
             models.Index(fields=["place", "expires_at"]),
             models.Index(fields=["user", "expires_at"]),
+            models.Index(fields=["source", "expires_at"]),
         ]
 
     def __str__(self) -> str:

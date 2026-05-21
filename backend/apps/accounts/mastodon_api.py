@@ -43,6 +43,22 @@ def _strip_html(s: str) -> str:
 
 
 def _status_out(s: dict) -> dict:
+    # Mastodon "boosts" (reblogs) wrap an inner status — the outer one
+    # has empty content and the real toot lives in `s.reblog`. If we
+    # don't unwrap, the timeline shows blank rows for every share by
+    # an account that mostly boosts (typical for curation accounts like
+    # @kovanhuissteden). Track the booster so the UI can render
+    # "🔁 Boosted by …" above the toot.
+    booster = None
+    if s.get("reblog"):
+        booster_acct = s.get("account") or {}
+        booster = {
+            "acct": booster_acct.get("acct"),
+            "display_name": booster_acct.get("display_name"),
+            "avatar": booster_acct.get("avatar"),
+        }
+        s = s["reblog"]
+
     account = s.get("account") or {}
     media = [
         {
@@ -90,6 +106,7 @@ def _status_out(s: dict) -> dict:
             "avatar": account.get("avatar"),
             "url": account.get("url"),
         },
+        "boosted_by": booster,
     }
 
 

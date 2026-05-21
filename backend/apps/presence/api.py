@@ -18,13 +18,25 @@ router = Router(tags=["presence"])
 
 
 def _to_out(c: Checkin) -> dict:
-    display = "—" if c.anonymous else (c.user.profile.display_name or c.user.email.split("@")[0])
+    # System-generated check-ins from the place's opening-hours schedule
+    # have no user attached; render them as a distinct "open" presence
+    # so the map shows the observatory is staffed without naming anyone.
+    if c.source == Checkin.Source.AUTO_SCHEDULE:
+        display = "Hvězdárna otevřena"
+        email = None
+    elif c.anonymous or c.user is None:
+        display = "someone"
+        email = None
+    else:
+        display = c.user.profile.display_name or c.user.email.split("@")[0]
+        email = c.user.email
     return {
         "id": c.id,
-        "user_email": None if c.anonymous else c.user.email,
-        "display_name": display if not c.anonymous else "someone",
+        "user_email": email,
+        "display_name": display,
         "comment": c.comment,
-        "anonymous": c.anonymous,
+        "anonymous": c.anonymous or c.source == Checkin.Source.AUTO_SCHEDULE,
+        "source": c.source,
         "place_slug": c.place.slug,
         "created_at": c.created_at,
         "expires_at": c.expires_at,

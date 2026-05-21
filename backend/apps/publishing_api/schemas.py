@@ -54,3 +54,14 @@ class PublishResult(Schema):
     doi: str
     status: str
     url: str
+
+
+class QuartoPublishResult(Schema):
+    """Reply for POST /publish/quarto — same as PublishResult plus the
+    asset_url so the addin can preview the rendered page."""
+
+    article_slug: str
+    article_id: UUID
+    status: str
+    url: str
+    asset_url: str  # /media/quarto/<user>/<slug>/index.html

@@ -34,6 +34,14 @@ mdit-py-plugins==0.4.2
 linkify-it-py==2.0.3
 feedparser==6.0.11
 icalendar==6.1.0
+Pillow==11.0.0
+# Tagging — free-form M2M tag system shared across Articles, Events,
+# Campaigns, Projects. Pure-Python (battle-tested in Wagtail).
+django-taggit==6.1.0
+# Resolve IANA timezone from lat/lon — used so Place/Event GPS
+# coordinates yield a "Local time" alongside UTC + user TZ. ~50 MB
+# of polygon data baked in; pure offline, no API calls.
+timezonefinder==6.5.4
 
 # Dev / test
 pytest==8.3.4

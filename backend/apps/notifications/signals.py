@@ -29,6 +29,11 @@ def _dispatch_all_safe(notifs: list[Notification]) -> None:
 def fanout_chat_message(sender, instance, created, **kwargs):  # noqa: ARG001
     """Chat Message → Notification for every subscriber of that place
     (excluding the author).
+
+    Sprint-scoped messages (Zooniverse Citizen Science sprints) are
+    skipped — sprint chat is members-only and the notification
+    machinery doesn't yet model sprint subscriptions. A follow-up can
+    add a Subscription.Kind.SPRINT row + per-sprint fanout here.
     """
     # Lazy import to avoid circular
     from apps.chat.models import Message
@@ -37,6 +42,9 @@ def fanout_chat_message(sender, instance, created, **kwargs):  # noqa: ARG001
         return
 
     place = instance.place
+    if place is None:
+        # Sprint-scoped message — no place subscribers to notify.
+        return
     subscriptions = Subscription.objects.filter(
         kind=Subscription.Kind.PLACE, target_id=place.slug
     ).exclude(user_id=instance.user_id)

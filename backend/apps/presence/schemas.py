@@ -18,6 +18,7 @@ class CheckinOut(Schema):
     display_name: str
     comment: str
     anonymous: bool
+    source: str = "manual"
     place_slug: str
     created_at: datetime
     expires_at: datetime

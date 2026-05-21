@@ -172,6 +172,27 @@ function StatusCard({ status }: { status: MastoStatus }) {
       className="bg-slate-950/60 ring-1 ring-slate-800 rounded-xl p-4 space-y-2"
       data-testid={`masto-status-${status.id}`}
     >
+      {status.boosted_by && (
+        <div
+          className="flex items-center gap-2 text-[11px] text-slate-500"
+          data-testid={`masto-boosted-by-${status.id}`}
+        >
+          {status.boosted_by.avatar && (
+            <img
+              src={status.boosted_by.avatar}
+              alt=""
+              className="w-4 h-4 rounded-full ring-1 ring-slate-700"
+              loading="lazy"
+            />
+          )}
+          <span>
+            🔁{" "}
+            <span className="text-slate-400">
+              Boosted by {status.boosted_by.display_name || status.boosted_by.acct}
+            </span>
+          </span>
+        </div>
+      )}
       <header className="flex items-center gap-3 text-xs text-slate-400">
         {status.account.avatar && (
           <img

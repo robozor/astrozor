@@ -54,6 +54,15 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # django.contrib.sitemaps is intentionally installed WITHOUT
+    # django.contrib.sites — that way the sitemap framework falls back
+    # to RequestSite (host derived from request.get_host()) instead of
+    # the static Site DB row. We want the same code to emit the right
+    # absolute URLs for astrozor.localhost in dev and astrozor.cz in
+    # prod without per-environment DB seeding.
+    "django.contrib.sitemaps",
+    # Third-party
+    "taggit",
     # Astrozor apps
     "apps.core",
     "apps.accounts",

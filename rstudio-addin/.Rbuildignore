@@ -1,0 +1,5 @@
+^\.Rbuildignore$
+^README\.md$
+^LICENSE\.md$
+^\.github$
+^revdep$

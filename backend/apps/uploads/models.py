@@ -19,6 +19,7 @@ def _upload_path(instance: "Upload", filename: str) -> str:
 class Upload(models.Model):
     class Kind(models.TextChoices):
         IMAGE = "image", "Image"
+        VIDEO = "video", "Video"
         OTHER = "other", "Other"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

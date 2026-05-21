@@ -4,6 +4,9 @@ import uuid
 
 from django.conf import settings
 from django.db import models
+from taggit.managers import TaggableManager
+
+from apps.core.models import UUIDTaggedItem
 
 
 class Project(models.Model):
@@ -27,6 +30,7 @@ class Project(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    tags = TaggableManager(blank=True, through=UUIDTaggedItem)
 
     class Meta:
         db_table = "projects_project"
@@ -72,6 +76,28 @@ class GHRepo(models.Model):
     html_url = models.URLField(max_length=300, blank=True)
     last_fetched_at = models.DateTimeField(null=True, blank=True)
     last_status = models.CharField(max_length=40, blank=True)
+    # Extended metadata refreshed alongside core fields by the
+    # GitHub fetcher. Cached so the project page doesn't have to do
+    # 3 extra GH calls per repo on every render.
+    last_release_tag = models.CharField(max_length=120, blank=True)
+    last_release_name = models.CharField(max_length=200, blank=True)
+    last_release_at = models.DateTimeField(null=True, blank=True)
+    last_release_url = models.URLField(max_length=300, blank=True)
+    # Top contributors as a JSON array of
+    # ``{"login", "avatar_url", "html_url", "contributions"}`` dicts —
+    # rendered as avatar chips on the repo card.
+    top_contributors = models.JSONField(default=list, blank=True)
+    # GitHub repo topics ("repository topics" — the tag-like labels on
+    # the repo page). Cached as a list of strings.
+    topics = models.JSONField(default=list, blank=True)
+    # Per-day commit counts for the last ~365 days, e.g.
+    # ``{"2026-05-21": 4, "2026-05-20": 7, ...}``. Built from
+    # ``/repos/.../commits`` pagination (synchronous, unlike the
+    # async ``/stats/commit_activity`` we were using before). Cached
+    # so the project-activity aggregator doesn't refetch on every
+    # request — TTL handled via ``commits_synced_at``.
+    daily_commit_counts = models.JSONField(default=dict, blank=True)
+    commits_synced_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "projects_ghrepo"

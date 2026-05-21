@@ -128,6 +128,57 @@ input[type="checkbox"]:disabled {
 .article-html img { max-width: 100%; height: auto; border-radius: 0.5rem; margin: 1rem 0; }
 .article-html strong { color: rgb(241 245 249); }
 .article-html del, .article-html s { color: rgb(148 163 184); text-decoration: line-through; }
+/* Chat rich editor — placeholder + image styling */
+.chat-rich-editor:empty::before {
+  content: attr(data-placeholder);
+  color: rgb(100 116 139); /* slate-500 */
+  pointer-events: none;
+}
+.chat-rich-editor img {
+  display: inline-block;
+  vertical-align: middle;
+  border-radius: 0.375rem;
+  border: 1px solid rgb(51 65 85);
+  margin: 0.25rem 0;
+  cursor: pointer;
+}
+.chat-rich-editor a {
+  color: rgb(165 180 252);
+  text-decoration: underline;
+}
+.chat-rich-editor ul {
+  list-style: disc;
+  margin-left: 1.25rem;
+}
+.chat-rich-editor ol {
+  list-style: decimal;
+  margin-left: 1.5rem;
+}
+.chat-rich-editor li {
+  margin: 0.125rem 0;
+}
+
+/* Inline images inside rendered chat messages */
+.chat-msg-body img {
+  display: inline-block;
+  max-width: 100%;
+  border-radius: 0.375rem;
+  border: 1px solid rgb(30 41 59);
+  margin: 0.25rem 0;
+}
+.chat-msg-body a {
+  color: rgb(165 180 252);
+  text-decoration: underline;
+}
+.chat-msg-body ul {
+  list-style: disc;
+  margin-left: 1.25rem;
+}
+.chat-msg-body ol {
+  list-style: decimal;
+  margin-left: 1.5rem;
+}
+
 /* GFM task lists */
 .article-html ul.contains-task-list,
 .article-html li.task-list-item { list-style: none; }
@@ -137,4 +188,63 @@ input[type="checkbox"]:disabled {
   margin-right: 0.5rem;
   transform: translateY(1px);
   accent-color: rgb(99 102 241);
+}
+
+/* ---- react-datepicker dark theme override ----
+   The default styles assume a white background; we restyle to fit
+   Astrozor's slate palette without forking the library. Scoped to
+   the .astrozor-datepicker wrapper to avoid leaking. */
+.astrozor-datepicker .react-datepicker {
+  background: rgb(15 23 42);              /* slate-900 */
+  border: 1px solid rgb(51 65 85);        /* slate-700 */
+  color: rgb(226 232 240);                /* slate-200 */
+  font-family: inherit;
+  box-shadow: 0 12px 32px rgba(0,0,0,.5);
+}
+.astrozor-datepicker .react-datepicker__header {
+  background: rgb(2 6 23);                /* slate-950 */
+  border-bottom: 1px solid rgb(51 65 85);
+}
+.astrozor-datepicker .react-datepicker__current-month,
+.astrozor-datepicker .react-datepicker-time__header,
+.astrozor-datepicker .react-datepicker__day-name {
+  color: rgb(226 232 240);
+}
+.astrozor-datepicker .react-datepicker__day {
+  color: rgb(226 232 240);
+  border-radius: 4px;
+}
+.astrozor-datepicker .react-datepicker__day:hover {
+  background: rgb(30 41 59);              /* slate-800 */
+}
+.astrozor-datepicker .react-datepicker__day--selected,
+.astrozor-datepicker .react-datepicker__day--keyboard-selected {
+  background: rgb(79 70 229);             /* indigo-600 */
+  color: white;
+}
+.astrozor-datepicker .react-datepicker__day--outside-month {
+  color: rgb(71 85 105);                  /* slate-600 */
+}
+.astrozor-datepicker .react-datepicker__navigation-icon::before {
+  border-color: rgb(148 163 184);         /* slate-400 */
+}
+.astrozor-datepicker .react-datepicker__time-container {
+  border-left: 1px solid rgb(51 65 85);
+}
+.astrozor-datepicker .react-datepicker__time-container .react-datepicker__time,
+.astrozor-datepicker .react-datepicker__time-list {
+  background: rgb(15 23 42);
+}
+.astrozor-datepicker .react-datepicker__time-list-item {
+  color: rgb(226 232 240);
+}
+.astrozor-datepicker .react-datepicker__time-list-item:hover {
+  background: rgb(30 41 59) !important;
+}
+.astrozor-datepicker .react-datepicker__time-list-item--selected {
+  background: rgb(79 70 229) !important;
+  color: white !important;
+}
+.astrozor-datepicker .react-datepicker__triangle {
+  display: none;
 }

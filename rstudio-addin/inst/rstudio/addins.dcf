@@ -1,0 +1,4 @@
+Name: Publish to Astrozor
+Description: Publish the current Quarto / RMarkdown document to your Astrozor instance.
+Binding: astrozor_publish_addin
+Interactive: true

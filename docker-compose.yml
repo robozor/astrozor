@@ -42,6 +42,17 @@ x-api-env: &api-env
   GITHUB_OAUTH_CLIENT_SECRET: ${GITHUB_OAUTH_CLIENT_SECRET:-}
   GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
   GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+  FACEBOOK_OAUTH_CLIENT_ID: ${FACEBOOK_OAUTH_CLIENT_ID:-}
+  FACEBOOK_OAUTH_CLIENT_SECRET: ${FACEBOOK_OAUTH_CLIENT_SECRET:-}
+  GITLAB_OAUTH_CLIENT_ID: ${GITLAB_OAUTH_CLIENT_ID:-}
+  GITLAB_OAUTH_CLIENT_SECRET: ${GITLAB_OAUTH_CLIENT_SECRET:-}
+  GITLAB_OAUTH_BASE_URL: ${GITLAB_OAUTH_BASE_URL:-https://gitlab.com}
+  DISCORD_APP_CLIENT_ID: ${DISCORD_APP_CLIENT_ID:-}
+  DISCORD_APP_CLIENT_SECRET: ${DISCORD_APP_CLIENT_SECRET:-}
+  DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-}
+  ZOONIVERSE_OAUTH_CLIENT_ID: ${ZOONIVERSE_OAUTH_CLIENT_ID:-}
+  ZOONIVERSE_OAUTH_CLIENT_SECRET: ${ZOONIVERSE_OAUTH_CLIENT_SECRET:-}
+  ZOONIVERSE_GROUP_ID: ${ZOONIVERSE_GROUP_ID:-}
   # External services
   ZENODO_SANDBOX_TOKEN: ${ZENODO_SANDBOX_TOKEN:-}
   ZENODO_PROD_TOKEN: ${ZENODO_PROD_TOKEN:-}
@@ -104,6 +115,14 @@ services:
       - "8025"  # HTTP UI
     ports:
       - "8025:8025"  # Host access to MailHog UI for dev
+    # Liveness via the mailhog API endpoint (port 8025 serves both UI
+    # and a /api/v1/* JSON API used by integration tests). Alpine
+    # base image ships with wget.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8025/api/v1/messages"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     restart: unless-stopped
 
   # ---- Application ----
@@ -119,8 +138,13 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app/backend
+      # Read-only mount of rstudio-addin/ so the R package version
+      # endpoint can read DESCRIPTION:Version without duplicating it
+      # elsewhere. Single source of truth = rstudio-addin/DESCRIPTION.
+      - ./rstudio-addin:/app/rstudio-addin:ro
       - astrozor_media:/var/lib/astrozor/media
       - astrozor_pmtiles:/var/lib/astrozor/pmtiles
+      - astrozor_light_pollution:/var/lib/astrozor/light_pollution
       # Docker socket so admin endpoints can tail the photon container's
       # logs for live download progress. See _live_photon_progress.
       # Not read-only because the unix socket needs both directions for
@@ -144,6 +168,7 @@ services:
       - ./backend:/app/backend
       - astrozor_media:/var/lib/astrozor/media
       - astrozor_pmtiles:/var/lib/astrozor/pmtiles
+      - astrozor_light_pollution:/var/lib/astrozor/light_pollution
       # Docker socket so admin endpoints can tail the photon container's
       # logs for live download progress. See _live_photon_progress.
       # Not read-only because the unix socket needs both directions for
@@ -151,6 +176,16 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     entrypoint: ["/usr/bin/tini", "--"]
     command: ["celery", "-A", "astrozor", "worker", "--loglevel=info", "--concurrency=2"]
+    # Worker doesn't expose port 8000, so we override the api-image's
+    # curl healthcheck. `celery inspect ping` is the canonical liveness
+    # probe — it sends a control task and expects {ok: pong} back.
+    # Timeout short enough to fail fast when broker is wedged.
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A astrozor inspect ping -d celery@$$HOSTNAME -t 5 > /dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     restart: unless-stopped
 
   beat:
@@ -167,6 +202,7 @@ services:
       - ./backend:/app/backend
       - astrozor_media:/var/lib/astrozor/media
       - astrozor_pmtiles:/var/lib/astrozor/pmtiles
+      - astrozor_light_pollution:/var/lib/astrozor/light_pollution
       # Docker socket so admin endpoints can tail the photon container's
       # logs for live download progress. See _live_photon_progress.
       # Not read-only because the unix socket needs both directions for
@@ -174,6 +210,19 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     entrypoint: ["/usr/bin/tini", "--"]
     command: ["celery", "-A", "astrozor", "beat", "--loglevel=info"]
+    # Beat is a long-running scheduler — not addressable via celery
+    # inspect (no worker pool). pgrep isn't in the slim python image,
+    # so probe via /proc directly with a tiny Python one-liner.
+    healthcheck:
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import os,sys; sys.exit(0 if any('celery' in open(f'/proc/{p}/cmdline','rb').read().decode('latin1','ignore') for p in os.listdir('/proc') if p.isdigit()) else 1)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     restart: unless-stopped
 
   frontend:
@@ -212,7 +261,51 @@ services:
       #   docker compose -p astrozor exec proxy caddy reload --config /etc/caddy/Caddyfile
       # (or `docker compose restart proxy`).
       - ./docker/proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # PMTiles + LP tile cache served directly by Caddy's file_server
+      # — bypasses Django so byte-range requests on the 130 GB PMTiles
+      # archive don't blow up the api container's memory. Read-only;
+      # writes come from worker via the same volume mount.
+      - astrozor_pmtiles:/srv/pmtiles:ro
+      - astrozor_light_pollution:/srv/lp-tiles:ro
+      # Media volume — only the `/quarto/` subtree is exposed via Caddy
+      # file_server (pre-rendered article bundles need to load in an
+      # iframe, and Django's SecurityMiddleware sets X-Frame-Options:
+      # DENY on everything it serves). Other /media/* paths still go
+      # through the api reverse_proxy for permission checks.
+      - astrozor_media:/srv/media:ro
+      # CRAN-like R package repo for the RStudio addin (`astrozorpub`).
+      # Populated by the r-pkg-builder one-shot service on each
+      # `docker compose up`. Caddy serves /R/* directly from here.
+      - astrozor_r_repo:/srv/r-repo:ro
     restart: unless-stopped
+
+  # ---- R package builder (CRAN-like repo for the RStudio addin) ----
+  # One-shot service: runs `R CMD build rstudio-addin/` and generates a
+  # CRAN-compatible PACKAGES index at /repo/src/contrib/. Caddy serves
+  # the resulting directory at /R/* so users can:
+  #   install.packages("astrozorpub", repos = "https://<host>/R")
+  # One-shot service that builds the astrozorpub R package and writes
+  # it (+ PACKAGES index) to /repo, which Caddy serves at /R/. It exits
+  # immediately after the build and stays as "Exited" in Docker's
+  # service list — which paints the stack's health circle as
+  # "incomplete" forever. Hide it behind the `build` profile (same as
+  # `python-base`) so it's only included when explicitly invoked:
+  #
+  #     docker compose --profile build run --rm r-pkg-builder
+  #
+  # The R repo volume persists, so the package is served as long as
+  # it's been built at least once.
+  r-pkg-builder:
+    image: astrozor/r-pkg-builder:dev
+    build:
+      context: .
+      dockerfile: docker/r-pkg-builder/Dockerfile
+    container_name: astrozor-r-pkg-builder
+    profiles: ["build"]
+    volumes:
+      - astrozor_r_repo:/repo
+      - ./rstudio-addin:/work/rstudio-addin:ro
+    restart: "no"
 
   # ---- Optional self-hosted geocoder (Photon) ----
   # Activated by `docker compose --profile photon up -d`. Listens on
@@ -231,6 +324,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  astrozor_r_repo:
   astrozor_db_data:
   astrozor_redis_data:
   astrozor_frontend_node_modules:
@@ -239,3 +333,4 @@ volumes:
   astrozor_media:
   astrozor_photon_data:
   astrozor_pmtiles:
+  astrozor_light_pollution:

@@ -1,0 +1,94 @@
+---
+title: "Astrozor demo — interaktivní graf hvězdné velikosti"
+author: "Demo Robot"
+date: today
+format:
+  html:
+    self-contained: false
+    toc: true
+    theme: cosmo
+---
+
+## O čem to je
+
+Ukázkový Quarto dokument pro otestování `astrozorpub` — RStudio addin
+publikuje tento soubor přes `/api/publish/quarto` do lokální instance
+Astrozor. Obsahuje:
+
+- text + matematiku (Pogsonův vzorec)
+- interaktivní plotly graf
+- statickou tabulku
+
+## Pogsonův vzorec
+
+Pro porovnání zdánlivých magnitud dvou hvězd:
+
+$$
+m_1 - m_2 = -2{,}5 \log_{10}\!\left(\frac{F_1}{F_2}\right)
+$$
+
+Magnituda klesající o 1 odpovídá ~2,512× většímu zářivému toku.
+
+## Interaktivní graf
+
+```{r}
+#| label: plot-magnitude
+#| fig-cap: "Vztah magnitudy a relativního toku"
+#| echo: false
+#| message: false
+#| warning: false
+
+library(plotly)
+
+mag <- seq(-2, 8, by = 0.1)
+flux <- 10^(-0.4 * mag)
+
+plot_ly(
+  x = ~mag,
+  y = ~flux,
+  type = "scatter",
+  mode = "lines",
+  line = list(color = "#6366f1", width = 2),
+  hovertemplate = paste(
+    "Magnituda: %{x:.2f}<br>",
+    "Relativní tok: %{y:.4f}<extra></extra>"
+  )
+) |>
+  layout(
+    xaxis = list(title = "Zdánlivá magnituda m"),
+    yaxis = list(title = "Relativní tok", type = "log"),
+    paper_bgcolor = "white",
+    plot_bgcolor = "white"
+  )
+```
+
+Najeď myší na křivku — Plotly ukazuje přesnou hodnotu v každém bodě.
+Můžeš taky zoomovat tažením po grafu.
+
+## Známé hvězdy
+
+```{r}
+#| echo: false
+
+stars <- data.frame(
+  Hvězda = c("Slunce", "Sírius", "Vega", "Polárka", "Betelgeuze", "Saturn (max)"),
+  `Magnituda` = c(-26.74, -1.46, 0.03, 1.98, 0.42, -0.55),
+  `Souhvězdí` = c("—", "Velký pes", "Lyra", "Malý medvěd", "Orion", "—")
+)
+knitr::kable(stars)
+```
+
+## Závěr
+
+Pokud teď vidíš tento dokument v Astrozor článku s funkčním
+interaktivním grafem, znamená to že:
+
+1. RStudio addin našel `.qmd` v editoru
+2. Quarto vyrenderovalo HTML + `_files/` adresář
+3. `astrozor_bundle()` zazipoval výsledek
+4. POST na `/api/publish/quarto` prošel
+5. Astrozor extrahoval do `MEDIA_ROOT/quarto/<user>/<slug>/`
+6. Frontend načetl iframe se `sandbox="allow-scripts allow-same-origin"`
+7. Plotly v iframe se inicializoval a graf je interaktivní
+
+Pipeline funguje. 🚀

@@ -75,6 +75,12 @@ class ProfileOut(Schema):
     storage_used_bytes: int
     storage_quota_bytes: int
     onboarding_completed: bool
+    # Frontend-owned shape: tile style, kind filters, state filter, light
+    # pollution toggle/opacity. We don't validate; we just persist.
+    map_preferences: dict = {}
+    show_utc: bool = True
+    show_local: bool = True
+    show_user: bool = True
 
 
 class ProfilePatch(Schema):
@@ -94,6 +100,10 @@ class ProfilePatch(Schema):
     zenodo_use_sandbox: bool | None = None
     mastodon_autopost_checkin: bool | None = None
     onboarding_completed: bool | None = None
+    map_preferences: dict | None = None
+    show_utc: bool | None = None
+    show_local: bool | None = None
+    show_user: bool | None = None
 
 
 class MeOut(Schema):
@@ -117,3 +127,5 @@ class IdentityOut(Schema):
     has_token: bool
     last_login_at: datetime | None
     created_at: datetime
+    discord_guild_id: str = ""
+    discord_guild_name: str = ""

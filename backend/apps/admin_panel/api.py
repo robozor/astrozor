@@ -16,12 +16,40 @@ from django.http import HttpRequest
 from ninja import Router, Schema
 
 from .models import MapInfra
-from .tasks import download_pmtiles, import_photon
+from .tasks import (
+    LP_BBOX_EUROPE,
+    LP_ZOOM_MAX,
+    LP_ZOOM_MIN,
+    _lp_grid,
+    _lp_local_dir,
+    _lp_source_url,
+    _lp_total_tiles,
+    download_light_pollution_tiles,
+    download_pmtiles,
+    import_photon,
+)
 
 log = logging.getLogger(__name__)
 
 PROTOMAPS_INDEX_URL = "https://build-metadata.protomaps.dev/builds.json"
 PROTOMAPS_BUILD_URL = "https://build.protomaps.com/{key}"
+
+# ---- Light pollution / GIBS VIIRS catalog ----
+# Static Black Marble 2016 — annual composite, fixed date in URL.
+GIBS_BLACK_MARBLE_TILE_URL = (
+    "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/"
+    "VIIRS_Black_Marble/default/2016-01-01/"
+    "GoogleMapsCompatible_Level8/{z}/{y}/{x}.png"
+)
+# Daily VIIRS DNB at-sensor radiance — requires explicit YYYY-MM-DD.
+GIBS_DNB_TILE_URL_TEMPLATE = (
+    "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/"
+    "VIIRS_SNPP_DayNightBand_At_Sensor_Radiance/default/{date}/"
+    "GoogleMapsCompatible_Level8/{{z}}/{{y}}/{{x}}.png"
+)
+# Probe tile (z=2, x=2, y=1 = central Europe at very low zoom) used to
+# decide whether a given date has data published yet. Cheap & reliable.
+_DNB_PROBE_PATH = "2/1/2.png"
 
 
 def _latest_protomaps_build() -> dict | None:
@@ -185,6 +213,65 @@ def _live_pmtiles_progress(m: MapInfra) -> dict | None:
     return {"bytes_written": size, "total_bytes": total}
 
 
+def _probe_dnb_date(date_str: str) -> bool:
+    """Return True if NASA GIBS has VIIRS DNB tiles for this YYYY-MM-DD."""
+    url = (
+        f"https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/"
+        f"VIIRS_SNPP_DayNightBand_At_Sensor_Radiance/default/{date_str}/"
+        f"GoogleMapsCompatible_Level8/{_DNB_PROBE_PATH}"
+    )
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            r = client.head(url)
+        return r.status_code == 200
+    except httpx.HTTPError as e:
+        log.warning("DNB probe %s failed: %s", date_str, e)
+        return False
+
+
+def _find_latest_dnb_date() -> tuple[str, str] | None:
+    """Walk back from today over the last ~14 days and return the first
+    date that has VIIRS DNB tiles available. Returns (date, label) or None.
+    NASA publishes ~2-3 day lagged, so the walk usually finds a hit at t-2.
+    """
+    from datetime import date, timedelta
+
+    today = date.today()
+    for delta in range(2, 15):
+        d = today - timedelta(days=delta)
+        ds = d.isoformat()
+        if _probe_dnb_date(ds):
+            return ds, f"VIIRS DNB nightly composite, {ds} (latest available)"
+    return None
+
+
+def _light_pollution_tile_url(m: MapInfra) -> str:
+    """Return the active tile URL template (with {z}/{y}/{x} placeholders)
+    based on the admin's chosen light_pollution_source.
+
+    Prefers locally-cached tiles when the admin has run the bulk download
+    for that source; otherwise falls back to NASA GIBS upstream so the
+    overlay still works pre-download.
+    """
+    source = m.light_pollution_source
+    is_dnb = source == MapInfra.LightPollutionSource.VIIRS_DNB_LATEST
+
+    # Local cache available?
+    if is_dnb:
+        local_ok = (
+            m.light_pollution_viirs_dnb_tile_count > 0
+            and m.light_pollution_viirs_dnb_cached_date == m.light_pollution_dnb_date
+        )
+    else:
+        local_ok = m.light_pollution_black_marble_tile_count > 0
+    if local_ok:
+        return f"/lp-tiles/{source}/{{z}}/{{y}}/{{x}}.png"
+
+    if is_dnb and m.light_pollution_dnb_date:
+        return GIBS_DNB_TILE_URL_TEMPLATE.format(date=m.light_pollution_dnb_date)
+    return GIBS_BLACK_MARBLE_TILE_URL
+
+
 def _infra_out(m: MapInfra) -> dict:
     latest = _latest_protomaps_build()
     live = _live_pmtiles_progress(m)
@@ -222,6 +309,34 @@ def _infra_out(m: MapInfra) -> dict:
         },
         "tile_backend": m.tile_backend,
         "search_backend": m.search_backend,
+        "chat": {
+            "text_max_length": m.chat_text_max_length,
+        },
+        "light_pollution": {
+            "source": m.light_pollution_source,
+            "dnb_date": m.light_pollution_dnb_date or "",
+            "last_check": m.light_pollution_last_check,
+            "status_message": m.light_pollution_status_message,
+            "tile_url_template": _light_pollution_tile_url(m),
+            "black_marble": {
+                "status": m.light_pollution_black_marble_status,
+                "status_message": m.light_pollution_black_marble_status_message,
+                "tile_count": m.light_pollution_black_marble_tile_count,
+                "size_bytes": m.light_pollution_black_marble_size_bytes,
+                "last_update": m.light_pollution_black_marble_last_update,
+                "cached": m.light_pollution_black_marble_tile_count > 0,
+            },
+            "viirs_dnb": {
+                "status": m.light_pollution_viirs_dnb_status,
+                "status_message": m.light_pollution_viirs_dnb_status_message,
+                "tile_count": m.light_pollution_viirs_dnb_tile_count,
+                "size_bytes": m.light_pollution_viirs_dnb_size_bytes,
+                "last_update": m.light_pollution_viirs_dnb_last_update,
+                "cached": m.light_pollution_viirs_dnb_tile_count > 0
+                and m.light_pollution_viirs_dnb_cached_date == m.light_pollution_dnb_date,
+                "cached_date": m.light_pollution_viirs_dnb_cached_date,
+            },
+        },
         "updated_at": m.updated_at,
     }
 
@@ -383,6 +498,175 @@ def trigger_photon_probe(request: HttpRequest):
     return 202, {"job_id": async_result.id, "status": "queued"}
 
 
+class ChatSettingsIn(Schema):
+    text_max_length: int
+
+
+@router.patch(
+    "/admin/map-infra/chat/settings",
+    response={200: dict, 400: dict, 403: dict},
+)
+def update_chat_settings(request: HttpRequest, payload: ChatSettingsIn):
+    if not _require_staff(request):
+        return 403, {"detail": "Staff only"}
+    # Sane bounds: 200 chars (Twitter-ish minimum) to 50 000 (hard ceiling
+    # matches the pydantic max in chat/schemas.py).
+    if payload.text_max_length < 200 or payload.text_max_length > 50_000:
+        return 400, {
+            "detail": "text_max_length must be between 200 and 50 000 characters"
+        }
+    infra = MapInfra.get()
+    infra.chat_text_max_length = payload.text_max_length
+    infra.save(update_fields=["chat_text_max_length"])
+    return 200, _infra_out(infra)
+
+
+class LightPollutionSourceIn(Schema):
+    source: str
+
+
+@router.post(
+    "/admin/map-infra/light-pollution/source",
+    response={200: dict, 400: dict, 403: dict},
+)
+def set_light_pollution_source(request: HttpRequest, payload: LightPollutionSourceIn):
+    """Switch the active light-pollution overlay source. Switching to
+    viirs_dnb_latest does NOT trigger a refresh — caller should also call
+    /admin/map-infra/light-pollution/refresh to find the latest date."""
+    if not _require_staff(request):
+        return 403, {"detail": "Staff only"}
+    if payload.source not in MapInfra.LightPollutionSource.values:
+        return 400, {"detail": f"Unknown source: {payload.source}"}
+    infra = MapInfra.get()
+    infra.light_pollution_source = payload.source
+    infra.save(update_fields=["light_pollution_source"])
+    return 200, _infra_out(infra)
+
+
+@router.get(
+    "/admin/map-infra/light-pollution/{source}/estimate-size",
+    response={200: dict, 400: dict, 403: dict, 502: dict},
+)
+def estimate_lp_download_size(request: HttpRequest, source: str):
+    """Probe 3 representative tiles per zoom level on NASA GIBS and
+    extrapolate the total cache size for Europe bbox z0-z7. Used by the
+    admin UI to show the user the cost BEFORE they commit to downloading.
+    """
+    if not _require_staff(request):
+        return 403, {"detail": "Staff only"}
+    if source not in ("black_marble_2016", "viirs_dnb_latest"):
+        return 400, {"detail": f"unknown source: {source}"}
+
+    infra = MapInfra.get()
+    dnb_date = infra.light_pollution_dnb_date
+    if source == "viirs_dnb_latest" and not dnb_date:
+        return 400, {
+            "detail": "Set DNB date via 'Aktualizovat na poslední' first."
+        }
+
+    total_bytes_est = 0
+    total_tiles = 0
+    per_zoom: list[dict] = []
+    with httpx.Client(timeout=10.0) as client:
+        for z in range(LP_ZOOM_MIN, LP_ZOOM_MAX + 1):
+            grid = _lp_grid(z, LP_BBOX_EUROPE)
+            sample = grid[:: max(1, len(grid) // 3)][:3] or grid[:1]
+            sizes = []
+            for x, y in sample:
+                url = _lp_source_url(source, dnb_date, z, x, y)
+                try:
+                    r = client.head(url)
+                except httpx.HTTPError:
+                    continue
+                if r.status_code != 200:
+                    continue
+                cl = r.headers.get("content-length")
+                if cl:
+                    sizes.append(int(cl))
+            avg = sum(sizes) / len(sizes) if sizes else 0
+            zoom_bytes = int(avg * len(grid))
+            per_zoom.append(
+                {
+                    "zoom": z,
+                    "tiles": len(grid),
+                    "avg_tile_bytes": int(avg),
+                    "total_bytes_est": zoom_bytes,
+                }
+            )
+            total_bytes_est += zoom_bytes
+            total_tiles += len(grid)
+
+    return 200, {
+        "source": source,
+        "bbox": list(LP_BBOX_EUROPE),
+        "zoom_min": LP_ZOOM_MIN,
+        "zoom_max": LP_ZOOM_MAX,
+        "total_tiles": total_tiles,
+        "total_bytes_estimate": total_bytes_est,
+        "per_zoom": per_zoom,
+    }
+
+
+@router.post(
+    "/admin/map-infra/light-pollution/{source}/download",
+    response={202: dict, 400: dict, 403: dict, 409: dict},
+)
+def trigger_lp_download(request: HttpRequest, source: str):
+    if not _require_staff(request):
+        return 403, {"detail": "Staff only"}
+    if source not in ("black_marble_2016", "viirs_dnb_latest"):
+        return 400, {"detail": f"unknown source: {source}"}
+    infra = MapInfra.get()
+    field = (
+        "light_pollution_viirs_dnb_status"
+        if source == "viirs_dnb_latest"
+        else "light_pollution_black_marble_status"
+    )
+    if getattr(infra, field) == MapInfra.JobStatus.RUNNING:
+        return 409, {"detail": "Download already in progress"}
+    if source == "viirs_dnb_latest" and not infra.light_pollution_dnb_date:
+        return 400, {"detail": "Set DNB date via 'Aktualizovat na poslední' first."}
+    result = download_light_pollution_tiles.delay(source)
+    return 202, {"job_id": result.id, "status": "queued"}
+
+
+@router.post(
+    "/admin/map-infra/light-pollution/refresh",
+    response={200: dict, 403: dict, 502: dict},
+)
+def refresh_light_pollution_latest(request: HttpRequest):
+    """Probe GIBS for the freshest VIIRS DNB nightly composite and store
+    that date. Walks back from today until it finds a date with tiles
+    available (usually t-2 to t-3 because of publication lag)."""
+    from django.utils import timezone
+
+    if not _require_staff(request):
+        return 403, {"detail": "Staff only"}
+    found = _find_latest_dnb_date()
+    infra = MapInfra.get()
+    infra.light_pollution_last_check = timezone.now()
+    if found is None:
+        infra.light_pollution_status_message = (
+            "No VIIRS DNB tiles available in the last 14 days "
+            "(GIBS upstream may be down)."
+        )
+        infra.save(
+            update_fields=["light_pollution_last_check", "light_pollution_status_message"]
+        )
+        return 502, _infra_out(infra)
+    date_str, label = found
+    infra.light_pollution_dnb_date = date_str
+    infra.light_pollution_status_message = label
+    infra.save(
+        update_fields=[
+            "light_pollution_dnb_date",
+            "light_pollution_status_message",
+            "light_pollution_last_check",
+        ]
+    )
+    return 200, _infra_out(infra)
+
+
 # ---- Public map config (read-only, no auth) ----
 # Frontend reads this to decide which tile / search backend to use.
 
@@ -396,7 +680,7 @@ def map_config(request: HttpRequest):  # noqa: ARG001
         "tile_backend": m.tile_backend,
         "search_backend": m.search_backend,
         "pmtiles_url": (
-            f"/media/pmtiles/{m.pmtiles_path.rsplit('/', 1)[-1]}"
+            f"/pmtiles/{m.pmtiles_path.rsplit('/', 1)[-1]}"
             if m.tile_backend == MapInfra.TileBackend.PMTILES and m.pmtiles_size_bytes > 0
             else None
         ),
@@ -405,4 +689,250 @@ def map_config(request: HttpRequest):  # noqa: ARG001
             if m.search_backend == MapInfra.SearchBackend.PHOTON
             else None
         ),
+        "light_pollution": {
+            "source": m.light_pollution_source,
+            "dnb_date": m.light_pollution_dnb_date or "",
+            "tile_url_template": _light_pollution_tile_url(m),
+            "attribution": (
+                "Night lights: NASA VIIRS DNB ("
+                + (
+                    f"nightly composite {m.light_pollution_dnb_date}"
+                    if m.light_pollution_source == MapInfra.LightPollutionSource.VIIRS_DNB_LATEST
+                    and m.light_pollution_dnb_date
+                    else "Black Marble 2016 annual"
+                )
+                + ")"
+            ),
+        },
     }
+
+
+# ============================================================
+# Admin places management — datagrid + CSV import/export
+# ============================================================
+
+from django.http import HttpResponse
+from django.db import transaction
+from django.utils.text import slugify
+from ninja import File
+from ninja.files import UploadedFile as NinjaUploadedFile
+from apps.places.csv_io import (
+    CSV_COLUMNS,
+    DUPLICATE_RADIUS_METERS,
+    find_duplicates,
+    parse_csv,
+    places_to_csv,
+)
+from apps.places.models import Place, BortleMeasurement
+
+
+@router.get("/admin/places", response={200: list[dict], 403: dict})
+def admin_list_places(request: HttpRequest, q: str = ""):
+    """All places in the DB, regardless of status or expiry. Used by the
+    admin datagrid; the public /places listing hides drafts and
+    expired-temporary spots, but admin needs to see everything."""
+    if not _require_staff(request):
+        return 403, {"detail": "Staff only"}
+    qs = Place.objects.select_related("owner").order_by("name")
+    if q:
+        from django.db.models import Q
+
+        qs = qs.filter(Q(name__icontains=q) | Q(slug__icontains=q) | Q(address__icontains=q))
+    out = []
+    for p in qs[:500]:
+        out.append(
+            {
+                "id": str(p.id),
+                "slug": p.slug,
+                "name": p.name,
+                "kind": p.kind,
+                "status": p.status,
+                "lat": p.lat,
+                "lon": p.lon,
+                "elevation_m": p.elevation_m,
+                "bortle_class_manual": p.bortle_class_manual,
+                "bortle_class_map": p.bortle_class_map,
+                "owner_email": p.owner.email if p.owner_id else "",
+                "created_at": p.created_at,
+            }
+        )
+    return 200, out
+
+
+@router.get("/admin/places/export.csv", response={200: dict, 403: dict})
+def admin_export_places_csv(request: HttpRequest):
+    if not _require_staff(request):
+        return 403, {"detail": "Staff only"}
+    text = places_to_csv(Place.objects.all())
+    resp = HttpResponse(text, content_type="text/csv; charset=utf-8")
+    resp["Content-Disposition"] = 'attachment; filename="astrozor-places.csv"'
+    return resp
+
+
+class _ImportPreviewRow(Schema):
+    row_index: int
+    name: str
+    kind: str
+    lat: float | None
+    lon: float | None
+    description: str
+    address: str
+    website: str
+    bortle_manual: float | None = None
+    elevation_m: int | None = None
+    owner_email: str
+    duplicates: list[dict] = []
+    errors: list[str] = []
+
+
+@router.post(
+    "/admin/places/import-preview",
+    response={200: dict, 400: dict, 403: dict},
+    auth=None,
+)
+def admin_preview_import(request: HttpRequest, file: NinjaUploadedFile = File(...)):
+    """Parse uploaded CSV + mark duplicates within 200m of any existing
+    place. Pure read; nothing is written. Frontend renders rows for the
+    admin to decide which to import."""
+    if not _require_staff(request):
+        return 403, {"detail": "Staff only"}
+    try:
+        text = file.read().decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return 400, {"detail": "CSV must be UTF-8 encoded"}
+
+    existing = list(Place.objects.only("slug", "name", "lat", "lon"))
+    rows = []
+    new_count = 0
+    dup_count = 0
+    error_count = 0
+    for idx, row, errors in parse_csv(text):
+        if row.get("lat") is not None and row.get("lon") is not None:
+            dups = find_duplicates(row, existing)
+        else:
+            dups = []
+        rows.append(
+            {
+                "row_index": idx,
+                "name": row["name"],
+                "kind": row["kind"],
+                "lat": row["lat"],
+                "lon": row["lon"],
+                "description": row.get("description") or "",
+                "address": row.get("address") or "",
+                "website": row.get("website") or "",
+                "elevation_m": row.get("elevation_m"),
+                "bortle_manual": row.get("bortle_manual"),
+                "owner_email": row.get("owner_email") or "",
+                "duplicates": dups,
+                "errors": errors,
+            }
+        )
+        if errors:
+            error_count += 1
+        elif dups:
+            dup_count += 1
+        else:
+            new_count += 1
+    return 200, {
+        "rows": rows,
+        "summary": {
+            "total": len(rows),
+            "new": new_count,
+            "duplicates": dup_count,
+            "errors": error_count,
+            "duplicate_radius_m": DUPLICATE_RADIUS_METERS,
+        },
+    }
+
+
+class _ImportRowDecision(Schema):
+    row_index: int
+    name: str
+    kind: str
+    lat: float
+    lon: float
+    description: str = ""
+    address: str = ""
+    website: str = ""
+    contact: str = ""
+    opening_hours: str = ""
+    elevation_m: int | None = None
+    bortle_manual: float | None = None
+    owner_email: str = ""
+
+
+class _ImportCommitIn(Schema):
+    rows: list[_ImportRowDecision]
+
+
+@router.post(
+    "/admin/places/import-commit",
+    response={201: dict, 400: dict, 403: dict},
+)
+def admin_commit_import(request: HttpRequest, payload: _ImportCommitIn):
+    """Create Place rows from the admin's selected import rows. The
+    frontend has already filtered out duplicates the admin chose to skip;
+    we accept whatever it sends. Auto-Bortle estimate runs per row."""
+    if not _require_staff(request):
+        return 403, {"detail": "Staff only"}
+
+    from apps.places.api import _record_estimated_bortle
+
+    User = None
+    if any(r.owner_email for r in payload.rows):
+        from apps.accounts.models import User as _U
+
+        User = _U
+
+    created = []
+    failed: list[dict] = []
+    with transaction.atomic():
+        for r in payload.rows:
+            if r.kind not in {k for k, _ in Place.Kind.choices}:
+                failed.append({"row_index": r.row_index, "error": f"invalid kind: {r.kind}"})
+                continue
+            base = slugify(r.name)[:100] or "place"
+            slug = base
+            i = 2
+            while Place.objects.filter(slug=slug).exists():
+                slug = f"{base}-{i}"
+                i += 1
+            owner = None
+            if r.owner_email and User is not None:
+                owner = User.objects.filter(email__iexact=r.owner_email).first()
+            try:
+                p = Place.objects.create(
+                    slug=slug,
+                    name=r.name,
+                    kind=r.kind,
+                    status=Place.Status.PUBLISHED,
+                    description=r.description,
+                    lat=r.lat,
+                    lon=r.lon,
+                    elevation_m=r.elevation_m,
+                    address=r.address,
+                    website=r.website,
+                    contact=r.contact,
+                    opening_hours=r.opening_hours,
+                    bortle_class_manual=r.bortle_manual,
+                    bortle_class=r.bortle_manual,  # initial effective value
+                    owner=owner,
+                )
+                if r.bortle_manual is not None:
+                    BortleMeasurement.objects.create(
+                        place=p,
+                        value=r.bortle_manual,
+                        source=BortleMeasurement.Source.MANUAL,
+                        notes="csv import",
+                        submitted_by=owner or request.user,
+                    )
+                # Auto-fill map-derived Bortle (best-effort; ignore failures)
+                try:
+                    _record_estimated_bortle(p, request.user)
+                except Exception:  # noqa: BLE001
+                    pass
+                created.append(p.slug)
+            except Exception as e:  # noqa: BLE001
+                failed.append({"row_index": r.row_index, "error": str(e)[:200]})
+    return 201, {"created": created, "failed": failed, "created_count": len(created)}

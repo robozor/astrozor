@@ -3,14 +3,19 @@ import type { Place } from "../lib/api";
 /**
  * Map marker for a Place.
  *
- * Three visual dimensions:
- *  1. Kind: observatory (dome SVG) vs spot (location pin SVG).
- *  2. Active: someone is currently checked-in here → colored + pulse halo.
- *     Inactive: faded gray.
- *  3. Subscribed: star badge in top-right corner.
+ * The four place kinds now use four visually distinct silhouettes so
+ * users can scan the map and pick out kinds at a glance — no more
+ * "every observatory is a dome circle" problem:
  *
- * The marker is positioned by parent <Marker> (react-map-gl), this component
- * only paints the visual.
+ *   observatory_public  → wide arched DOME with a vertical aperture slit
+ *   observatory_private → boxy BUILDING with a peaked roof + small lock
+ *   spot_permanent      → 5-pointed STAR (classic astronomy)
+ *   spot_temporary      → narrow pointed TENT / mountain triangle
+ *
+ * Container size dropped from 32 px to 22 px (≈70 % per user request)
+ * so markers don't crowd the map at mid-zoom levels. The pulse halo
+ * for active places (someone checked in here) remains the same — it
+ * extends slightly beyond the body so it's visible at the smaller size.
  */
 
 type Props = {
@@ -21,16 +26,47 @@ type Props = {
   ariaLabel?: string;
 };
 
-const KIND_COLOR: Record<Place["kind"], string> = {
-  observatory_public: "#22d3ee", // cyan
-  observatory_private: "#a78bfa", // purple
-  spot_permanent: "#fbbf24", // amber
-  spot_temporary: "#f472b6", // pink
+// Marker palette — kind is communicated by SHAPE; color only signals
+// activity (someone checked in here right now). Default is near-white/
+// near-black neutral. Active is pastel green for the body PLUS a
+// saturated red pulse halo — green alone gets lost on OSM vegetation,
+// so the red animation ring rides on top for visibility while the
+// marker body keeps the calm pastel green semantics.
+const COLORS = {
+  inactiveBg: "#e2e8f0", // slate-200 (near-white)
+  inactiveShape: "#1e293b", // slate-800 (near-black)
+  inactiveRing: "#cbd5e1", // slate-300 — thin outline
+  // Active = at least one check-in. Pastel BLUE (not green) so the
+  // marker pops on the OSM/PMTiles base map which is dominated by
+  // green landuse/forest tiles. The pulsing red halo around the
+  // marker still carries the "active" semantic; this fill is just
+  // contrast against the map.
+  activeBg: "#93c5fd", // blue-300 pastel
+  activeShape: "#0f172a", // slate-900
+  activeRing: "#60a5fa", // blue-400 (1 px outline) — matches new bg
+  haloRing: "#ef4444", // red-500 (animated pulse — saturated for OSM visibility)
 };
 
+const SIZE = 22; // 70 % of the prior 32 px
+const ICON_SIZE = 14;
+
+function KindIcon({ kind }: { kind: Place["kind"] }) {
+  switch (kind) {
+    case "observatory_public":
+      return <PublicObservatoryIcon />;
+    case "observatory_private":
+      return <PrivateObservatoryIcon />;
+    case "spot_permanent":
+      return <PermanentSpotIcon />;
+    case "spot_temporary":
+      return <TemporarySpotIcon />;
+  }
+}
+
 export function MapMarker({ kind, active, subscribed, testid, ariaLabel }: Props) {
-  const color = active ? KIND_COLOR[kind] : "#475569"; // slate-600 when inactive
-  const isObservatory = kind.startsWith("observatory");
+  const bg = active ? COLORS.activeBg : COLORS.inactiveBg;
+  const shape = active ? COLORS.activeShape : COLORS.inactiveShape;
+  const ring = active ? COLORS.activeRing : COLORS.inactiveRing;
 
   return (
     <div
@@ -39,70 +75,204 @@ export function MapMarker({ kind, active, subscribed, testid, ariaLabel }: Props
       aria-label={ariaLabel}
       title={ariaLabel}
       className="relative cursor-pointer select-none"
-      style={{ width: 32, height: 36 }}
+      style={{ width: SIZE, height: SIZE + 4 }}
+      data-kind={kind}
+      data-active={active ? "1" : "0"}
     >
-      {/* Pulse halo for active places — Tailwind animate-ping with low opacity */}
+      {/* Pulse halo for active places — saturated red so it pops on
+          OSM's green vegetation/parks. Body underneath stays pastel
+          green to keep the "presence" semantic. */}
       {active && (
         <span
-          className="absolute inset-0 rounded-full animate-ping"
-          style={{ background: color, opacity: 0.35 }}
+          className="absolute rounded-full animate-ping"
+          style={{
+            background: COLORS.haloRing,
+            opacity: 0.85,
+            width: SIZE + 6,
+            height: SIZE + 6,
+            top: -3,
+            left: -3,
+          }}
         />
       )}
 
-      {/* Body — circle with kind-specific icon */}
       <div
-        className="absolute inset-0 flex items-center justify-center rounded-full ring-2 shadow-lg"
+        className="absolute inset-0 flex items-center justify-center rounded-full shadow-md"
         style={{
-          background: active ? color : "#1e293b",
-          borderColor: active ? color : "#475569",
-          color: active ? "#0b1020" : "#94a3b8",
-          width: 32,
-          height: 32,
+          background: bg,
+          color: shape,
+          width: SIZE,
+          height: SIZE,
           top: 0,
           left: 0,
+          // 1 px outline instead of the previous ring-2 — markers no
+          // longer dominate the map visually.
+          boxShadow: `0 0 0 1px ${ring}, 0 1px 2px rgba(0,0,0,0.4)`,
         }}
       >
-        {isObservatory ? <ObservatoryIcon /> : <SpotIcon />}
+        <KindIcon kind={kind} />
       </div>
 
-      {/* Star badge — top right, only when subscribed */}
       {subscribed && (
         <span
           data-testid="marker-subscribed-badge"
-          className="absolute -top-1 -right-1 bg-amber-400 ring-2 ring-slate-950 rounded-full flex items-center justify-center"
-          style={{ width: 14, height: 14 }}
+          className="absolute -bottom-1 -right-1 bg-amber-400 rounded-full flex items-center justify-center"
+          style={{
+            width: 10,
+            height: 10,
+            boxShadow: `0 0 0 1px ${COLORS.inactiveShape}`,
+          }}
           aria-label="Subscribed"
           title="Sledováno"
         >
-          <StarIcon />
+          <StarIconBadge />
         </span>
       )}
     </div>
   );
 }
 
-function ObservatoryIcon() {
-  // Simple observatory dome silhouette
+/* ---- Kind-specific glyphs ---- */
+
+/** Public observatory — wide arched dome with a tall vertical aperture
+ * slit and ground line. Most "dome-like" of the set. */
+function PublicObservatoryIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M3 19h18v2H3v-2zm2-4a7 7 0 0 1 14 0v3H5v-3zm6.5-7.5v-3a1.5 1.5 0 0 1 3 0v3a3.5 3.5 0 0 1-3 0z" />
+    <svg
+      width={ICON_SIZE}
+      height={ICON_SIZE}
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
+      {/* Ground line */}
+      <rect x="2" y="19" width="20" height="2" rx="0.6" fill="currentColor" />
+      {/* Dome — wide arch */}
+      <path d="M3 19a9 9 0 0 1 18 0H3z" fill="currentColor" />
+      {/* Tall aperture slit — the signature shape */}
+      <rect x="10.5" y="9" width="3" height="10" rx="0.8" fill={COLORS.inactiveBg} />
     </svg>
   );
 }
 
-function SpotIcon() {
-  // Location pin
+/** Private observatory — peaked-roof rectangular building (NOT a dome)
+ * with a small padlock above the door. Reads instantly as "house/closed". */
+function PrivateObservatoryIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z" />
+    <svg
+      width={ICON_SIZE}
+      height={ICON_SIZE}
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
+      {/* Walls — boxy rectangle */}
+      <rect x="5" y="11" width="14" height="10" rx="0.5" fill="currentColor" />
+      {/* Peaked roof */}
+      <path d="M4 12L12 4l8 8H4z" fill="currentColor" />
+      {/* Door cut-out */}
+      <rect x="10.5" y="14.5" width="3" height="6.5" rx="0.3" fill={COLORS.inactiveBg} />
+      {/* Padlock shackle above door */}
+      <path
+        d="M11 14.5v-1.4a1 1 0 0 1 2 0v1.4"
+        fill="none"
+        stroke={COLORS.inactiveBg}
+        strokeWidth="0.8"
+      />
     </svg>
   );
 }
 
-function StarIcon() {
+/** Permanent observation spot — 5-pointed star (universal astronomy
+ * symbol). Bold, recognizable, totally different from dome silhouettes. */
+function PermanentSpotIcon() {
   return (
-    <svg width="8" height="8" viewBox="0 0 24 24" fill="#0b1020" aria-hidden>
+    <svg
+      width={ICON_SIZE}
+      height={ICON_SIZE}
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
+      <path
+        d="M12 2l2.9 6.05L21.5 9.1l-4.8 4.65 1.15 6.6L12 17.2l-5.85 3.15L7.3 13.75 2.5 9.1l6.6-1.05L12 2z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+/** Temporary spot — narrow pointed tent (steep triangle with pole). */
+function TemporarySpotIcon() {
+  return (
+    <svg
+      width={ICON_SIZE}
+      height={ICON_SIZE}
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
+      {/* Ground line */}
+      <rect x="2" y="20" width="20" height="1.8" rx="0.4" fill="currentColor" />
+      {/* Tent body — steeper, narrower than before */}
+      <path d="M6 20L12 3l6 17H6z" fill="currentColor" />
+      {/* Opening slit */}
+      <path d="M12 6L9.7 20h4.6L12 6z" fill={COLORS.inactiveBg} />
+    </svg>
+  );
+}
+
+function StarIconBadge() {
+  return (
+    <svg width="6" height="6" viewBox="0 0 24 24" fill={COLORS.inactiveShape} aria-hidden>
       <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
     </svg>
+  );
+}
+
+/** Cluster marker — round bubble showing the count of grouped places.
+ * Used by MapView when multiple markers fall within ~50 px of each
+ * other at the current zoom. Larger than a single marker so the count
+ * is readable. */
+export function MapClusterMarker({
+  count,
+  hasActive,
+  testid,
+}: {
+  count: number;
+  hasActive: boolean;
+  testid?: string;
+}) {
+  // Scale by count — small (<10), medium (10-50), large (50+)
+  const size = count >= 50 ? 38 : count >= 10 ? 32 : 26;
+  // Follow the same scheme as single markers: pastel green when any
+  // contained place has a check-in, near-white/near-black neutral
+  // otherwise so a screen full of clusters stays readable.
+  const bg = hasActive ? COLORS.activeBg : COLORS.inactiveBg;
+  const text = hasActive ? COLORS.activeShape : COLORS.inactiveShape;
+  const ring = hasActive ? COLORS.activeRing : COLORS.inactiveRing;
+  return (
+    <div
+      data-testid={testid}
+      role="button"
+      aria-label={`${count} places`}
+      title={`${count} míst v této oblasti — přibližte pro detail`}
+      className="relative cursor-pointer select-none"
+      style={{ width: size, height: size }}
+    >
+      {hasActive && (
+        <span
+          className="absolute inset-0 rounded-full animate-ping"
+          style={{ background: COLORS.haloRing, opacity: 0.75 }}
+        />
+      )}
+      <div
+        className="absolute inset-0 flex items-center justify-center rounded-full shadow-md font-bold"
+        style={{
+          background: bg,
+          color: text,
+          fontSize: count >= 100 ? 11 : count >= 10 ? 13 : 14,
+          boxShadow: `0 0 0 1px ${ring}, 0 1px 2px rgba(0,0,0,0.4)`,
+        }}
+      >
+        {count}
+      </div>
+    </div>
   );
 }

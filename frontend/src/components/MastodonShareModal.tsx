@@ -24,18 +24,29 @@ export function MastodonShareModal({
     return plain.length > 300 ? plain.slice(0, 297).trimEnd() + "…" : plain;
   }, [article]);
 
+  // We share the server-rendered SEO route /clanky/<slug>, NOT the SPA
+  // route /articles/<slug> — that endpoint emits Open Graph + Twitter
+  // Card meta + JSON-LD, so when Mastodon (or any social server) fetches
+  // it, the unfurl shows a proper preview card with cover image, title
+  // and summary. The page itself redirects browsers to the SPA via
+  // <meta refresh>, so real users land on the right place.
   const url =
     typeof window !== "undefined"
-      ? `${window.location.origin}/articles/${article.slug}`
-      : `/articles/${article.slug}`;
+      ? `${window.location.origin}/clanky/${article.slug}`
+      : `/clanky/${article.slug}`;
 
+  // Hashtags default to article tags (the user's own taxonomy) plus a
+  // generic "astronomie" / "astronomy" fallback. They can edit freely.
   const [hashtagText, setHashtagText] = useState(defaultHashtags(article));
   const [bodyOverride, setBodyOverride] = useState<string | null>(null);
   const [visibility, setVisibility] = useState<Visibility>("public");
 
   const composed = useMemo(() => {
     const tags = normalizeHashtags(hashtagText);
-    const base = `📰 ${article.title}\n\n${perex}\n\n${url}`;
+    // Template per user spec: title + summary + URL + hashtags.
+    // No emoji prefix on title — keeps it close to Mastodon's preview
+    // card so the toot reads like a clean callout.
+    const base = `${article.title}\n\n${perex}\n\n${url}`;
     return tags ? `${base}\n\n${tags}` : base;
   }, [article.title, perex, url, hashtagText]);
 
@@ -50,14 +61,14 @@ export function MastodonShareModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 backdrop-blur-sm p-4 pt-16"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       data-testid="masto-share-modal"
     >
       <div
-        className="w-full max-w-2xl bg-slate-900 ring-1 ring-slate-700 rounded-xl shadow-2xl"
+        className="w-full max-w-3xl bg-slate-900 ring-1 ring-slate-700 rounded-xl shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
@@ -134,6 +145,12 @@ export function MastodonShareModal({
               </div>
             </label>
 
+            {/* Live preview of the Mastodon card. Shows roughly what
+                a follower will see in their timeline once the toot
+                lands — text + the OG unfurl panel that masto.servers
+                render from the /clanky/<slug> page's meta tags. */}
+            <TootPreview article={article} body={body} />
+
             <label className="block">
               <span className="text-xs text-slate-400 mb-1 block">
                 {t("mastodon.share.visibility")}
@@ -183,6 +200,61 @@ export function MastodonShareModal({
   );
 }
 
+function TootPreview({ article, body }: { article: Article; body: string }) {
+  const { t } = useTranslation();
+  // Show body + a mock unfurl card. The unfurl mirrors what Mastodon
+  // does when it fetches /clanky/<slug>: pulls og:image, og:title,
+  // og:description and renders a horizontal card under the toot.
+  const host =
+    typeof window !== "undefined" ? window.location.host : "astrozor.localhost";
+  return (
+    <div>
+      <span className="text-xs text-slate-400 mb-1 block">
+        {t("mastodon.share.preview")}
+      </span>
+      <div className="bg-slate-950 ring-1 ring-slate-800 rounded-lg p-3 space-y-3">
+        <div className="flex items-start gap-2">
+          <div className="w-8 h-8 rounded-full bg-slate-800 ring-1 ring-slate-700 flex items-center justify-center text-slate-400 text-xs shrink-0">
+            🐘
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[12px] text-slate-300 leading-snug whitespace-pre-wrap break-words">
+              {body}
+            </p>
+          </div>
+        </div>
+        <div className="border border-slate-700 rounded-md overflow-hidden bg-slate-900">
+          {article.cover_image_url ? (
+            <img
+              src={article.cover_image_url}
+              alt=""
+              className="w-full aspect-[1.91/1] object-cover"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <div className="w-full aspect-[1.91/1] bg-slate-800 flex items-center justify-center text-4xl text-slate-700">
+              ☆
+            </div>
+          )}
+          <div className="p-2.5">
+            <p className="text-[10px] uppercase tracking-wider text-slate-500">
+              {host}
+            </p>
+            <p className="text-[13px] font-medium text-slate-100 leading-snug line-clamp-2 mt-0.5">
+              {article.title}
+            </p>
+            {article.summary && (
+              <p className="text-[11px] text-slate-400 line-clamp-2 mt-0.5">
+                {article.summary}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SuccessView({ url, onClose }: { url: string; onClose: () => void }) {
   const { t } = useTranslation();
   return (
@@ -219,10 +291,18 @@ function stripHtml(html: string): string {
 }
 
 function defaultHashtags(a: Article): string {
-  // Sensible starter — language + 'astronomy'. User edits freely.
-  return a.language === "cs"
-    ? "astronomie astrozor"
-    : "astronomy astrozor";
+  // Start from the article's own tags (most relevant for this post),
+  // then append the language-appropriate generic tag + "astrozor". The
+  // user can edit / remove / add to the list before posting.
+  const articleTags = (a.tags ?? []).map((t) =>
+    // Mastodon hashtags don't allow spaces or special chars — fall
+    // back to alphanumeric+digits and let normalizeHashtags() prepend #.
+    t.replace(/[^\p{L}\p{N}_]/gu, ""),
+  );
+  const generic = a.language === "cs" ? ["astronomie"] : ["astronomy"];
+  return [...articleTags, ...generic, "astrozor"]
+    .filter(Boolean)
+    .join(" ");
 }
 
 function normalizeHashtags(raw: string): string {

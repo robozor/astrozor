@@ -236,6 +236,557 @@ class GoogleProvider:
         )
 
 
+# ---- GitLab ----
+#
+# Standard OAuth 2.0 flow. Base URL is configurable so users can point
+# at a self-hosted instance (e.g. https://git.company.com) — defaults
+# to gitlab.com. Scope `read_user` returns email + name + avatar.
+#
+# Setup: https://gitlab.com/-/user_settings/applications (newer) or
+#        https://gitlab.com/-/profile/applications (older instances)
+#        → New application → Redirect URI:
+#          https://<host>/api/v1/auth/gitlab/callback
+#          (one URI per line if multiple environments)
+#        → Confidential: yes
+#        → Scopes: read_user
+#
+# Self-hosted: set GITLAB_OAUTH_BASE_URL=https://git.example.com
+
+
+class GitLabProvider:
+    name = "gitlab"
+
+    def __init__(self) -> None:
+        self.client_id = _env("GITLAB_OAUTH_CLIENT_ID")
+        self.client_secret = _env("GITLAB_OAUTH_CLIENT_SECRET")
+        base = _env("GITLAB_OAUTH_BASE_URL", "https://gitlab.com").rstrip("/")
+        # Allow individual endpoint overrides for E2E fixtures, otherwise
+        # derive from the base URL.
+        self.authorize_endpoint = _env(
+            "GITLAB_OAUTH_AUTHORIZE_URL", f"{base}/oauth/authorize"
+        )
+        self.token_endpoint = _env("GITLAB_OAUTH_TOKEN_URL", f"{base}/oauth/token")
+        self.user_endpoint = _env("GITLAB_OAUTH_USER_URL", f"{base}/api/v4/user")
+
+    @property
+    def is_configured(self) -> bool:
+        return bool(self.client_id and self.client_secret)
+
+    def authorize_url(self, state: str, request=None) -> str:
+        params = {
+            "client_id": self.client_id,
+            "redirect_uri": callback_url(self.name, request=request),
+            "response_type": "code",
+            "scope": "read_user",
+            "state": state,
+        }
+        return f"{self.authorize_endpoint}?{urlencode(params)}"
+
+    def exchange_code(self, code: str, request=None) -> str:
+        with httpx.Client(timeout=15.0) as client:
+            r = client.post(
+                self.token_endpoint,
+                data={
+                    "client_id": self.client_id,
+                    "client_secret": self.client_secret,
+                    "code": code,
+                    "grant_type": "authorization_code",
+                    "redirect_uri": callback_url(self.name, request=request),
+                },
+                headers={"Accept": "application/json"},
+            )
+        if r.status_code != 200:
+            raise OAuthError(
+                f"GitLab token exchange failed: HTTP {r.status_code}: {r.text[:200]}"
+            )
+        data = r.json()
+        token = data.get("access_token")
+        if not token:
+            raise OAuthError(f"GitLab token response missing access_token: {data}")
+        return token
+
+    def fetch_profile(self, access_token: str) -> OAuthProfile:
+        headers = {"Authorization": f"Bearer {access_token}"}
+        with httpx.Client(timeout=15.0) as client:
+            r = client.get(self.user_endpoint, headers=headers)
+        if r.status_code != 200:
+            raise OAuthError(f"GitLab /user failed: HTTP {r.status_code}")
+        u = r.json()
+        email = u.get("email") or u.get("public_email") or ""
+        if not email:
+            raise OAuthError(
+                "GitLab account has no public email. Enable 'public_email' "
+                "in GitLab profile settings, or grant the read_user scope."
+            )
+        return OAuthProfile(
+            provider="gitlab",
+            provider_user_id=str(u.get("id") or u.get("username") or ""),
+            email=email,
+            display_name=u.get("name") or u.get("username") or email.split("@")[0],
+            avatar_url=u.get("avatar_url") or "",
+        )
+
+
+# ---- LinkedIn (OpenID Connect — "Sign in with LinkedIn using OpenID Connect") ----
+#
+# Uses LinkedIn's modern OIDC flow, not the legacy v2 REST API. Scope
+# "openid profile email" returns sub / email / name / picture from
+# /v2/userinfo. The legacy r_liteprofile / r_emailaddress flow is
+# deprecated for new apps.
+#
+# Setup: https://www.linkedin.com/developers/apps → "Sign In with
+# LinkedIn using OpenID Connect" product → set Authorized redirect URL
+# to https://<host>/api/v1/auth/linkedin/callback
+
+
+class LinkedInProvider:
+    name = "linkedin"
+
+    def __init__(self) -> None:
+        self.client_id = _env("LINKEDIN_OAUTH_CLIENT_ID")
+        self.client_secret = _env("LINKEDIN_OAUTH_CLIENT_SECRET")
+        self.authorize_endpoint = _env(
+            "LINKEDIN_OAUTH_AUTHORIZE_URL",
+            "https://www.linkedin.com/oauth/v2/authorization",
+        )
+        self.token_endpoint = _env(
+            "LINKEDIN_OAUTH_TOKEN_URL",
+            "https://www.linkedin.com/oauth/v2/accessToken",
+        )
+        self.user_endpoint = _env(
+            "LINKEDIN_OAUTH_USER_URL",
+            "https://api.linkedin.com/v2/userinfo",
+        )
+
+    @property
+    def is_configured(self) -> bool:
+        return bool(self.client_id and self.client_secret)
+
+    def authorize_url(self, state: str, request=None) -> str:
+        params = {
+            "client_id": self.client_id,
+            "redirect_uri": callback_url(self.name, request=request),
+            "response_type": "code",
+            "scope": "openid profile email",
+            "state": state,
+        }
+        return f"{self.authorize_endpoint}?{urlencode(params)}"
+
+    def exchange_code(self, code: str, request=None) -> str:
+        with httpx.Client(timeout=15.0) as client:
+            r = client.post(
+                self.token_endpoint,
+                data={
+                    "client_id": self.client_id,
+                    "client_secret": self.client_secret,
+                    "code": code,
+                    "grant_type": "authorization_code",
+                    "redirect_uri": callback_url(self.name, request=request),
+                },
+                headers={
+                    "Accept": "application/json",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+            )
+        if r.status_code != 200:
+            raise OAuthError(
+                f"LinkedIn token exchange failed: HTTP {r.status_code}: {r.text[:200]}"
+            )
+        data = r.json()
+        token = data.get("access_token")
+        if not token:
+            raise OAuthError(f"LinkedIn token response missing access_token: {data}")
+        return token
+
+    def fetch_profile(self, access_token: str) -> OAuthProfile:
+        headers = {"Authorization": f"Bearer {access_token}"}
+        with httpx.Client(timeout=15.0) as client:
+            r = client.get(self.user_endpoint, headers=headers)
+        if r.status_code != 200:
+            raise OAuthError(f"LinkedIn /userinfo failed: HTTP {r.status_code}")
+        u = r.json()
+        email = u.get("email") or ""
+        if not email:
+            raise OAuthError("LinkedIn account has no email")
+        # LinkedIn's OIDC includes email_verified (boolean). Reject if
+        # explicitly False — accept missing (treat as verified, mirrors
+        # GitHub behaviour for legacy accounts).
+        if u.get("email_verified") is False:
+            raise OAuthError("LinkedIn account email is not verified")
+        # OIDC `name` is "Given Family"; fall back if missing.
+        display = u.get("name") or (
+            f"{u.get('given_name', '')} {u.get('family_name', '')}".strip()
+            or email.split("@")[0]
+        )
+        return OAuthProfile(
+            provider="linkedin",
+            provider_user_id=str(u.get("sub") or ""),
+            email=email,
+            display_name=display,
+            avatar_url=u.get("picture") or "",
+        )
+
+
+# ---- Facebook (Meta) Login ----
+#
+# Uses Facebook Login OAuth 2.0. Scope `email,public_profile` returns
+# id / name / email / picture from /me. Note that Facebook does NOT
+# verify emails in the same way Google does — the email field is
+# whatever the user typed at signup. Acceptable for casual login.
+#
+# Setup: https://developers.facebook.com/apps → Facebook Login → set
+# Valid OAuth Redirect URI to https://<host>/api/v1/auth/facebook/callback
+
+
+class FacebookProvider:
+    name = "facebook"
+
+    def __init__(self) -> None:
+        self.client_id = _env("FACEBOOK_OAUTH_CLIENT_ID")
+        self.client_secret = _env("FACEBOOK_OAUTH_CLIENT_SECRET")
+        # Pin to a recent Graph API version. Bump when Meta deprecates;
+        # they're roughly 2-year support windows.
+        self.api_version = _env("FACEBOOK_OAUTH_API_VERSION", "v19.0")
+        self.authorize_endpoint = _env(
+            "FACEBOOK_OAUTH_AUTHORIZE_URL",
+            f"https://www.facebook.com/{self.api_version}/dialog/oauth",
+        )
+        self.token_endpoint = _env(
+            "FACEBOOK_OAUTH_TOKEN_URL",
+            f"https://graph.facebook.com/{self.api_version}/oauth/access_token",
+        )
+        self.user_endpoint = _env(
+            "FACEBOOK_OAUTH_USER_URL",
+            f"https://graph.facebook.com/{self.api_version}/me",
+        )
+
+    @property
+    def is_configured(self) -> bool:
+        return bool(self.client_id and self.client_secret)
+
+    def authorize_url(self, state: str, request=None) -> str:
+        params = {
+            "client_id": self.client_id,
+            "redirect_uri": callback_url(self.name, request=request),
+            "response_type": "code",
+            "scope": "email,public_profile",
+            "state": state,
+        }
+        return f"{self.authorize_endpoint}?{urlencode(params)}"
+
+    def exchange_code(self, code: str, request=None) -> str:
+        with httpx.Client(timeout=15.0) as client:
+            # Facebook accepts the same params via GET or POST. Use GET
+            # for parity with the rest of their Graph API.
+            r = client.get(
+                self.token_endpoint,
+                params={
+                    "client_id": self.client_id,
+                    "client_secret": self.client_secret,
+                    "code": code,
+                    "redirect_uri": callback_url(self.name, request=request),
+                },
+            )
+        if r.status_code != 200:
+            raise OAuthError(
+                f"Facebook token exchange failed: HTTP {r.status_code}: {r.text[:200]}"
+            )
+        data = r.json()
+        token = data.get("access_token")
+        if not token:
+            raise OAuthError(f"Facebook token response missing access_token: {data}")
+        return token
+
+    def fetch_profile(self, access_token: str) -> OAuthProfile:
+        with httpx.Client(timeout=15.0) as client:
+            r = client.get(
+                self.user_endpoint,
+                params={
+                    "fields": "id,name,email,picture.type(large)",
+                    "access_token": access_token,
+                },
+            )
+        if r.status_code != 200:
+            raise OAuthError(f"Facebook /me failed: HTTP {r.status_code}")
+        u = r.json()
+        email = u.get("email") or ""
+        if not email:
+            raise OAuthError(
+                "Facebook account has no email. The user must grant the "
+                "'email' permission or have a verified email on file."
+            )
+        # Picture comes as a nested {data: {url: ...}} blob when using
+        # the field-expansion syntax.
+        avatar = ""
+        pic = u.get("picture")
+        if isinstance(pic, dict):
+            avatar = pic.get("data", {}).get("url", "") if isinstance(pic.get("data"), dict) else ""
+        return OAuthProfile(
+            provider="facebook",
+            provider_user_id=str(u.get("id") or ""),
+            email=email,
+            display_name=u.get("name") or email.split("@")[0],
+            avatar_url=avatar,
+        )
+
+
+# ---- Discord (identity + bot install combined) ----
+#
+# Discord OAuth supports requesting multiple scopes in one consent
+# screen — we ask for `identify` (account linking) AND `bot` (install
+# the Astrozor Events bot into the user's chosen server) in the same
+# authorize URL. Users see ONE Discord page that:
+#   1. Asks them to log in,
+#   2. Lists the bot permissions,
+#   3. Lets them pick the server to add the bot to.
+#
+# After the callback, Discord includes a `guild` parameter naming the
+# server the user picked. We store the guild_id on Identity so the
+# event-channel-generate flow knows where to create channels.
+#
+# Setup: https://discord.com/developers/applications → New Application
+#        → OAuth2 (copy client_id + secret) → Redirects (add the
+#        callback URL) → Bot (Add Bot, copy token).
+# Permissions (decimal):
+#   0x10  Manage Channels
+#   0x01  Create Instant Invite
+#   = 17
+
+
+class DiscordProvider:
+    name = "discord"
+    # Bot permissions requested during OAuth install:
+    #   VIEW_CHANNEL          (1024) — basic visibility
+    #   MANAGE_CHANNELS       (  16) — create / edit / delete channels
+    #   CREATE_INSTANT_INVITE (   1) — generate invite links
+    # Total 1041. Send Messages / Embed Links etc. NOT requested — the
+    # bot doesn't post anything, it just provisions a channel + invite.
+    BOT_PERMISSIONS = 1041
+
+    def __init__(self) -> None:
+        self.client_id = _env("DISCORD_APP_CLIENT_ID")
+        self.client_secret = _env("DISCORD_APP_CLIENT_SECRET")
+        self.bot_token = _env("DISCORD_BOT_TOKEN")
+        self.authorize_endpoint = _env(
+            "DISCORD_OAUTH_AUTHORIZE_URL",
+            "https://discord.com/api/oauth2/authorize",
+        )
+        self.token_endpoint = _env(
+            "DISCORD_OAUTH_TOKEN_URL", "https://discord.com/api/oauth2/token"
+        )
+        self.user_endpoint = _env(
+            "DISCORD_OAUTH_USER_URL", "https://discord.com/api/users/@me"
+        )
+
+    @property
+    def is_configured(self) -> bool:
+        return bool(self.client_id and self.client_secret and self.bot_token)
+
+    def authorize_url(self, state: str, request=None) -> str:
+        # Identity-only OAuth — `identify` + `email` scope, no bot.
+        # Discord changed the rules in 2024 so combining `bot` with
+        # `identify` in one consent screen fails with error 50040
+        # regardless of redirect URI configuration. We split the flow:
+        # identity links the Discord account; a SEPARATE bot-install
+        # URL (see install_bot_url below) is offered as a second click
+        # from Settings → Connected accounts.
+        params = {
+            "client_id": self.client_id,
+            "redirect_uri": callback_url(self.name, request=request),
+            "response_type": "code",
+            "scope": "identify email",
+            "state": state,
+        }
+        return f"{self.authorize_endpoint}?{urlencode(params)}"
+
+    def install_bot_url(self, state: str, request=None) -> str:
+        """Build the dedicated bot-install authorize URL.
+
+        Used by the "Install Astrozor bot" button shown after the
+        Discord identity is connected. Discord shows a server-picker
+        consent screen and installs the bot with the requested
+        permissions. After the user picks a server, Discord redirects
+        to our same callback (with `guild_id` query param). The
+        callback handler distinguishes "identity-only" vs "bot install"
+        callbacks by checking presence of `guild_id`.
+        """
+        params = {
+            "client_id": self.client_id,
+            "redirect_uri": callback_url(self.name, request=request),
+            "response_type": "code",
+            "scope": "bot applications.commands",
+            "permissions": str(self.BOT_PERMISSIONS),
+            "state": state,
+        }
+        return f"{self.authorize_endpoint}?{urlencode(params)}"
+
+    def exchange_code(self, code: str, request=None) -> str:
+        with httpx.Client(timeout=15.0) as client:
+            r = client.post(
+                self.token_endpoint,
+                data={
+                    "client_id": self.client_id,
+                    "client_secret": self.client_secret,
+                    "code": code,
+                    "grant_type": "authorization_code",
+                    "redirect_uri": callback_url(self.name, request=request),
+                },
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+        if r.status_code != 200:
+            raise OAuthError(
+                f"Discord token exchange failed: HTTP {r.status_code}: {r.text[:200]}"
+            )
+        data = r.json()
+        token = data.get("access_token")
+        if not token:
+            raise OAuthError(f"Discord token response missing access_token: {data}")
+        return token
+
+    def fetch_profile(self, access_token: str) -> OAuthProfile:
+        headers = {"Authorization": f"Bearer {access_token}"}
+        with httpx.Client(timeout=15.0) as client:
+            r = client.get(self.user_endpoint, headers=headers)
+        if r.status_code != 200:
+            raise OAuthError(f"Discord /users/@me failed: HTTP {r.status_code}")
+        u = r.json()
+        # Discord username is global; global_name is the optional
+        # display alias. Fall back to username + discriminator pair if
+        # both missing (legacy accounts).
+        display = u.get("global_name") or u.get("username") or ""
+        email = u.get("email") or ""
+        if not email:
+            raise OAuthError(
+                "Discord didn't return an e-mail. Make sure the 'email' "
+                "scope is requested in your app's settings."
+            )
+        avatar_hash = u.get("avatar") or ""
+        avatar_url = (
+            f"https://cdn.discordapp.com/avatars/{u.get('id')}/{avatar_hash}.png"
+            if avatar_hash
+            else ""
+        )
+        return OAuthProfile(
+            provider="discord",
+            provider_user_id=str(u.get("id") or ""),
+            email=email,
+            display_name=display,
+            avatar_url=avatar_url,
+        )
+
+
+# ---- Zooniverse (Citizen Science integration) ----
+#
+# Standard OAuth 2.0 authorization-code flow against Panoptes.
+#
+# Setup: https://panoptes.zooniverse.org/oauth/applications → New application
+#        Redirect URI: http://localhost/api/v1/auth/zooniverse/callback
+#                      (and the production URL once we have a domain)
+#        Confidential: yes
+#        Scopes ticked in the form: User, Project, Group, Classification
+#
+# We exchange code → access_token (Bearer JWT) + refresh_token. Both
+# get stored on the Identity row so Celery can keep them fresh and
+# per-user ERAS queries work.
+#
+# Profile call uses Panoptes's `/api/me` (returns the JSON:API-style
+# `users` envelope). The bearer is also reused as the user's identity
+# token for the per-user ERAS endpoint.
+
+
+class ZooniverseProvider:
+    name = "zooniverse"
+
+    def __init__(self) -> None:
+        self.client_id = _env("ZOONIVERSE_OAUTH_CLIENT_ID")
+        self.client_secret = _env("ZOONIVERSE_OAUTH_CLIENT_SECRET")
+        base = _env("ZOONIVERSE_OAUTH_BASE_URL", "https://panoptes.zooniverse.org").rstrip("/")
+        self.authorize_endpoint = _env(
+            "ZOONIVERSE_OAUTH_AUTHORIZE_URL", f"{base}/oauth/authorize"
+        )
+        self.token_endpoint = _env("ZOONIVERSE_OAUTH_TOKEN_URL", f"{base}/oauth/token")
+        self.me_endpoint = _env("ZOONIVERSE_OAUTH_ME_URL", f"{base}/api/me")
+        # Scope literal — Panoptes accepts space-separated. `public` is the
+        # default fall-through; we add the four resource scopes our
+        # integration touches.
+        self.scope = _env(
+            "ZOONIVERSE_OAUTH_SCOPE", "public user project group classification"
+        )
+
+    @property
+    def is_configured(self) -> bool:
+        return bool(self.client_id and self.client_secret)
+
+    def authorize_url(self, state: str, request=None) -> str:
+        params = {
+            "client_id": self.client_id,
+            "redirect_uri": callback_url(self.name, request=request),
+            "response_type": "code",
+            "scope": self.scope,
+            "state": state,
+        }
+        return f"{self.authorize_endpoint}?{urlencode(params)}"
+
+    # Stashed by exchange_code for the callback handler to pick off when
+    # it needs to persist refresh_token / expires_in. Awkward but keeps
+    # the existing `exchange_code -> str` contract that the callback
+    # depends on. Cleared on every exchange call.
+    last_token_envelope: dict | None = None
+
+    def exchange_code(self, code: str, request=None) -> str:
+        with httpx.Client(timeout=15.0) as client:
+            r = client.post(
+                self.token_endpoint,
+                data={
+                    "client_id": self.client_id,
+                    "client_secret": self.client_secret,
+                    "code": code,
+                    "grant_type": "authorization_code",
+                    "redirect_uri": callback_url(self.name, request=request),
+                },
+                headers={"Accept": "application/json"},
+            )
+        if r.status_code != 200:
+            raise OAuthError(
+                f"Zooniverse token exchange failed: HTTP {r.status_code}: {r.text[:200]}"
+            )
+        data = r.json()
+        token = data.get("access_token")
+        if not token:
+            raise OAuthError(f"Zooniverse token response missing access_token: {data}")
+        # Hand the rest of the envelope to the caller out-of-band so it
+        # can persist refresh_token / expires_in onto Identity (Phase 3
+        # adds the fields). For now this is best-effort.
+        self.last_token_envelope = data
+        return token
+
+    def fetch_profile(self, access_token: str) -> OAuthProfile:
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/vnd.api+json; version=1",
+            "Content-Type": "application/json",
+        }
+        with httpx.Client(timeout=15.0) as client:
+            r = client.get(self.me_endpoint, headers=headers)
+        if r.status_code != 200:
+            raise OAuthError(f"Zooniverse /api/me failed: HTTP {r.status_code}")
+        envelope = r.json()
+        items = envelope.get("users") or []
+        if not items:
+            raise OAuthError("Zooniverse /api/me returned no user payload")
+        u = items[0]
+        email = u.get("email") or ""
+        login = u.get("login") or ""
+        display = u.get("display_name") or u.get("credited_name") or login or email.split("@")[0]
+        return OAuthProfile(
+            provider="zooniverse",
+            provider_user_id=str(u.get("id") or ""),
+            email=email,
+            display_name=display,
+            avatar_url=u.get("avatar_src") or "",
+        )
+
+
 # ---- Mastodon (dynamic per-instance app registration) ----
 
 
@@ -399,6 +950,14 @@ def get_provider(name: str, instance_url: str | None = None):
         return GitHubProvider()
     if name == "google":
         return GoogleProvider()
+    if name == "gitlab":
+        return GitLabProvider()
+    if name == "facebook":
+        return FacebookProvider()
+    if name == "discord":
+        return DiscordProvider()
+    if name == "zooniverse":
+        return ZooniverseProvider()
     if name == "mastodon":
         if not instance_url:
             raise OAuthError("Mastodon requires an instance URL")

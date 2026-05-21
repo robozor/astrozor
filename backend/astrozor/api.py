@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from django.middleware.csrf import get_token
+from django.db.models import Count
 from ninja import NinjaAPI
 from ninja.security import django_auth
 
@@ -54,6 +55,50 @@ api.add_router("", map_config_router)
 @api.get("/csrf", tags=["meta"])
 def csrf(request):
     return {"csrfToken": get_token(request)}
+
+
+# ---- Tag suggestions across all 4 tagged content types ----
+@api.get("/tags", tags=["meta"])
+def list_tags(request, kind: str | None = None, q: str | None = None, limit: int = 100):
+    """Suggest tag names for the editor & filter UI. `kind` narrows
+    the search to one app's content type (articles|events|campaigns|
+    projects); without it, returns the global tag set (frequency-sorted).
+    `q` does a prefix-case-insensitive filter. Public — tags are
+    metadata, not content.
+
+    Astrozor uses ``apps.core.UUIDTaggedItem`` as the M2M through table
+    (because Article/Event/Campaign/Project all have UUID primary keys
+    — the default ``taggit.TaggedItem.object_id`` is IntegerField and
+    silently failed on UUIDs). So this endpoint counts uses against
+    UUIDTaggedItem, not the legacy taggit table.
+    """
+    from taggit.models import Tag
+    from apps.core.models import UUIDTaggedItem
+    from django.contrib.contenttypes.models import ContentType
+
+    qs = Tag.objects.all()
+    if kind:
+        ct_map = {
+            "articles": ("publishing", "article"),
+            "events": ("events", "event"),
+            "campaigns": ("citizen", "campaign"),
+            "projects": ("projects", "project"),
+        }
+        app_model = ct_map.get(kind)
+        if app_model:
+            try:
+                ct = ContentType.objects.get(app_label=app_model[0], model=app_model[1])
+            except ContentType.DoesNotExist:
+                return []
+            tag_ids = UUIDTaggedItem.objects.filter(content_type=ct).values_list("tag_id", flat=True)
+            qs = qs.filter(id__in=tag_ids)
+    if q:
+        qs = qs.filter(name__istartswith=q)
+    # Count via the new UUID through-table. The auto-named reverse
+    # accessor on Tag is "core_uuidtaggeditem_items" (lowercase
+    # app_label + model).
+    qs = qs.annotate(use_count=Count("core_uuidtaggeditem_items")).order_by("-use_count", "name")
+    return [{"name": t.name, "slug": t.slug, "count": t.use_count} for t in qs[:limit]]
 
 
 __all__ = ["api", "django_auth"]

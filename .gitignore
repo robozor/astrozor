@@ -49,6 +49,17 @@ dev-dist/
 # Playwright
 playwright-report/
 test-results/
+.playwright-mcp/
+
+# Test screenshots (kept in workspace, not in git)
+/admin-*.png
+/anon-*.png
+/articles-*.png
+/citizen-*.png
+/discord-*.png
+/events-*.png
+/place-*.png
+/projects-*.png
 
 # Docker / build cache
 .docker/

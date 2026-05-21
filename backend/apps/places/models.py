@@ -44,8 +44,34 @@ class Place(models.Model):
     address = models.CharField(max_length=240, blank=True)
     website = models.URLField(blank=True)
     contact = models.CharField(max_length=160, blank=True)
-    opening_hours = models.CharField(max_length=160, blank=True)
-    bortle_class = models.FloatField(null=True, blank=True, help_text="Light pollution Bortle scale 1..9")
+    # Free-text "supplementary" note shown alongside the structured
+    # weekly schedule (e.g. "Po dohodě", reservation link, seasonal
+    # closure). TextField lets users break across lines without a
+    # hard cap; previous CharField(160) was too tight for paragraph
+    # notes.
+    opening_hours = models.TextField(blank=True)
+    # Structured weekly schedule. Shape:
+    #   {"mon": {"intervals": [["08:00","12:00"], ["13:00","17:00"]],
+    #            "auto_checkin": true}, "tue": {...}, ...}
+    # When auto_checkin is true for a given day, the periodic beat task
+    # creates an anonymous "Hvězdárna otevřena" check-in during the
+    # listed intervals so the map reflects open hours without anyone
+    # manually clicking Check-in. See apps/presence/tasks.tick_auto_checkins.
+    opening_hours_schedule = models.JSONField(default=dict, blank=True)
+    # Active Bortle reading from a human observer (or future SQM sensor).
+    # Persisted as denormalized cache of the latest BortleMeasurement with
+    # source='manual'. Authoritative when present.
+    bortle_class_manual = models.FloatField(null=True, blank=True)
+    # Active Bortle reading derived from the currently selected light-
+    # pollution map source (Black Marble 2016 or VIIRS DNB latest). Cache
+    # of the latest BortleMeasurement with a viirs_* source.
+    bortle_class_map = models.FloatField(null=True, blank=True)
+    bortle_class_map_source = models.CharField(max_length=24, blank=True)
+    bortle_class_map_updated_at = models.DateTimeField(null=True, blank=True)
+    # Deprecated single-value field. Kept temporarily so old API consumers
+    # don't 500. Computed from manual ?? map at write time. Will be removed
+    # once frontend has migrated to the dual-value display.
+    bortle_class = models.FloatField(null=True, blank=True, help_text="Deprecated; use bortle_class_manual / bortle_class_map")
 
     # Owner / temporary lifetime
     owner = models.ForeignKey(
@@ -57,6 +83,43 @@ class Place(models.Model):
     )
     valid_from = models.DateTimeField(null=True, blank=True, help_text="For temporary places")
     valid_to = models.DateTimeField(null=True, blank=True, help_text="For temporary places")
+
+    # ---- Visibility / permissions ----
+    # See apps/core/visibility.py for the shared 4-level system.
+    # Discussion (chat) on a place is gated independently — when
+    # `discussion_visibility` is blank, it inherits from `visibility`.
+    visibility = models.CharField(
+        max_length=12,
+        choices=[
+            ("public", "Public"),
+            ("members", "Members"),
+            ("allowlist", "Selected members"),
+            ("private", "Private"),
+        ],
+        default="public",
+    )
+    allowed_users = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        related_name="allowed_places",
+    )
+    discussion_visibility = models.CharField(
+        max_length=12,
+        choices=[
+            ("public", "Public"),
+            ("members", "Members"),
+            ("allowlist", "Selected members"),
+            ("private", "Private"),
+        ],
+        blank=True,
+        default="",
+        help_text="Empty = inherit from `visibility`",
+    )
+    discussion_allowed_users = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        related_name="allowed_place_discussions",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -89,3 +152,49 @@ class Place(models.Model):
         if self.is_temporary and self.is_expired:
             return False
         return True
+
+
+class BortleMeasurement(models.Model):
+    """A historical Bortle reading for a place — either entered manually
+    by an observer or auto-derived from a light-pollution model.
+
+    Place.bortle_class is the "active" display value; it's set from the
+    most recently relevant measurement (newest manual reading, falling
+    back to the latest auto estimate). The history table lets users
+    see how the rating changed over time.
+    """
+
+    class Source(models.TextChoices):
+        MANUAL = "manual", _("Manual reading")
+        VIIRS_BLACK_MARBLE = "viirs_black_marble", _("Auto: VIIRS Black Marble")
+        VIIRS_DNB_LATEST = "viirs_dnb_latest", _("Auto: VIIRS DNB latest")
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    place = models.ForeignKey(
+        Place, on_delete=models.CASCADE, related_name="bortle_measurements"
+    )
+    value = models.FloatField(help_text="Bortle class 1..9")
+    source = models.CharField(max_length=24, choices=Source.choices)
+    measured_at = models.DateTimeField(default=timezone.now)
+    notes = models.TextField(blank=True)
+    # For auto sources: luminance value the estimator sampled (for traceability)
+    luminance = models.FloatField(null=True, blank=True)
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="bortle_measurements",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "places_bortle_measurement"
+        ordering = ["-measured_at"]
+        indexes = [
+            models.Index(fields=["place", "-measured_at"]),
+            models.Index(fields=["source"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.place.slug} {self.source}={self.value} @ {self.measured_at:%Y-%m-%d}"

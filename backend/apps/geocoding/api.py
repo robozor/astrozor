@@ -109,15 +109,28 @@ def _fetch_upstream(q: str, limit: int, lang: str) -> list[dict[str, Any]]:
     return data if isinstance(data, list) else []
 
 
+PHOTON_SUPPORTED_LANGS = {"default", "de", "en", "fr"}
+
+
 def _photon_search(q: str, limit: int, lang: str) -> list[dict[str, Any]]:
-    """Query a self-hosted Photon if the admin switched search to it."""
+    """Query a self-hosted Photon if the admin switched search to it.
+
+    Note: the rtuszik/photon-docker image (and upstream Komoot Photon)
+    only ships language indexes for {default, de, en, fr}. We map any
+    other request (cs, sk, pl, …) to 'default' so the query still works —
+    "default" matches local names in the local language, which is what
+    Czech users actually want anyway.
+    """
     from apps.admin_panel.models import MapInfra
 
     infra = MapInfra.get()
     if infra.search_backend != MapInfra.SearchBackend.PHOTON:
         return []
     headers = {"Accept": "application/json", "User-Agent": USER_AGENT}
-    params = {"q": q, "limit": str(limit), "lang": (lang or "en").split(",")[0]}
+    first_lang = (lang or "default").split(",")[0].strip().lower()
+    if first_lang not in PHOTON_SUPPORTED_LANGS:
+        first_lang = "default"
+    params = {"q": q, "limit": str(limit), "lang": first_lang}
     try:
         with httpx.Client(timeout=UPSTREAM_TIMEOUT, headers=headers) as client:
             r = client.get(f"{infra.photon_url.rstrip('/')}/api", params=params)
@@ -206,3 +219,93 @@ def geocode(
     # Cache even empty result so we don't retry the same garbage query
     cache.set(key, items, CACHE_TTL_SECONDS)
     return JsonResponse({"items": items, "cached": False}, status=200)
+
+
+# ---- Elevation lookup ----
+# Open-Elevation has been flaky (8s+ timeouts on api.open-elevation.com).
+# Open-Meteo's elevation endpoint serves the same SRTM-derived data with
+# substantially better uptime — they run it on the same infra as their
+# weather forecast API. We try them in order: Open-Meteo first (fast,
+# reliable), Open-Elevation as a fallback in case Open-Meteo ever 5xx's.
+OPEN_METEO_ELEVATION_URL = "https://api.open-meteo.com/v1/elevation"
+OPEN_ELEVATION_URL = "https://api.open-elevation.com/api/v1/lookup"
+ELEVATION_CACHE_TTL = 30 * 24 * 3600  # 30 days; bedrock doesn't move
+ELEVATION_UPSTREAM_TIMEOUT = 3.0  # tighter than geocoding — UI waits on this
+
+
+def _try_open_meteo(lat: float, lon: float) -> int | None:
+    """Open-Meteo: {"elevation": [251.0]}. Fast, reliable, no auth."""
+    try:
+        with httpx.Client(
+            timeout=ELEVATION_UPSTREAM_TIMEOUT,
+            headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+        ) as client:
+            r = client.get(
+                OPEN_METEO_ELEVATION_URL,
+                params={"latitude": lat, "longitude": lon},
+            )
+        if r.status_code != 200:
+            log.warning(
+                "open-meteo elevation returned %s for %s,%s",
+                r.status_code, lat, lon,
+            )
+            return None
+        data = r.json()
+        arr = (data or {}).get("elevation") or []
+        if arr and isinstance(arr[0], (int, float)):
+            return int(round(arr[0]))
+    except (httpx.HTTPError, json.JSONDecodeError, IndexError) as e:
+        log.warning("open-meteo elevation error: %s", e)
+    return None
+
+
+def _try_open_elevation(lat: float, lon: float) -> int | None:
+    """Open-Elevation: {"results":[{"latitude":..,"longitude":..,"elevation":..}]}.
+    Used only as fallback — host frequently unreachable."""
+    try:
+        with httpx.Client(
+            timeout=ELEVATION_UPSTREAM_TIMEOUT,
+            headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+        ) as client:
+            r = client.get(OPEN_ELEVATION_URL, params={"locations": f"{lat},{lon}"})
+        if r.status_code != 200:
+            return None
+        data = r.json()
+        results = (data or {}).get("results") or []
+        if results:
+            elev = results[0].get("elevation")
+            if isinstance(elev, (int, float)):
+                return int(round(elev))
+    except (httpx.HTTPError, json.JSONDecodeError) as e:
+        log.warning("open-elevation fallback error: %s", e)
+    return None
+
+
+@router.get("/geocode/elevation", auth=None)
+def elevation(
+    request: HttpRequest,  # noqa: ARG001
+    lat: float = 0.0,
+    lon: float = 0.0,
+) -> JsonResponse:
+    """Look up terrain elevation for a GPS coord. Tries Open-Meteo first
+    (fast, ~90 m SRTM), falls back to Open-Elevation. Cached 30 d per
+    3-decimal rounded coord (~110 m bucket)."""
+    rkey = f"elev:v1:{round(lat, 3):.3f}:{round(lon, 3):.3f}"
+    cached = cache.get(rkey)
+    if cached is not None:
+        return JsonResponse({"elevation_m": cached, "cached": True}, status=200)
+
+    elev = _try_open_meteo(lat, lon)
+    source = "open-meteo"
+    if elev is None:
+        elev = _try_open_elevation(lat, lon)
+        source = "open-elevation"
+    if elev is None:
+        return JsonResponse(
+            {"detail": "All elevation providers unreachable"}, status=502
+        )
+
+    cache.set(rkey, elev, ELEVATION_CACHE_TTL)
+    return JsonResponse(
+        {"elevation_m": elev, "cached": False, "source": source}, status=200
+    )

@@ -96,7 +96,20 @@ class Profile(models.Model):
     # When set, presence check-ins also post a status to the user's
     # connected Mastodon (best-effort, swallowed failure).
     mastodon_autopost_checkin = models.BooleanField(default=False)
+    # Persisted Map → Ovládání state so the user lands in their preferred
+    # view after login (tile style, place-kind filter, state filter,
+    # light-pollution overlay toggle/opacity). Shape is opaque to the
+    # backend — the frontend writes/reads its own structure.
+    map_preferences = models.JSONField(default=dict, blank=True)
     onboarding_completed = models.BooleanField(default=False)
+    # Timezone display preferences — every visible datetime in the app
+    # is rendered in up to three flavours: UTC (canonical), "Local" (the
+    # place / event's GPS-derived TZ) and the user's own TZ (above as
+    # `timezone_name`). Each can be toggled off in Settings; defaults
+    # are all-on so new users see the full triple by default.
+    show_utc = models.BooleanField(default=True)
+    show_local = models.BooleanField(default=True)
+    show_user = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -128,6 +141,10 @@ class Identity(models.Model):
         GITHUB = "github", "GitHub"
         GOOGLE = "google", "Google"
         MASTODON = "mastodon", "Mastodon"
+        DISCORD = "discord", "Discord"
+        GITLAB = "gitlab", "GitLab"
+        FACEBOOK = "facebook", "Facebook"
+        ZOONIVERSE = "zooniverse", "Zooniverse"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(
@@ -144,8 +161,28 @@ class Identity(models.Model):
     avatar_url = models.URLField(blank=True)
     # Stored for "act on user's behalf" API calls. Production should
     # encrypt this column; MVP keeps it plaintext (admin-visible).
-    access_token = models.CharField(max_length=400, blank=True)
+    # 2048 chars accommodates large JWTs (Zooniverse / Auth0 / Okta-style
+    # tokens routinely exceed 1k chars). Earlier providers fit in 400
+    # but we widen uniformly — Postgres varchar over a btree has no
+    # noticeable cost at this size.
+    access_token = models.CharField(max_length=2048, blank=True)
+    # Refresh tokens used for providers whose access_tokens expire
+    # (Zooniverse: ~2h). Other providers leave it empty.
+    refresh_token = models.CharField(max_length=2048, blank=True)
+    token_expires_at = models.DateTimeField(null=True, blank=True)
     scopes = models.JSONField(default=list, blank=True)
+    # For Discord: which guild (server) the user installed the Astrozor
+    # bot into. Set during OAuth callback when scope=bot was requested.
+    # Empty for providers that don't have a bot install concept.
+    discord_guild_id = models.CharField(max_length=32, blank=True)
+    discord_guild_name = models.CharField(max_length=120, blank=True)
+    # For Zooniverse: denormalized membership flag for the canonical
+    # Astrozor group (id from ZOONIVERSE_GROUP_ID env). Synced by a
+    # Celery task every ~6 h and on-demand after a user clicks the
+    # join-link so the UI can flip from "Join" to "Member" without a
+    # full Panoptes round-trip.
+    zooniverse_in_group = models.BooleanField(default=False)
+    zooniverse_membership_synced_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     last_login_at = models.DateTimeField(null=True, blank=True)
 

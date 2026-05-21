@@ -1,7 +1,15 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { ApiError, auth, type Identity, type Me, type ProfilePatch } from "../lib/api";
+import {
+  ApiError,
+  apiTokens,
+  auth,
+  type ApiToken,
+  type Identity,
+  type Me,
+  type ProfilePatch,
+} from "../lib/api";
 import { DiscordPrefsSection } from "./DiscordPrefsSection";
 
 export function SettingsPage({ me }: { me: Me }) {
@@ -19,8 +27,128 @@ export function SettingsPage({ me }: { me: Me }) {
       <ProfileSection me={me} />
       <ConnectedAccounts />
       <IntegrationsSection me={me} />
+      <ApiTokensSection />
       <StorageSection me={me} />
     </div>
+  );
+}
+
+// ---- API tokens (for RStudio addin / VS Code / CLI) ----
+
+function ApiTokensSection() {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const tokensQ = useQuery({ queryKey: ["api-tokens"], queryFn: apiTokens.list });
+  const [name, setName] = useState("");
+  const [created, setCreated] = useState<{ name: string; token: string } | null>(null);
+
+  const create = useMutation({
+    mutationFn: () => apiTokens.create(name.trim()),
+    onSuccess: (tok) => {
+      setCreated({ name: tok.name, token: tok.token });
+      setName("");
+      queryClient.invalidateQueries({ queryKey: ["api-tokens"] });
+    },
+  });
+
+  const revoke = useMutation({
+    mutationFn: (id: string) => apiTokens.revoke(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["api-tokens"] }),
+  });
+
+  const active = (tokensQ.data ?? []).filter((t) => !t.revoked_at);
+
+  return (
+    <Card>
+      <h3 className="font-medium mb-1">{t("settings.tokens.title")}</h3>
+      <p className="text-xs text-slate-500 mb-3">{t("settings.tokens.subtitle")}</p>
+
+      {created && (
+        <div className="bg-emerald-900/40 ring-1 ring-emerald-700 rounded-md p-3 mb-3">
+          <p className="text-xs text-emerald-300 mb-1">
+            {t("settings.tokens.createdBadge", { name: created.name })}
+          </p>
+          <div className="flex gap-2 items-center">
+            <code className="flex-1 bg-slate-950 text-emerald-200 px-2 py-1.5 rounded text-xs font-mono break-all">
+              {created.token}
+            </code>
+            <button
+              type="button"
+              onClick={() => navigator.clipboard.writeText(created.token)}
+              className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1.5 rounded"
+            >
+              {t("settings.tokens.copy")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setCreated(null)}
+              className="text-xs text-slate-400 hover:text-slate-200"
+            >
+              ✕
+            </button>
+          </div>
+          <p
+            className="text-[10px] text-slate-500 mt-2"
+            dangerouslySetInnerHTML={{ __html: t("settings.tokens.envHint") }}
+          />
+        </div>
+      )}
+
+      <div className="flex gap-2 mb-3">
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder={t("settings.tokens.namePlaceholder")}
+          className="flex-1 bg-slate-950 ring-1 ring-slate-700 focus:ring-slate-500 rounded-md px-3 py-1.5 text-slate-100 outline-none text-sm"
+        />
+        <button
+          type="button"
+          onClick={() => create.mutate()}
+          disabled={!name.trim() || create.isPending}
+          className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 text-white text-sm px-3 py-1.5 rounded-md transition"
+        >
+          {create.isPending ? "…" : t("settings.tokens.create")}
+        </button>
+      </div>
+
+      {active.length === 0 ? (
+        <p className="text-xs text-slate-500">{t("settings.tokens.empty")}</p>
+      ) : (
+        <ul className="space-y-1">
+          {active.map((tok: ApiToken) => (
+            <li
+              key={tok.id}
+              className="flex items-center justify-between bg-slate-950 ring-1 ring-slate-800 rounded-md px-3 py-2 text-sm"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <strong className="truncate">{tok.name}</strong>
+                  <code className="text-xs text-slate-500 font-mono">{tok.prefix}…</code>
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5">
+                  {t("settings.tokens.createdAt", {
+                    date: new Date(tok.created_at).toLocaleDateString(),
+                  })}
+                  {tok.last_used_at &&
+                    ` · ${t("settings.tokens.lastUsed", {
+                      date: new Date(tok.last_used_at).toLocaleString(),
+                    })}`}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => revoke.mutate(tok.id)}
+                disabled={revoke.isPending}
+                className="text-xs text-rose-400 hover:text-rose-300"
+              >
+                {t("settings.tokens.revoke")}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }
 
@@ -77,7 +205,26 @@ function ProfileSection({ me }: { me: Me }) {
   const [equipment, setEquipment] = useState(me.profile.equipment);
   const [visibility, setVisibility] = useState(me.profile.location_visibility);
   const [language, setLanguage] = useState(me.profile.language);
+  const [timezoneName, setTimezoneName] = useState(me.profile.timezone_name);
+  const [showUtc, setShowUtc] = useState(me.profile.show_utc);
+  const [showLocal, setShowLocal] = useState(me.profile.show_local);
+  const [showUser, setShowUser] = useState(me.profile.show_user);
   const { i18n } = useTranslation();
+
+  // Comprehensive IANA timezone list — Intl.supportedValuesOf is
+  // available in all current browsers (Chrome 99+, Safari 15.4+, FF 93+).
+  // Falls back to a short curated list on ancient runtimes.
+  const tzOptions = (() => {
+    try {
+      const all = (Intl as unknown as {
+        supportedValuesOf?: (k: string) => string[];
+      }).supportedValuesOf?.("timeZone");
+      if (all && all.length) return all;
+    } catch {
+      /* fall through */
+    }
+    return ["UTC", "Europe/Prague", "Europe/London", "America/New_York", "America/Los_Angeles", "Asia/Tokyo"];
+  })();
 
   const save = useMutation({
     mutationFn: (patch: ProfilePatch) => auth.patchProfile(patch),
@@ -128,6 +275,44 @@ function ProfileSection({ me }: { me: Me }) {
           ]}
         />
       </div>
+
+      {/* Timezone section — IANA picker + 3 show/hide checkboxes for
+          which clock flavours appear next to dates. Defaults are
+          all-on; the user can hide any combination. */}
+      <div className="mt-5 pt-4 border-t border-slate-800">
+        <h4 className="text-sm font-medium text-slate-200 mb-2">
+          {t("settings.profile.timezoneSection")}
+        </h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+          <SelectField
+            label={t("settings.profile.timezoneName")}
+            value={timezoneName}
+            onChange={setTimezoneName}
+            options={tzOptions.map((tz) => ({ value: tz, label: tz }))}
+          />
+          <div className="text-[11px] text-slate-500 self-end pb-2">
+            {t("settings.profile.timezoneHint")}
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <Checkbox
+            label={t("settings.profile.showUtc")}
+            checked={showUtc}
+            onChange={setShowUtc}
+          />
+          <Checkbox
+            label={t("settings.profile.showLocal")}
+            checked={showLocal}
+            onChange={setShowLocal}
+          />
+          <Checkbox
+            label={t("settings.profile.showUser")}
+            checked={showUser}
+            onChange={setShowUser}
+          />
+        </div>
+      </div>
+
       <button
         type="button"
         onClick={() => {
@@ -142,6 +327,10 @@ function ProfileSection({ me }: { me: Me }) {
             equipment,
             location_visibility: visibility,
             language,
+            timezone_name: timezoneName,
+            show_utc: showUtc,
+            show_local: showLocal,
+            show_user: showUser,
           });
         }}
         disabled={save.isPending}
@@ -174,7 +363,15 @@ function ConnectedAccounts() {
 
   const connected: Record<string, Identity | undefined> = {};
   for (const i of identities.data ?? []) connected[i.provider] = i;
-  const configured = providers.data ?? { github: false, google: false, mastodon: false };
+  const configured = providers.data ?? {
+    github: false,
+    google: false,
+    gitlab: false,
+    facebook: false,
+    discord: false,
+    zooniverse: false,
+    mastodon: false,
+  };
 
   return (
     <Card>
@@ -192,6 +389,19 @@ function ConnectedAccounts() {
           label="Google"
           identity={connected.google}
           configured={configured.google}
+          onDisconnect={(id) => disconnect.mutate(id)}
+        />
+        {/* Discord row deliberately omitted — Discord's bot-install
+            flow currently throws 50040 after login on our account; the
+            identity-only OAuth works but provides no Astrozor feature
+            (auto-generate event channel was the planned value). Backend
+            code (provider class + bot helper + endpoint) is kept so we
+            can re-enable later without redevelopment. */}
+        <ProviderRow
+          provider="zooniverse"
+          label="Zooniverse"
+          identity={connected.zooniverse}
+          configured={configured.zooniverse}
           onDisconnect={(id) => disconnect.mutate(id)}
         />
         <ProviderRow
@@ -218,7 +428,7 @@ function ProviderRow({
   configured,
   onDisconnect,
 }: {
-  provider: "github" | "google" | "mastodon";
+  provider: "github" | "google" | "mastodon" | "discord" | "zooniverse";
   label: string;
   identity?: Identity;
   configured: boolean;
@@ -226,22 +436,45 @@ function ProviderRow({
 }) {
   const { t } = useTranslation();
   if (identity) {
+    // Discord-specific: if identity is linked but the Astrozor bot
+    // hasn't been installed into a server yet, show a secondary
+    // "Install bot" action. Bot install lives behind a second OAuth
+    // consent because Discord refuses to combine identity + bot in
+    // one click since 2024 (returns error 50040).
+    const needsBotInstall =
+      provider === "discord" && !identity.discord_guild_id;
     return (
-      <div className="flex items-center justify-between bg-slate-950 ring-1 ring-slate-800 rounded-md px-3 py-2 text-sm">
-        <div>
+      <div className="flex items-center justify-between bg-slate-950 ring-1 ring-slate-800 rounded-md px-3 py-2 text-sm gap-2 flex-wrap">
+        <div className="min-w-0 flex-1">
           <span className="text-emerald-400 mr-2">●</span>
           <strong>{label}</strong>
           <span className="text-slate-400 ml-2">
             {identity.provider_username || identity.email}
           </span>
+          {provider === "discord" && identity.discord_guild_name && (
+            <span className="text-[10px] text-indigo-300 ml-2 bg-indigo-950/40 ring-1 ring-indigo-900/60 rounded px-1.5 py-0.5">
+              🤖 {identity.discord_guild_name}
+            </span>
+          )}
         </div>
-        <button
-          type="button"
-          onClick={() => onDisconnect(identity.id)}
-          className="text-xs text-rose-400 hover:text-rose-300"
-        >
-          {t("auth.oauth.disconnect")}
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {needsBotInstall && (
+            <a
+              href="/api/v1/auth/discord/install-bot?from=settings"
+              className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1 rounded transition"
+              data-testid="discord-install-bot"
+            >
+              🤖 {t("auth.oauth.installDiscordBot")}
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={() => onDisconnect(identity.id)}
+            className="text-xs text-rose-400 hover:text-rose-300"
+          >
+            {t("auth.oauth.disconnect")}
+          </button>
+        </div>
       </div>
     );
   }
@@ -544,6 +777,28 @@ function SelectField({
           </option>
         ))}
       </select>
+    </label>
+  );
+}
+
+function Checkbox({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <label className="flex items-center gap-2 text-sm text-slate-200 cursor-pointer select-none py-1">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="accent-indigo-500 w-4 h-4 cursor-pointer"
+      />
+      <span>{label}</span>
     </label>
   );
 }

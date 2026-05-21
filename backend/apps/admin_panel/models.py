@@ -26,6 +26,10 @@ class MapInfra(models.Model):
         RUNNING = "running", "Running"
         ERROR = "error", "Error"
 
+    class LightPollutionSource(models.TextChoices):
+        BLACK_MARBLE_2016 = "black_marble_2016", "NASA Black Marble 2016 (static)"
+        VIIRS_DNB_LATEST = "viirs_dnb_latest", "VIIRS DNB latest (manual refresh)"
+
     id = models.PositiveSmallIntegerField(primary_key=True, default=1)
 
     # ---- PMTiles ----
@@ -65,6 +69,50 @@ class MapInfra(models.Model):
     search_backend = models.CharField(
         max_length=10, choices=SearchBackend.choices, default=SearchBackend.NOMINATIM
     )
+
+    # ---- Light pollution overlay ----
+    light_pollution_source = models.CharField(
+        max_length=20,
+        choices=LightPollutionSource.choices,
+        default=LightPollutionSource.BLACK_MARBLE_2016,
+    )
+    light_pollution_dnb_date = models.CharField(
+        max_length=10,
+        blank=True,
+        help_text="YYYY-MM-DD of the active VIIRS DNB nightly composite",
+    )
+    light_pollution_last_check = models.DateTimeField(null=True, blank=True)
+    light_pollution_status_message = models.TextField(blank=True)
+
+    # Local tile cache per source (Black Marble static + VIIRS DNB nightly).
+    # When tile_count > 0 the frontend uses /lp-tiles/{source}/... instead
+    # of querying NASA GIBS directly.
+    light_pollution_black_marble_status = models.CharField(
+        max_length=10, choices=JobStatus.choices, default=JobStatus.IDLE
+    )
+    light_pollution_black_marble_status_message = models.TextField(blank=True)
+    light_pollution_black_marble_tile_count = models.PositiveIntegerField(default=0)
+    light_pollution_black_marble_size_bytes = models.BigIntegerField(default=0)
+    light_pollution_black_marble_last_update = models.DateTimeField(null=True, blank=True)
+
+    light_pollution_viirs_dnb_status = models.CharField(
+        max_length=10, choices=JobStatus.choices, default=JobStatus.IDLE
+    )
+    light_pollution_viirs_dnb_status_message = models.TextField(blank=True)
+    light_pollution_viirs_dnb_tile_count = models.PositiveIntegerField(default=0)
+    light_pollution_viirs_dnb_size_bytes = models.BigIntegerField(default=0)
+    light_pollution_viirs_dnb_last_update = models.DateTimeField(null=True, blank=True)
+    # Records which date the DNB cache was built for, so we can re-fetch
+    # if the admin clicks "Aktualizovat na poslední" and a newer date is available.
+    light_pollution_viirs_dnb_cached_date = models.CharField(
+        max_length=10, blank=True
+    )
+
+    # ---- Chat settings ----
+    # Soft per-message length limit (in characters of cleaned HTML).
+    # Editable from admin UI; only enforced on new posts, never applied
+    # retroactively to existing chat_message rows.
+    chat_text_max_length = models.PositiveIntegerField(default=5000)
 
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -60,6 +60,10 @@ def _profile_out(user: User) -> dict:
         "storage_used_bytes": profile.storage_used_bytes,
         "storage_quota_bytes": profile.storage_quota_bytes,
         "onboarding_completed": profile.onboarding_completed,
+        "map_preferences": profile.map_preferences or {},
+        "show_utc": profile.show_utc,
+        "show_local": profile.show_local,
+        "show_user": profile.show_user,
     }
 
 
@@ -210,6 +214,113 @@ def resend_verification(request: HttpRequest):
     return 200, {"status": "ok", "detail": "sent"}
 
 
+# ---- Public profile (anyone authenticated can read, filtered by visibility) ----
+
+
+def _public_profile_out(user: User) -> dict:
+    """Profile fields safe to show to OTHER authenticated users. Excludes
+    PII (email, timezone), secrets (tokens, webhook URLs), and user
+    preferences (map prefs, storage quota). Location is filtered by the
+    user's own visibility choice — precise GPS only when they opted in.
+    """
+    profile = getattr(user, "profile", None)
+    if profile is None:
+        return {
+            "id": user.id,
+            "display_name": user.display_name,
+            "bio": "",
+            "club": "",
+            "equipment": "",
+            "avatar_url": "",
+            "language": "cs",
+            "location_label": "",
+            "location_visibility": "hidden",
+            "created_at": user.created_at,
+        }
+    # Honor the visibility setting set by the profile owner. "precise"
+    # exposes the free-form location_label as written; "region" trims
+    # to coarse region (the user is responsible for entering a coarse
+    # label there if they want); "hidden" returns empty.
+    if profile.location_visibility == "hidden":
+        loc = ""
+    else:
+        loc = profile.location_label
+    return {
+        "id": user.id,
+        "display_name": user.display_name,
+        "bio": profile.bio,
+        "club": profile.club,
+        "equipment": profile.equipment,
+        "avatar_url": profile.avatar_url,
+        "language": profile.language,
+        "location_label": loc,
+        "location_visibility": profile.location_visibility,
+        "created_at": user.created_at,
+    }
+
+
+@router.get("/users", response={200: list[dict], 401: StatusOut})
+def list_users(
+    request: HttpRequest,
+    q: str = "",
+    limit: int = 200,
+):
+    """Compact list of users for owner-managed allowlist pickers
+    (e.g. on Place / Event editors). Requires authentication so we don't
+    expose user data anonymously.
+
+    Returns only e-mail + display_name + avatar — same fields as
+    /users/profile/{email}, just in bulk. Inactive / unverified users
+    are excluded. `q` is a case-insensitive substring match on either
+    email or display name."""
+    if not request.user.is_authenticated:
+        return 401, {"status": "error", "detail": "Not authenticated"}
+
+    qs = (
+        User.objects.filter(is_active=True)
+        .select_related("profile")
+        .order_by("email")
+    )
+    if q:
+        from django.db.models import Q
+
+        qs = qs.filter(Q(email__icontains=q) | Q(profile__display_name__icontains=q))
+    # Cap at 500 even when client asks for more — bulk picker is for
+    # owner-managed flows where 200 users is already plenty.
+    limit = max(1, min(int(limit), 500))
+    items = []
+    for u in qs[:limit]:
+        profile = getattr(u, "profile", None)
+        display = (profile.display_name if profile and profile.display_name else "") or u.email.split("@")[0]
+        items.append(
+            {
+                "email": u.email,
+                "display_name": display,
+                "avatar_url": getattr(profile, "avatar_url", "") if profile else "",
+            }
+        )
+    return 200, items
+
+
+@router.get(
+    "/users/profile/{email}",
+    response={200: dict, 401: StatusOut, 404: StatusOut},
+)
+def public_profile_by_email(request: HttpRequest, email: str):
+    """Public profile lookup by e-mail. Requires authentication (we
+    don't expose user data anonymously to prevent scraping). The email
+    in the URL is URL-encoded by the client; Django decodes path
+    parameters automatically.
+    """
+    if not request.user.is_authenticated:
+        return 401, {"status": "error", "detail": "Not authenticated"}
+    try:
+        user = User.objects.select_related("profile").get(email__iexact=email)
+    except User.DoesNotExist:
+        return 404, {"status": "error", "detail": "User not found"}
+    return 200, _public_profile_out(user)
+
+
 @router.get("/auth/me", response={200: MeOut, 401: StatusOut})
 def me(request: HttpRequest):
     if not request.user.is_authenticated:
@@ -244,12 +355,24 @@ def list_oauth_providers(request: HttpRequest):  # noqa: ARG001
     Defined BEFORE /auth/{provider}/start so the path doesn't match the
     catch-all parameter pattern.
     """
-    from .oauth import GitHubProvider, GoogleProvider, OAuthError
+    from .oauth import (
+        DiscordProvider,
+        FacebookProvider,
+        GitHubProvider,
+        GitLabProvider,
+        GoogleProvider,
+        OAuthError,
+        ZooniverseProvider,
+    )
 
     out: dict[str, bool] = {}
     for name, cls in (
         ("github", GitHubProvider),
         ("google", GoogleProvider),
+        ("gitlab", GitLabProvider),
+        ("facebook", FacebookProvider),
+        ("discord", DiscordProvider),
+        ("zooniverse", ZooniverseProvider),
     ):
         try:
             out[name] = cls().is_configured
@@ -328,6 +451,30 @@ def _slug(s: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_-]", "_", s)[:60] or "error"
 
 
+@router.get("/auth/discord/install-bot")
+def discord_install_bot(request: HttpRequest):
+    """Dedicated Discord bot install endpoint.
+
+    Distinct from /auth/discord/start which only links identity. This
+    flow opens Discord with `scope=bot+applications.commands` so the
+    user picks a server and installs the Astrozor Events bot. Discord
+    will redirect to /auth/discord/callback with `guild_id` set; the
+    callback handler stores guild_id on the existing Discord identity.
+    """
+    from_page = _safe_from(request.GET.get("from"))
+    try:
+        p = get_provider("discord")
+    except OAuthError as e:
+        return HttpResponseRedirect(f"/?oauth_error={_slug(str(e))}&from={from_page}")
+    if not p.is_configured:
+        return HttpResponseRedirect(f"/?oauth_error=not_configured&from={from_page}")
+    state = new_state()
+    request.session["oauth_state_discord"] = state
+    request.session["oauth_from_discord"] = from_page
+    request.session["oauth_host_discord"] = request.get_host()
+    return HttpResponseRedirect(p.install_bot_url(state, request=request))
+
+
 @router.get("/auth/{provider}/callback")
 def oauth_callback(
     request: HttpRequest,
@@ -336,6 +483,9 @@ def oauth_callback(
     state: str = "",
     error: str = "",
     error_description: str = "",
+    # Discord bot install returns the chosen guild as a query param.
+    # Unused by other providers.
+    guild_id: str = "",
 ):
     """Provider redirects here with `code` and `state` (or `error`)."""
     from_page = _safe_from(request.session.pop(f"oauth_from_{provider}", None))
@@ -359,6 +509,33 @@ def oauth_callback(
         return HttpResponseRedirect(f"/?oauth_error=bad_state&from={from_page}")
     if not code:
         return HttpResponseRedirect(f"/?oauth_error=no_code&from={from_page}")
+
+    # Discord bot-install flow: scope was `bot applications.commands`,
+    # token doesn't have access to /users/@me. Detect it via guild_id
+    # parameter and update the existing identity rather than creating
+    # a new one or fetching profile.
+    if provider == "discord" and guild_id and request.user.is_authenticated:
+        try:
+            from .discord_bot import fetch_guild
+
+            existing = Identity.objects.filter(
+                user=request.user, provider="discord"
+            ).first()
+            if existing:
+                existing.discord_guild_id = guild_id
+                try:
+                    g = fetch_guild(guild_id)
+                    existing.discord_guild_name = (g.get("name") or "")[:120]
+                except Exception:
+                    existing.discord_guild_name = ""
+                existing.save(update_fields=["discord_guild_id", "discord_guild_name"])
+            return HttpResponseRedirect(
+                f"/?oauth_ok=1&provider=discord_bot&from={from_page}"
+            )
+        except Exception as e:
+            return HttpResponseRedirect(
+                f"/?oauth_error=bot_install_failed_{_slug(str(e))}&from={from_page}"
+            )
 
     try:
         token = p.exchange_code(code, request=request)
@@ -432,7 +609,25 @@ def oauth_callback(
     # behalf (option C — per-user token, higher rate limits, personal data).
     identity.access_token = token
     identity.last_login_at = timezone.now()
-    identity.save(update_fields=["access_token", "last_login_at"])
+    update_fields = ["access_token", "last_login_at"]
+
+    # Discord bot install — `guild_id` is returned in the callback query
+    # string when scope=bot was requested. Resolve the guild's display
+    # name via the bot REST API so the connected-accounts list can show
+    # a human-friendly server label.
+    if provider == "discord" and guild_id:
+        identity.discord_guild_id = guild_id
+        try:
+            from .discord_bot import fetch_guild
+
+            g = fetch_guild(guild_id)
+            identity.discord_guild_name = (g.get("name") or "")[:120]
+        except Exception:
+            # Best-effort name lookup — failure is non-fatal, we still
+            # have the ID and can refresh later.
+            identity.discord_guild_name = ""
+        update_fields += ["discord_guild_id", "discord_guild_name"]
+    identity.save(update_fields=update_fields)
 
     # Authenticate the session (Django backend not needed because we already
     # validated via OAuth; specify the backend explicitly).
@@ -457,6 +652,9 @@ def _identity_out(i: Identity) -> dict:
         "has_token": bool(i.access_token),
         "last_login_at": i.last_login_at,
         "created_at": i.created_at,
+        # Discord bot install — empty for other providers.
+        "discord_guild_id": getattr(i, "discord_guild_id", "") or "",
+        "discord_guild_name": getattr(i, "discord_guild_name", "") or "",
     }
 
 
