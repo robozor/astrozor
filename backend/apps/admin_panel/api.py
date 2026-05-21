@@ -249,24 +249,34 @@ def _light_pollution_tile_url(m: MapInfra) -> str:
     """Return the active tile URL template (with {z}/{y}/{x} placeholders)
     based on the admin's chosen light_pollution_source.
 
-    Prefers locally-cached tiles when the admin has run the bulk download
-    for that source; otherwise falls back to NASA GIBS upstream so the
-    overlay still works pre-download.
+    Prefers locally-cached tiles only when the cache is *complete enough*
+    to cover the world to a useful zoom level — otherwise the user pans
+    outside the cached area and gets 404s for every tile.
+
+    Threshold: ≥ 4096 tiles (= full world to z=6). A complete cache to
+    z=7 is 16k tiles; below ~4k means the admin downloaded only a
+    region (e.g. just CZ) and global panning is broken. In that case
+    we route everyone to NASA GIBS upstream so the overlay works
+    everywhere — local cache just sits unused until it's complete.
     """
     source = m.light_pollution_source
     is_dnb = source == MapInfra.LightPollutionSource.VIIRS_DNB_LATEST
+    _MIN_TILES_FOR_LOCAL = 4096
 
-    # Local cache available?
     if is_dnb:
-        local_ok = (
-            m.light_pollution_viirs_dnb_tile_count > 0
+        local_complete = (
+            m.light_pollution_viirs_dnb_tile_count >= _MIN_TILES_FOR_LOCAL
             and m.light_pollution_viirs_dnb_cached_date == m.light_pollution_dnb_date
         )
     else:
-        local_ok = m.light_pollution_black_marble_tile_count > 0
-    if local_ok:
+        local_complete = (
+            m.light_pollution_black_marble_tile_count >= _MIN_TILES_FOR_LOCAL
+        )
+    if local_complete:
         return f"/lp-tiles/{source}/{{z}}/{{y}}/{{x}}.png"
 
+    # Fallback to NASA GIBS upstream — always world-wide, always live,
+    # max zoom 8 (Level8 matrix). Slower than local hit but reliable.
     if is_dnb and m.light_pollution_dnb_date:
         return GIBS_DNB_TILE_URL_TEMPLATE.format(date=m.light_pollution_dnb_date)
     return GIBS_BLACK_MARBLE_TILE_URL

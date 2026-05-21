@@ -1248,6 +1248,8 @@ export function MapView({
         onEventsToggle={() => setEventsEnabled((v) => !v)}
         lpOpacity={lpOpacity}
         onLpOpacityChange={setLpOpacity}
+        lightPollutionSource={cfgQuery.data?.light_pollution?.source ?? ""}
+        lightPollutionDate={cfgQuery.data?.light_pollution?.dnb_date ?? ""}
         onFly={handleFly}
         currentPrefs={
           me
@@ -1311,6 +1313,8 @@ function ControlPanel({
   onEventsToggle,
   lpOpacity,
   onLpOpacityChange,
+  lightPollutionSource,
+  lightPollutionDate,
   onFly,
   currentPrefs,
   canAddPlace,
@@ -1335,6 +1339,12 @@ function ControlPanel({
   onEventsToggle: () => void;
   lpOpacity: number;
   onLpOpacityChange: (v: number) => void;
+  /** Active light-pollution engine — ``viirs_dnb_latest`` shows the
+   *  daily VIIRS DNB composite, anything else falls back to the
+   *  Black Marble 2016 baseline. Passed in from the parent so we
+   *  don't re-fetch the map config inside ControlPanel. */
+  lightPollutionSource: string;
+  lightPollutionDate: string;
   onFly: (lat: number, lon: number, zoom?: number) => void;
   currentPrefs: MapPreferences | null;
   canAddPlace: boolean;
@@ -1539,12 +1549,12 @@ function ControlPanel({
               />
               {/* Show the engine that is actually active. The admin
                   may switch between Black Marble (2016 baseline) and
-                  VIIRS DNB latest, so we lean on cfgQuery for the
-                  live answer instead of hard-coding one of them. */}
+                  VIIRS DNB latest, so we read it from props (set by
+                  the parent's map-config query). */}
               <p className="text-[10px] text-slate-500 mt-1">
-                {cfgQuery.data?.light_pollution?.source === "viirs_dnb_latest"
+                {lightPollutionSource === "viirs_dnb_latest"
                   ? t("map.ctl.lightPollutionHint.viirs_dnb_latest", {
-                      date: cfgQuery.data.light_pollution.dnb_date || "?",
+                      date: lightPollutionDate || "?",
                     })
                   : t("map.ctl.lightPollutionHint.black_marble_2016")}
               </p>
