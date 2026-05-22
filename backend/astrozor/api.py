@@ -23,6 +23,7 @@ from apps.publishing_api.api import router as publishing_api_router
 from apps.uploads.api import router as uploads_router
 from apps.geocoding.api import router as geocoding_router
 from apps.admin_panel.api import router as admin_router, public_router as map_config_router
+from apps.docs.api import router as docs_router
 
 api = NinjaAPI(
     title="Astrozor API",
@@ -49,6 +50,7 @@ api.add_router("", uploads_router)
 api.add_router("", geocoding_router)
 api.add_router("", admin_router)
 api.add_router("", map_config_router)
+api.add_router("", docs_router)
 
 
 # CSRF token endpoint kept for Django admin form usage / future hardening

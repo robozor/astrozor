@@ -10,7 +10,7 @@ import {
   type ArticleListItem,
   type Me,
 } from "../lib/api";
-import { useUrlParam } from "../lib/urlParam";
+import { navigateTo, useUrlParam } from "../lib/urlParam";
 
 // Engine icon — official brand SVG inside a colored square. Sized via
 // the `size` prop: "sm" (24px) for inline filter chips & list rows,
@@ -362,53 +362,96 @@ function ChipButton({
   );
 }
 
-// ---- IntroCallout: the "budník" promoting the tutorial article ----
-// Replaces the old expandable ArticleIntro inline card. It now points
-// readers to a real, fully-formatted MD tutorial article (with
-// screenshots, install snippet, etc.) seeded by management command
-// `seed_demo_articles`. We pick CS / EN by UI language.
-//
-// Slugs match the seed: jak-publikovat-quarto-rstudio-vscode (cs) /
-// how-to-publish-quarto-rstudio-vscode (en). If the article doesn't
-// exist (e.g. on a fresh install before seeding) the callout simply
-// links to the empty page; the click then 404s harmlessly.
-function IntroCallout({ onOpen }: { onOpen: (slug: string) => void }) {
-  const { t, i18n } = useTranslation();
-  const lang = i18n.language.startsWith("cs") ? "cs" : "en";
-  const slug =
-    lang === "cs"
-      ? "jak-publikovat-quarto-rstudio-vscode"
-      : "how-to-publish-quarto-rstudio-vscode";
+// ---- IDEPublishingIntro: hero + 4 IDE install cards ----
+// First section of the articles page. Replaces the old single-tutorial
+// IntroCallout. Each card opens a docs page (publish-* slug) explaining
+// how to install + use that IDE for publishing. The hero copy sells
+// the headline feature: interactive content (plotly, MathJax, code-fold)
+// works the same regardless of which IDE the author used to write it.
+function IDEPublishingIntro() {
+  const { t } = useTranslation();
+
+  const cards = [
+    {
+      slug: "publish-astrozor-editor",
+      icon: "✍",
+      title: t("articles.publishIntro.astrozor.title"),
+      desc: t("articles.publishIntro.astrozor.desc"),
+      tone: "bg-slate-800/60 ring-slate-700 hover:ring-slate-500",
+    },
+    {
+      slug: "publish-vscode",
+      icon: "🅥",
+      title: t("articles.publishIntro.vscode.title"),
+      desc: t("articles.publishIntro.vscode.desc"),
+      tone: "bg-sky-950/40 ring-sky-900/50 hover:ring-sky-700",
+    },
+    {
+      slug: "publish-rstudio",
+      icon: "Ⓡ",
+      title: t("articles.publishIntro.rstudio.title"),
+      desc: t("articles.publishIntro.rstudio.desc"),
+      tone: "bg-indigo-950/40 ring-indigo-900/50 hover:ring-indigo-700",
+    },
+    {
+      slug: "publish-jupyter",
+      icon: "📓",
+      title: t("articles.publishIntro.jupyter.title"),
+      desc: t("articles.publishIntro.jupyter.desc"),
+      tone: "bg-amber-950/40 ring-amber-900/50 hover:ring-amber-700",
+    },
+  ];
+
   return (
-    <button
-      type="button"
-      onClick={() => onOpen(slug)}
-      data-testid="article-intro-callout"
-      className="group w-full mb-6 text-left bg-gradient-to-r from-indigo-950/80 via-indigo-900/60 to-slate-900/40 ring-1 ring-indigo-700/40 hover:ring-indigo-500/70 rounded-xl p-4 sm:p-5 transition shadow-lg shadow-indigo-950/20"
+    <section
+      data-testid="article-publish-intro"
+      className="w-full mb-6 bg-gradient-to-br from-indigo-950/70 via-slate-900/70 to-slate-900/40 ring-1 ring-indigo-800/40 rounded-xl p-5 sm:p-6 shadow-lg shadow-indigo-950/20"
     >
-      <div className="flex items-center gap-3 sm:gap-5">
-        <span
-          className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-indigo-600/30 ring-1 ring-indigo-400/40 text-2xl shrink-0"
-          aria-hidden
-        >
-          📘
-        </span>
-        <div className="flex-1 min-w-0">
-          <p className="text-[11px] uppercase tracking-wider text-indigo-300 font-medium">
-            {t("articles.calloutKicker")}
-          </p>
-          <h3 className="text-base sm:text-lg font-semibold text-slate-100 mt-0.5">
-            {t("articles.calloutTitle")}
-          </h3>
-          <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl">
-            {t("articles.calloutBody")}
-          </p>
-        </div>
-        <span className="hidden sm:inline-flex items-center text-sm text-indigo-300 group-hover:text-indigo-200 transition shrink-0">
-          {t("articles.calloutOpen")} →
-        </span>
+      <div className="max-w-3xl">
+        <p className="text-[11px] uppercase tracking-wider text-indigo-300 font-medium">
+          {t("articles.publishIntro.kicker")}
+        </p>
+        <h2 className="text-xl sm:text-2xl font-semibold text-slate-100 mt-1">
+          {t("articles.publishIntro.title")}
+        </h2>
+        <p className="text-sm text-slate-300 mt-2 leading-relaxed">
+          {t("articles.publishIntro.body")}
+        </p>
+        <ul className="text-sm text-slate-300 mt-3 space-y-1 list-disc list-inside">
+          <li>{t("articles.publishIntro.bullet1")}</li>
+          <li>{t("articles.publishIntro.bullet2")}</li>
+          <li>{t("articles.publishIntro.bullet3")}</li>
+        </ul>
       </div>
-    </button>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-5">
+        {cards.map((c) => (
+          <button
+            key={c.slug}
+            type="button"
+            data-testid={`ide-card-${c.slug}`}
+            onClick={() => navigateTo(`/docs?d=${c.slug}`)}
+            className={`text-left rounded-lg p-3 sm:p-4 ring-1 transition ${c.tone}`}
+          >
+            <div className="flex items-center gap-2">
+              <span
+                className="inline-flex items-center justify-center w-9 h-9 rounded-md bg-slate-950/60 text-xl shrink-0"
+                aria-hidden
+              >
+                {c.icon}
+              </span>
+              <h3 className="text-sm font-semibold text-slate-100 leading-tight">
+                {c.title}
+              </h3>
+            </div>
+            <p className="text-xs text-slate-400 mt-2 leading-snug">{c.desc}</p>
+            <p className="text-xs text-indigo-300 mt-2 font-medium">
+              {t("articles.publishIntro.openGuide")} →
+            </p>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -684,7 +727,7 @@ function ArticleList({
         </div>
       </header>
 
-      <IntroCallout onOpen={onOpen} />
+      <IDEPublishingIntro />
 
       {importOpen && (
         <QuartoImportModal
@@ -865,7 +908,7 @@ function HeroCard({
       className="group w-full text-left mb-6 bg-slate-950/60 ring-1 ring-slate-800 hover:ring-slate-600 rounded-2xl overflow-hidden transition shadow-xl shadow-black/30"
     >
       <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr]">
-        <div className="relative aspect-[16/9] md:aspect-auto md:min-h-[280px] bg-slate-900 overflow-hidden">
+        <div className="relative aspect-[16/9] md:aspect-auto md:min-h-[180px] md:max-h-[260px] bg-slate-900 overflow-hidden">
           <CoverImage
             url={article.cover_image_url}
             slug={article.slug}
@@ -1095,20 +1138,12 @@ function ArticleDetail({
         />
       )}
 
-      {/* Cover banner — full-width, 21:9 to read as a magazine header
-          without dominating the article body. Same CoverImage component
-          as the list cards so the fallback gradient is consistent for
-          articles without an explicit cover. */}
-      <div className="relative aspect-[21/9] bg-slate-900 ring-1 ring-slate-800 rounded-xl overflow-hidden mb-6">
-        <CoverImage
-          url={article.cover_image_url}
-          slug={article.slug}
-        />
-      </div>
-
-      <header className="mb-6">
+      {/* Header: title + meta (author, date, lang, license, DOI) on one
+          inline-flex line so the eye reads the article identity in two
+          rows max — even on narrow viewports where the meta wraps. */}
+      <header className="mb-4">
         <h2 className="text-2xl font-semibold">{article.title}</h2>
-        <p className="text-xs text-slate-500 mt-2 flex items-center gap-2">
+        <p className="text-xs text-slate-500 mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
           <UserNameLink
             email={article.author_email}
             displayName={article.author_display_name}
@@ -1128,6 +1163,36 @@ function ArticleDetail({
           </span>
         )}
       </header>
+
+      {/* Cover image + summary in a 2-column layout. The cover stays
+          on the left in a constrained box (object-contain so a 800×600
+          upload isn't cropped to a strip); the summary, if present,
+          fills the right column so we don't leave a black gap. When
+          there's only one of the two, the present element takes the
+          full row at its natural max width. The cover image is skipped
+          entirely when missing — no fallback gradient banner here,
+          since the giant placeholder dwarfs the article. */}
+      {(article.cover_image_url || article.summary?.trim()) && (
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-start gap-5 sm:gap-6">
+          {article.cover_image_url && (
+            <img
+              src={article.cover_image_url}
+              alt=""
+              className="block h-48 w-auto max-w-[16rem] shrink-0 rounded-md"
+              loading="lazy"
+              referrerPolicy="no-referrer"
+            />
+          )}
+          {article.summary?.trim() && (
+            <p
+              className="flex-1 text-sm sm:text-[15px] text-slate-300 leading-relaxed"
+              data-testid="article-detail-summary"
+            >
+              {article.summary}
+            </p>
+          )}
+        </div>
+      )}
 
       {article.asset_url ? (
         // Bust browser cache on update — `updated_at` changes on each
@@ -1157,6 +1222,7 @@ function ArticleDetail({
             onDelete={(id) => articles.deleteComment(id)}
             emptyLabel={t("articles.commentsEmpty")}
             testidPrefix="article-comment"
+            inline
           />
         ) : (
           <p className="text-sm text-slate-500">{t("articles.commentsDraftHint")}</p>

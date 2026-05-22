@@ -142,6 +142,9 @@ services:
       # endpoint can read DESCRIPTION:Version without duplicating it
       # elsewhere. Single source of truth = rstudio-addin/DESCRIPTION.
       - ./rstudio-addin:/app/rstudio-addin:ro
+      # Same arrangement for the VS Code extension — its package.json is
+      # the source of truth for the version exposed via /vscode-pkg/info.
+      - ./vscode-extension:/app/vscode-extension:ro
       - astrozor_media:/var/lib/astrozor/media
       - astrozor_pmtiles:/var/lib/astrozor/pmtiles
       - astrozor_light_pollution:/var/lib/astrozor/light_pollution
@@ -277,6 +280,13 @@ services:
       # Populated by the r-pkg-builder one-shot service on each
       # `docker compose up`. Caddy serves /R/* directly from here.
       - astrozor_r_repo:/srv/r-repo:ro
+      # VS Code extension .vsix repo (analogous to R repo). Populated by
+      # the vsce-pkg-builder one-shot service. Caddy serves
+      # /vscode-extension/* from here.
+      - astrozor_vsce_repo:/srv/vsce-repo:ro
+      # Sample article sources (.md, .qmd, .ipynb) for download. Bind-
+      # mounted from the samples/ repo dir; Caddy serves /samples/*.
+      - ./samples:/srv/samples:ro
     restart: unless-stopped
 
   # ---- R package builder (CRAN-like repo for the RStudio addin) ----
@@ -307,6 +317,24 @@ services:
       - ./rstudio-addin:/work/rstudio-addin:ro
     restart: "no"
 
+  # ---- VS Code extension builder (one-shot) ----
+  # Builds astrozor-publish .vsix from vscode-extension/ and writes it to
+  # astrozor_vsce_repo, which Caddy serves at /vscode-extension/. Same
+  # pattern as r-pkg-builder above (one-shot, behind the build profile so
+  # it doesn't paint the stack as incomplete). Invoke explicitly:
+  #     docker compose --profile build run --rm vsce-pkg-builder
+  vsce-pkg-builder:
+    image: astrozor/vsce-pkg-builder:dev
+    build:
+      context: .
+      dockerfile: docker/vsce-pkg-builder/Dockerfile
+    container_name: astrozor-vsce-pkg-builder
+    profiles: ["build"]
+    volumes:
+      - astrozor_vsce_repo:/repo
+      - ./vscode-extension:/work/vscode-extension:ro
+    restart: "no"
+
   # ---- Optional self-hosted geocoder (Photon) ----
   # Activated by `docker compose --profile photon up -d`. Listens on
   # internal :2322; backend reaches it via PHOTON_URL.
@@ -325,6 +353,7 @@ services:
 
 volumes:
   astrozor_r_repo:
+  astrozor_vsce_repo:
   astrozor_db_data:
   astrozor_redis_data:
   astrozor_frontend_node_modules:

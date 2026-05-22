@@ -1,0 +1,92 @@
+---
+title: "Ukázkový Quarto článek z VS Code"
+lang: cs
+summary: "Quarto dokument bez R — Python + Markdown, vhodný pro VS Code workflow."
+format:
+  html:
+    theme: darkly
+    backgroundcolor: "#0f172a"
+    fontcolor: "#e2e8f0"
+    linkcolor: "#818cf8"
+    toc: true
+    toc-location: left
+    code-fold: false
+    embed-resources: false
+---
+
+## Co tento dokument ukazuje
+
+`.qmd` článek bez `{r}` bloků — Quarto ho renderuje **bez R prostředí**, jen jako Markdown + Python (volitelně) + HTML. Vhodné pro VS Code uživatele, kteří nemají R.
+
+Stáhni zdroj, otevři ve VS Code, spusť **`Astrozor: Publish Quarto / RMarkdown document`** — extension vyrenderuje (přes `quarto render`) a nahraje.
+
+## Markdown features
+
+### Texty
+
+- **Bold**, _italic_, `code`
+- Listy, číslované, task listy
+- Odkazy a obrázky
+- Code-fold (klik na šipku nad blokem kódu rozbalí/sbalí)
+
+### Tabulka
+
+| Objekt        | Magnituda | Vzdálenost (pc) | Spektrum |
+|---------------|-----------|-----------------|----------|
+| Sirius A      | -1.46     | 2.64            | A1V      |
+| Vega          | 0.03      | 7.68            | A0V      |
+| Polaris       | 1.98      | 132             | F7Ib     |
+| Betelgeuse    | 0.42      | ~168            | M1Ia     |
+| Alfa Centauri | -0.27     | 1.34            | G2V      |
+
+### Bloky kódu (display only, bez execute)
+
+```python
+def magnituda(flux_ratio: float) -> float:
+    """Vrátí rozdíl magnitud z poměru toků."""
+    import math
+    return -2.5 * math.log10(flux_ratio)
+
+# Příklad
+print(magnituda(100))   # -5.0
+print(magnituda(1))     #  0.0
+print(magnituda(0.01))  #  5.0
+```
+
+```javascript
+// JS varianta pro web-based kalkulátor
+function pogson(fluxRatio) {
+  return -2.5 * Math.log10(fluxRatio);
+}
+```
+
+### Matematika (MathJax)
+
+Inline: $m_1 - m_2 = -2.5 \log_{10}(F_1 / F_2)$
+
+Display:
+
+$$
+\Phi(\lambda) = \int_0^\infty B(\lambda, T) \cdot R(\lambda) \, d\lambda
+$$
+
+Kde:
+
+- $B(\lambda, T)$ — Planckova funkce (intenzita černého tělesa)
+- $R(\lambda)$ — propustnost filtru
+- $\Phi(\lambda)$ — pozorovaný tok v daném filtru
+
+### Citace
+
+> „Existují dvě nekonečnosti — vesmír a lidská hloupost. U vesmíru si tím ale nejsem jistý."
+> — Albert Einstein (apokryfně)
+
+## Test idempotence
+
+Publikuj tento `.qmd` se stejným slugem 2x. Druhý publish **aktualizuje** existující článek v místě — žádné duplicity, DOI se zachová, komentáře taky.
+
+Pak otevři Astrozor → Články → vidíš jen jeden článek s tímto title. Idempotence funguje.
+
+## Co dál
+
+Detailní návod: [Publikování z VS Code](/?from=docs&d=publish-vscode).

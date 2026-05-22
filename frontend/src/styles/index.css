@@ -179,6 +179,50 @@ input[type="checkbox"]:disabled {
   margin-left: 1.5rem;
 }
 
+/* Docs page — same look as article-html, slightly bigger H1, max-width
+   for readability. Kept separate so we can tweak docs typography
+   independent of articles. */
+.docs-prose {
+  max-width: 70ch;
+  color: rgb(203 213 225);
+  line-height: 1.65;
+}
+.docs-prose h1 { font-size: 1.75rem; font-weight: 600; margin: 0 0 1rem; color: rgb(241 245 249); }
+.docs-prose h2 { font-size: 1.35rem; font-weight: 600; margin: 1.75rem 0 0.6rem; color: rgb(241 245 249); border-bottom: 1px solid rgb(30 41 59); padding-bottom: 0.3rem; }
+.docs-prose h3 { font-size: 1.1rem; font-weight: 600; margin: 1.25rem 0 0.4rem; color: rgb(241 245 249); }
+.docs-prose p { margin: 0.75rem 0; }
+.docs-prose a { color: rgb(165 180 252); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.docs-prose a:hover { color: rgb(199 210 254); }
+.docs-prose ul, .docs-prose ol { margin: 0.75rem 0 0.75rem 1.5rem; }
+.docs-prose ul { list-style: disc; }
+.docs-prose ol { list-style: decimal; }
+.docs-prose li { margin: 0.25rem 0; }
+.docs-prose code { background: rgb(15 23 42); color: rgb(248 250 252); padding: 0.1rem 0.4rem; border-radius: 0.25rem; font-size: 0.875em; }
+.docs-prose pre { background: rgb(15 23 42); padding: 1rem 1.2rem; border-radius: 0.5rem; overflow-x: auto; margin: 1.2rem 0; ring: 1px solid rgb(30 41 59); border: 1px solid rgb(30 41 59); }
+.docs-prose pre code { background: transparent; padding: 0; font-size: 0.85rem; line-height: 1.55; }
+.docs-prose blockquote { border-left: 3px solid rgb(99 102 241); padding-left: 1rem; color: rgb(148 163 184); margin: 1.2rem 0; font-style: italic; }
+.docs-prose hr { border: 0; border-top: 1px solid rgb(30 41 59); margin: 2rem 0; }
+.docs-prose table {
+  border-collapse: collapse;
+  margin: 1.25rem 0;
+  width: 100%;
+  background: rgb(2 6 23);
+  border: 1px solid rgb(30 41 59);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  font-size: 0.9rem;
+}
+.docs-prose th, .docs-prose td {
+  border: 1px solid rgb(30 41 59);
+  padding: 0.5rem 0.85rem;
+  text-align: left;
+  vertical-align: top;
+}
+.docs-prose th { background: rgb(15 23 42); color: rgb(241 245 249); font-weight: 600; }
+.docs-prose tbody tr:nth-child(even) td { background: rgb(15 23 42 / 0.4); }
+.docs-prose strong { color: rgb(241 245 249); }
+.docs-prose img { max-width: 100%; height: auto; border-radius: 0.5rem; margin: 1rem 0; }
+
 /* GFM task lists */
 .article-html ul.contains-task-list,
 .article-html li.task-list-item { list-style: none; }

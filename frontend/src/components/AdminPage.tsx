@@ -3,9 +3,11 @@ import { useDeferredValue, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   admin,
+  adminClouds,
   adminUsers,
   zooniverse,
   type AdminUser,
+  type CloudsAdminPatch,
   type Me,
   type MapInfraOut,
   type ZooniverseDisconnectResult,
@@ -997,8 +999,270 @@ function MapInfraPanel() {
         <PhotonCard data={infra.data} />
       </div>
       <LightPollutionCard data={infra.data} />
+      <CloudsSettingsCard />
       <ChatSettingsCard data={infra.data} />
     </div>
+  );
+}
+
+function CloudsSettingsCard() {
+  const qc = useQueryClient();
+  const settings = useQuery({
+    queryKey: ["admin", "clouds"],
+    queryFn: () => adminClouds.get(),
+  });
+  const patch = useMutation({
+    mutationFn: (data: CloudsAdminPatch) => adminClouds.patch(data),
+    onSuccess: (out) => {
+      qc.setQueryData(["admin", "clouds"], out);
+      // Public frames are cached by provider — switching provider /
+      // editing credentials should bust the public cache so users see
+      // the new layer immediately.
+      qc.invalidateQueries({ queryKey: ["clouds-frames"] });
+    },
+  });
+
+  // Local form state for the credential inputs — never pre-populated
+  // with the real secret (backend exposes only *_set booleans). Empty
+  // input means "leave as-is"; any non-empty value overwrites.
+  const [owmKey, setOwmKey] = useState("");
+  const [eumetKey, setEumetKey] = useState("");
+  const [eumetSecret, setEumetSecret] = useState("");
+
+  if (settings.isLoading) {
+    return (
+      <article
+        className="bg-slate-950/60 ring-1 ring-slate-800 rounded-xl p-4"
+        data-testid="admin-clouds"
+      >
+        <p className="text-xs text-slate-500">…</p>
+      </article>
+    );
+  }
+  if (!settings.data) return null;
+  const s = settings.data;
+
+  return (
+    <article
+      className="bg-slate-950/60 ring-1 ring-slate-800 rounded-xl p-4 space-y-4"
+      data-testid="admin-clouds"
+    >
+      <header>
+        <h3 className="font-medium text-slate-100">Oblačnost (cloud overlay)</h3>
+        <p className="text-xs text-slate-500 mt-1">
+          Zapne nebo vypne globální overlay oblačnosti na hlavní mapě.
+          Stačí vybrat providera a vložit příslušné credentials.
+        </p>
+      </header>
+
+      <div className="flex items-center gap-3 flex-wrap">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={s.enabled}
+            onChange={(e) => patch.mutate({ enabled: e.target.checked })}
+            data-testid="admin-clouds-enabled"
+          />
+          <span className="text-sm">
+            Aktivováno
+            <span className="text-[11px] text-slate-500 ml-2">
+              (vypnuto = overlay skrytý všem uživatelům)
+            </span>
+          </span>
+        </label>
+      </div>
+
+      <div>
+        <label className="block text-xs text-slate-400 mb-1">Provider</label>
+        <select
+          value={s.provider}
+          onChange={(e) => patch.mutate({ provider: e.target.value as "disabled" | "openweathermap" | "eumetsat" })}
+          className="bg-slate-950 ring-1 ring-slate-700 rounded px-2 py-1.5 text-sm text-slate-100"
+          data-testid="admin-clouds-provider"
+        >
+          {s.provider_choices.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {s.provider === "openweathermap" && (
+        <fieldset className="border border-slate-800 rounded-md p-3 space-y-2">
+          <legend className="text-xs text-slate-400 px-1">OpenWeatherMap</legend>
+          <p className="text-[11px] text-slate-500">
+            Vygeneruj API klíč na{" "}
+            <a
+              href="https://home.openweathermap.org/api_keys"
+              target="_blank"
+              rel="noreferrer"
+              className="text-indigo-300 hover:text-indigo-200"
+            >
+              home.openweathermap.org/api_keys
+            </a>{" "}
+            (zdarma — 60 calls/min). Single-frame snapshot, žádná animace.
+          </p>
+          <div className="flex items-center gap-2">
+            <input
+              type="password"
+              value={owmKey}
+              onChange={(e) => setOwmKey(e.target.value)}
+              placeholder={
+                s.openweathermap_api_key_set ? "(uloženo — vlož nový pro změnu)" : "ast_..."
+              }
+              className="flex-1 bg-slate-950 ring-1 ring-slate-700 rounded px-2 py-1.5 text-sm text-slate-100 font-mono"
+              data-testid="admin-clouds-owm-key"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                patch.mutate({ openweathermap_api_key: owmKey });
+                setOwmKey("");
+              }}
+              disabled={!owmKey.trim() || patch.isPending}
+              className="text-xs bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-900/40 text-white px-3 py-1.5 rounded"
+            >
+              Uložit
+            </button>
+            {s.openweathermap_api_key_set && (
+              <button
+                type="button"
+                onClick={() => patch.mutate({ openweathermap_api_key: "" })}
+                className="text-xs text-rose-400 hover:text-rose-300"
+              >
+                Smazat
+              </button>
+            )}
+          </div>
+        </fieldset>
+      )}
+
+      {s.provider === "eumetsat" && (
+        <fieldset className="border border-slate-800 rounded-md p-3 space-y-2">
+          <legend className="text-xs text-slate-400 px-1">EUMETSAT Meteosat</legend>
+          <p className="text-[11px] text-slate-500">
+            Vytvoř Consumer Key + Secret na{" "}
+            <a
+              href="https://api.eumetsat.int/api-key"
+              target="_blank"
+              rel="noreferrer"
+              className="text-indigo-300 hover:text-indigo-200"
+            >
+              api.eumetsat.int/api-key
+            </a>
+            . Vyžaduje EO Portal registraci (free, non-commercial). Podporuje animaci frame-by-frame.
+          </p>
+          <div>
+            <label className="text-[11px] text-slate-400 block mb-1">Consumer Key</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="password"
+                value={eumetKey}
+                onChange={(e) => setEumetKey(e.target.value)}
+                placeholder={s.eumetsat_consumer_key_set ? "(uloženo)" : ""}
+                className="flex-1 bg-slate-950 ring-1 ring-slate-700 rounded px-2 py-1.5 text-sm text-slate-100 font-mono"
+                data-testid="admin-clouds-eumet-key"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  patch.mutate({ eumetsat_consumer_key: eumetKey });
+                  setEumetKey("");
+                }}
+                disabled={!eumetKey.trim() || patch.isPending}
+                className="text-xs bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-900/40 text-white px-3 py-1.5 rounded"
+              >
+                Uložit
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="text-[11px] text-slate-400 block mb-1">Consumer Secret</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="password"
+                value={eumetSecret}
+                onChange={(e) => setEumetSecret(e.target.value)}
+                placeholder={s.eumetsat_consumer_secret_set ? "(uloženo)" : ""}
+                className="flex-1 bg-slate-950 ring-1 ring-slate-700 rounded px-2 py-1.5 text-sm text-slate-100 font-mono"
+                data-testid="admin-clouds-eumet-secret"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  patch.mutate({ eumetsat_consumer_secret: eumetSecret });
+                  setEumetSecret("");
+                }}
+                disabled={!eumetSecret.trim() || patch.isPending}
+                className="text-xs bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-900/40 text-white px-3 py-1.5 rounded"
+              >
+                Uložit
+              </button>
+            </div>
+          </div>
+          <p className="text-[10px] text-amber-400/80">
+            ⚠ EUMETSAT integrace je aktuálně ve stavu „credentials připravené, fetcher TODO". Po dodání tokenů admin doplní konkrétní WMS/WMTS endpoint.
+          </p>
+        </fieldset>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div>
+          <label className="block text-xs text-slate-400 mb-1">
+            Počet frames (1-24)
+          </label>
+          <input
+            type="number"
+            min={1}
+            max={24}
+            value={s.frame_count}
+            onChange={(e) =>
+              patch.mutate({ frame_count: Number(e.target.value) })
+            }
+            className="w-full bg-slate-950 ring-1 ring-slate-700 rounded px-2 py-1.5 text-sm text-slate-100 font-mono"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-slate-400 mb-1">
+            Cache TTL (s, 60-3600)
+          </label>
+          <input
+            type="number"
+            min={60}
+            max={3600}
+            step={60}
+            value={s.cache_ttl_seconds}
+            onChange={(e) =>
+              patch.mutate({ cache_ttl_seconds: Number(e.target.value) })
+            }
+            className="w-full bg-slate-950 ring-1 ring-slate-700 rounded px-2 py-1.5 text-sm text-slate-100 font-mono"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-slate-400 mb-1">
+            Default opacity (0-1)
+          </label>
+          <input
+            type="number"
+            min={0}
+            max={1}
+            step={0.05}
+            value={s.opacity_default}
+            onChange={(e) =>
+              patch.mutate({ opacity_default: Number(e.target.value) })
+            }
+            className="w-full bg-slate-950 ring-1 ring-slate-700 rounded px-2 py-1.5 text-sm text-slate-100 font-mono"
+          />
+        </div>
+      </div>
+
+      {patch.isError && (
+        <p className="text-xs text-rose-400">
+          {(patch.error as Error)?.message}
+        </p>
+      )}
+    </article>
   );
 }
 

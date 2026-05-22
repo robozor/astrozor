@@ -12,7 +12,7 @@ export function NotificationsBell({ onOpenLink }: { onOpenLink?: (link: string) 
   // Refetch every 15 s so the bell stays current without WebSocket.
   const list = useQuery({
     queryKey: ["notifications"],
-    queryFn: () => notifications.list({ limit: 10 }),
+    queryFn: () => notifications.list({ limit: 20 }),
     refetchInterval: 15_000,
   });
 

@@ -12,6 +12,7 @@ import {
   type Me,
   type Subscription,
 } from "../lib/api";
+import { TimeDisplay } from "./TimeDisplay";
 
 type Tab = "overview" | "chat";
 
@@ -317,10 +318,10 @@ function PresencePanel({ place, me }: { place: Place; me: Me | null }) {
   const [comment, setComment] = useState("");
   const [anonymous, setAnonymous] = useState(false);
 
-  const ownEmail = me?.user.email.toLowerCase() ?? "";
-  const ownActive = pres.data?.checkins.find(
-    (c) => c.user_email && c.user_email.toLowerCase() === ownEmail,
-  );
+  // Find the viewer's own active check-in via the backend `is_mine`
+  // flag — works for anonymous check-ins too, where user_email is null
+  // but the ownership is still tracked server-side.
+  const ownActive = pres.data?.checkins.find((c) => c.is_mine);
 
   return (
     <div>
@@ -331,7 +332,7 @@ function PresencePanel({ place, me }: { place: Place; me: Me | null }) {
         {pres.data?.checkins.map((c) => (
           <li key={c.id} className="bg-slate-900 ring-1 ring-slate-800 rounded-md px-3 py-2 text-xs">
             <div className="flex items-start justify-between gap-2">
-              <div>
+              <div className="min-w-0 flex-1">
                 <p>
                   <span className="text-emerald-400">●</span>{" "}
                   <UserNameLink
@@ -340,17 +341,28 @@ function PresencePanel({ place, me }: { place: Place; me: Me | null }) {
                     className="text-slate-200 font-semibold"
                     testid={`checkin-author-${c.id}`}
                   />
+                  {c.is_mine && c.anonymous && (
+                    <span className="ml-2 text-[10px] text-slate-500 italic">
+                      ({t("place.presence.youAnonymous")})
+                    </span>
+                  )}
                 </p>
                 {c.comment && <p className="text-slate-400 mt-0.5">{c.comment}</p>}
-                <p className="text-slate-500 mt-0.5 font-mono">
-                  ↓ {new Date(c.expires_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                </p>
+                <div className="text-slate-500 mt-0.5 flex items-start gap-1">
+                  <span className="font-mono">↓</span>
+                  <TimeDisplay
+                    iso={c.expires_at}
+                    entityTimezone={place.timezone || undefined}
+                    me={me}
+                    testid={`checkin-expires-${c.id}`}
+                  />
+                </div>
               </div>
-              {c.user_email && c.user_email.toLowerCase() === ownEmail && (
+              {c.is_mine && (
                 <button
                   type="button"
                   onClick={() => end.mutate(c.id)}
-                  className="text-xs text-rose-400 hover:text-rose-300"
+                  className="text-xs text-rose-400 hover:text-rose-300 shrink-0"
                 >
                   {t("place.presence.endMine")}
                 </button>

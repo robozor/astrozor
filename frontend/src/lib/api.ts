@@ -70,6 +70,8 @@ export type MapPreferences = {
   lp_opacity?: number;
   pmtiles_theme?: "dark" | "light";
   events_enabled?: boolean;
+  clouds_enabled?: boolean;
+  clouds_opacity?: number;
 };
 
 export type Profile = {
@@ -231,6 +233,45 @@ export type RPackageInfo = {
 
 export const rPackage = {
   info: () => api.get<RPackageInfo>("/r-pkg/info"),
+};
+
+export type VscodeExtensionInfo = {
+  name: string;
+  version: string;
+  vsix_latest_url: string;
+  vsix_versioned_url: string;
+  install_command: string;
+};
+
+export const vscodeExtension = {
+  info: () => api.get<VscodeExtensionInfo>("/vscode-pkg/info"),
+};
+
+export type DocPageMeta = {
+  slug: string;
+  lang: string;
+  title: string;
+  section: string;
+  order: number;
+  icon: string;
+};
+
+export type DocsList = {
+  lang: string;
+  available_langs: string[];
+  pages: DocPageMeta[];
+};
+
+export type DocPage = DocPageMeta & {
+  content_html: string;
+  fallback_used: boolean;
+};
+
+export const docs = {
+  list: (lang: string) =>
+    api.get<DocsList>(`/help?lang=${encodeURIComponent(lang)}`),
+  get: (slug: string, lang: string) =>
+    api.get<DocPage>(`/help/${encodeURIComponent(slug)}?lang=${encodeURIComponent(lang)}`),
 };
 
 export async function publishQuartoBundle(opts: {
@@ -577,6 +618,55 @@ export type ImportRowDecision = {
 
 export const mapConfig = {
   get: () => api.get<MapConfig>("/map/config"),
+};
+
+// ---- Clouds overlay (provider-agnostic) ----
+
+export type CloudFrame = {
+  time: number;
+  tile_url_template: string;
+};
+
+export type CloudFramesOut = {
+  enabled: boolean;
+  provider: "disabled" | "openweathermap" | "eumetsat";
+  frames: CloudFrame[];
+  attribution: string;
+  opacity_default: number;
+  fetched_at: number;
+  cache_ttl_seconds: number;
+};
+
+export type CloudsAdminOut = {
+  enabled: boolean;
+  provider: "disabled" | "openweathermap" | "eumetsat";
+  provider_choices: { value: string; label: string }[];
+  frame_count: number;
+  cache_ttl_seconds: number;
+  opacity_default: number;
+  openweathermap_api_key_set: boolean;
+  eumetsat_consumer_key_set: boolean;
+  eumetsat_consumer_secret_set: boolean;
+};
+
+export type CloudsAdminPatch = Partial<{
+  enabled: boolean;
+  provider: "disabled" | "openweathermap" | "eumetsat";
+  frame_count: number;
+  cache_ttl_seconds: number;
+  opacity_default: number;
+  openweathermap_api_key: string;
+  eumetsat_consumer_key: string;
+  eumetsat_consumer_secret: string;
+}>;
+
+export const clouds = {
+  frames: () => api.get<CloudFramesOut>("/clouds/frames"),
+};
+
+export const adminClouds = {
+  get: () => api.get<CloudsAdminOut>("/admin/clouds"),
+  patch: (data: CloudsAdminPatch) => api.patch<CloudsAdminOut>("/admin/clouds", data),
 };
 
 // ---- Admin: user management ----
@@ -930,6 +1020,10 @@ export type Checkin = {
   display_name: string;
   comment: string;
   anonymous: boolean;
+  /** True when the check-in belongs to the requesting user. Set even
+   *  for `anonymous=true` rows so the owner sees the End button on
+   *  their own anonymous check-in. */
+  is_mine: boolean;
   place_slug: string;
   created_at: string;
   expires_at: string;

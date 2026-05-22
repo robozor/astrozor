@@ -125,11 +125,11 @@ _TEMPLATE = """<!doctype html>
 <meta name="twitter:description" content="{summary}">
 {cover_twitter}
 <script type="application/ld+json">{jsonld}</script>
-<meta http-equiv="refresh" content="0; url=/?from=articles&amp;article={slug}">
+<meta http-equiv="refresh" content="0; url=/?from=articles&amp;a={slug}">
 <style>body{{background:#0f172a;color:#e2e8f0;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}}</style>
 </head>
 <body>
-<noscript><p>Otevírám článek… <a href="/?from=articles&amp;article={slug}" style="color:#a5b4fc">Pokračovat</a></p></noscript>
+<noscript><p>Otevírám článek… <a href="/?from=articles&amp;a={slug}" style="color:#a5b4fc">Pokračovat</a></p></noscript>
 </body>
 </html>
 """

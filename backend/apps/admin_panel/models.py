@@ -114,6 +114,53 @@ class MapInfra(models.Model):
     # retroactively to existing chat_message rows.
     chat_text_max_length = models.PositiveIntegerField(default=5000)
 
+    # ---- Cloud cover overlay ----
+    # Provider-agnostic config. Two providers supported:
+    #   - openweathermap: single current-snapshot tile layer (no
+    #     animation, but global coverage and easy setup — just an API
+    #     key from openweathermap.org).
+    #   - eumetsat: Meteosat IR satellite via EUMETSAT API. Supports
+    #     historical frames for animation, best resolution over Europe,
+    #     requires Consumer Key + Secret OAuth2 credentials from
+    #     api.eumetsat.int.
+    # `clouds_enabled` is a hard kill switch even when a provider is set.
+    class CloudsProvider(models.TextChoices):
+        DISABLED = "disabled", "Disabled"
+        OPENWEATHERMAP = "openweathermap", "OpenWeatherMap (snapshot)"
+        EUMETSAT = "eumetsat", "EUMETSAT Meteosat (animation, Europe)"
+
+    clouds_enabled = models.BooleanField(default=False)
+    clouds_provider = models.CharField(
+        max_length=20,
+        choices=CloudsProvider.choices,
+        default=CloudsProvider.DISABLED,
+    )
+    clouds_frame_count = models.PositiveSmallIntegerField(
+        default=6,
+        help_text=(
+            "Frames to expose for animation. Only used by providers that "
+            "support historical frames (EUMETSAT). 1-hour window at ~10 min steps."
+        ),
+    )
+    clouds_cache_ttl_seconds = models.PositiveIntegerField(
+        default=600,
+        help_text=(
+            "How long to cache the provider's frame list (Redis). "
+            "600 s = 10 min matches typical provider update cadence."
+        ),
+    )
+    clouds_opacity_default = models.FloatField(
+        default=0.5,
+        help_text="Default opacity of the cloud overlay (0..1). User-overridable.",
+    )
+    # Provider credentials — stored on the singleton so admins manage them
+    # through the same UI as the toggle. Empty when the corresponding
+    # provider isn't configured. Surfaced as `*_set: bool` to the admin
+    # UI so we never expose the secret value back over the API.
+    clouds_openweathermap_api_key = models.CharField(max_length=200, blank=True)
+    clouds_eumetsat_consumer_key = models.CharField(max_length=200, blank=True)
+    clouds_eumetsat_consumer_secret = models.CharField(max_length=200, blank=True)
+
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

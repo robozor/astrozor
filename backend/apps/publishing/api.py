@@ -305,7 +305,7 @@ def publish_article(request: HttpRequest, slug: str, payload: PublishIn = Publis
         {
             "title": f"📰 Nový článek: {a.title}",
             "description": (a.summary or "")[:300],
-            "url": f"{scheme}://{host}/articles/{a.slug}",
+            "url": f"{scheme}://{host}/clanky/{a.slug}",
             "fields": [
                 {"name": "Autor", "value": a.author.email, "inline": True},
                 {"name": "Jazyk", "value": a.language.upper(), "inline": True},

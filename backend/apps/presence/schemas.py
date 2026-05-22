@@ -18,6 +18,10 @@ class CheckinOut(Schema):
     display_name: str
     comment: str
     anonymous: bool
+    # True when the check-in belongs to the requesting user. Set even
+    # for `anonymous=True` rows so the owner can see and end their own
+    # anonymous check-in without exposing their identity to others.
+    is_mine: bool = False
     source: str = "manual"
     place_slug: str
     created_at: datetime

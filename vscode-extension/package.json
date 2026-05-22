@@ -1,0 +1,141 @@
+{
+  "name": "astrozor-publish",
+  "displayName": "Astrozor — Publish",
+  "description": "Publish Markdown, Quarto, RMarkdown, or pre-rendered HTML to an Astrozor instance directly from VS Code.",
+  "version": "0.1.1",
+  "publisher": "astrozor",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/robozor/astrozor.git",
+    "directory": "vscode-extension"
+  },
+  "engines": {
+    "vscode": "^1.85.0",
+    "node": ">=18.0.0"
+  },
+  "categories": ["Other"],
+  "keywords": ["astrozor", "publish", "quarto", "markdown", "rmarkdown"],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onLanguage:markdown",
+    "onLanguage:quarto"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "astrozor.publishArticle",
+        "title": "Publish Markdown article",
+        "category": "Astrozor"
+      },
+      {
+        "command": "astrozor.publishQuarto",
+        "title": "Publish Quarto / RMarkdown document",
+        "category": "Astrozor"
+      },
+      {
+        "command": "astrozor.publishFolder",
+        "title": "Publish folder (zip + upload index.html)",
+        "category": "Astrozor"
+      },
+      {
+        "command": "astrozor.setToken",
+        "title": "Set API token",
+        "category": "Astrozor"
+      },
+      {
+        "command": "astrozor.clearToken",
+        "title": "Clear API token",
+        "category": "Astrozor"
+      },
+      {
+        "command": "astrozor.setBaseUrl",
+        "title": "Set base URL",
+        "category": "Astrozor"
+      },
+      {
+        "command": "astrozor.whoami",
+        "title": "Check identity (whoami)",
+        "category": "Astrozor"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "astrozor.publishArticle",
+          "when": "resourceExtname == .md",
+          "group": "navigation@9"
+        },
+        {
+          "command": "astrozor.publishQuarto",
+          "when": "resourceExtname == .qmd || resourceExtname == .Rmd || resourceExtname == .rmd",
+          "group": "navigation@9"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "astrozor.publishArticle",
+          "when": "resourceExtname == .md",
+          "group": "astrozor@1"
+        },
+        {
+          "command": "astrozor.publishQuarto",
+          "when": "resourceExtname == .qmd || resourceExtname == .Rmd || resourceExtname == .rmd",
+          "group": "astrozor@1"
+        },
+        {
+          "command": "astrozor.publishFolder",
+          "when": "explorerResourceIsFolder",
+          "group": "astrozor@2"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Astrozor",
+      "properties": {
+        "astrozor.baseUrl": {
+          "type": "string",
+          "default": "https://astrozor.cz",
+          "description": "Base URL of the Astrozor instance (no trailing slash). Use http://astrozor.localhost for local dev."
+        },
+        "astrozor.defaultLanguage": {
+          "type": "string",
+          "enum": ["cs", "en"],
+          "default": "cs",
+          "description": "Default article language."
+        },
+        "astrozor.defaultLicense": {
+          "type": "string",
+          "default": "CC BY 4.0",
+          "description": "Default license string sent with each publish."
+        },
+        "astrozor.quartoExecutable": {
+          "type": "string",
+          "default": "quarto",
+          "description": "Path to the `quarto` CLI used to render .qmd files. Override if not on PATH."
+        },
+        "astrozor.confirmBeforePublish": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a confirmation prompt with title/slug/summary before each publish. Disable for one-click publishing."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "archiver": "^7.0.1"
+  },
+  "devDependencies": {
+    "@types/archiver": "^6.0.2",
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.1.0",
+    "typescript": "^5.4.0"
+  }
+}

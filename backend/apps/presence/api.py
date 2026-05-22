@@ -17,7 +17,7 @@ from .schemas import CheckinIn, CheckinOut, PresenceOut
 router = Router(tags=["presence"])
 
 
-def _to_out(c: Checkin) -> dict:
+def _to_out(c: Checkin, viewer_id=None) -> dict:
     # System-generated check-ins from the place's opening-hours schedule
     # have no user attached; render them as a distinct "open" presence
     # so the map shows the observatory is staffed without naming anyone.
@@ -30,12 +30,21 @@ def _to_out(c: Checkin) -> dict:
     else:
         display = c.user.profile.display_name or c.user.email.split("@")[0]
         email = c.user.email
+    # `is_mine` lets the viewer see the End button on their own check-in
+    # even when it's anonymous — anonymity hides identity from others,
+    # not from the owner. Auto-schedule rows have no user, so never mine.
+    is_mine = (
+        viewer_id is not None
+        and c.user_id is not None
+        and c.user_id == viewer_id
+    )
     return {
         "id": c.id,
         "user_email": email,
         "display_name": display,
         "comment": c.comment,
         "anonymous": c.anonymous or c.source == Checkin.Source.AUTO_SCHEDULE,
+        "is_mine": is_mine,
         "source": c.source,
         "place_slug": c.place.slug,
         "created_at": c.created_at,
@@ -110,7 +119,7 @@ def create_checkin(request: HttpRequest, slug: str, payload: CheckinIn):
     dispatch_event("place_any_checkin", common_payload)
     dispatch_event("place_followed_checkin", common_payload)
 
-    return 201, _to_out(checkin)
+    return 201, _to_out(checkin, viewer_id=request.user.id)
 
 
 @router.get("/places/{slug}/presence", response={200: PresenceOut, 404: dict})
@@ -130,10 +139,11 @@ def get_presence(request: HttpRequest, slug: str):  # noqa: ARG001
         .order_by("-created_at")
     )
     items = list(qs[:50])
+    viewer_id = request.user.id if request.user.is_authenticated else None
     return 200, {
         "place_slug": slug,
         "count": len(items),
-        "checkins": [_to_out(c) for c in items],
+        "checkins": [_to_out(c, viewer_id=viewer_id) for c in items],
     }
 
 
@@ -160,4 +170,4 @@ def my_checkins(request: HttpRequest):
         .select_related("place")
         .order_by("-created_at")
     )
-    return 200, [_to_out(c) for c in qs]
+    return 200, [_to_out(c, viewer_id=request.user.id) for c in qs]

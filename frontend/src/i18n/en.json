@@ -213,6 +213,7 @@
       "commentPlaceholder": "What are you observing? (optional)",
       "anonymous": "Anonymously (shown as 'someone')",
       "endMine": "End",
+      "youAnonymous": "this is you",
       "loginToCheckin": "Log in to check in."
     }
   },
@@ -245,6 +246,31 @@
     "calloutTitle": "How to publish Quarto articles from VS Code or RStudio",
     "calloutBody": "Publish full Quarto and R Markdown documents without copying the text — straight from the editor you already use. Step-by-step guide for the astrozorpub RStudio addin and the VS Code path.",
     "calloutOpen": "Open guide",
+    "publishIntro": {
+      "kicker": "Publish from anywhere",
+      "title": "Astrozor accepts articles from every tool you use",
+      "body": "Markdown, Quarto, RMarkdown, Jupyter — every path leads to the same article with DOI, comments, and sharing. Writing in VS Code, RStudio, or Jupyter? We ship an addin / extension that renders and uploads for you.",
+      "bullet1": "🧮 Interactive charts (plotly, leaflet, htmlwidgets) stay live in the article iframe — readers can hover and zoom",
+      "bullet2": "📐 LaTeX equations via MathJax, syntax-highlighted code blocks, code-fold for long snippets",
+      "bullet3": "🔁 Idempotent publish — same slug = update of the existing article, no duplicates, DOI preserved",
+      "openGuide": "Open guide",
+      "astrozor": {
+        "title": "Astrozor in-app editor",
+        "desc": "Markdown editor with live preview. Nothing to install, just a browser."
+      },
+      "vscode": {
+        "title": "VS Code extension",
+        "desc": "Publishes .md, .qmd, and HTML folders. Token in Secret Storage."
+      },
+      "rstudio": {
+        "title": "RStudio addin",
+        "desc": "astrozorpub package — render + publish .qmd / .Rmd in one click."
+      },
+      "jupyter": {
+        "title": "Jupyter notebook",
+        "desc": "nbconvert + VS Code Publish folder, or curl with a ZIP."
+      }
+    },
     "visibility": {
       "public": "Public",
       "members": "Members only",
@@ -406,7 +432,15 @@
     "mastodon": "Mastodon",
     "admin": "Admin",
     "feed": "Feed",
-    "logout": "Log out"
+    "logout": "Log out",
+    "help": {
+      "tooltip": "System documentation"
+    }
+  },
+  "docs": {
+    "loading": "Loading…",
+    "notFound": "Page not found",
+    "fallbackBanner": "This page isn't translated yet — showing the English version."
   },
   "admin": {
     "title": "Application admin",
@@ -1089,6 +1123,26 @@
         "region": "Region (approximate)",
         "hidden": "Hidden"
       },
+      "locationSection": "My location",
+      "location": {
+        "labelField": "Location label",
+        "placeholder": "e.g. Prague 5, Smíchov · Olomouc · Praděd",
+        "searchBtn": "Search",
+        "searchTooltip": "Geocode the typed label and fill in coordinates",
+        "detectBtn": "Detect from browser",
+        "detectTooltip": "Use the browser's GPS / IP-based position",
+        "noCoords": "No coordinates set — region mode shares the label only",
+        "clearCoords": "Clear coordinates",
+        "errorEmpty": "Type a location label first.",
+        "errorNoResults": "No results for that label. Try a different wording.",
+        "errorNoGeolocation": "Your browser doesn't support geolocation.",
+        "errorPermission": "The browser denied permission to read your location.",
+        "errorUnavailable": "Couldn't determine your location (sensor unavailable).",
+        "errorTimeout": "Location detection timed out.",
+        "hintPrecise": "Shares precise GPS coordinates + label (shown on the map and profile).",
+        "hintRegion": "Shares only the text label (e.g. \"Prague\"); coordinates stay private.",
+        "hintHidden": "Doesn't share your location at all."
+      },
       "timezoneSection": "Timezones",
       "timezoneName": "My timezone",
       "timezoneHint": "Used to render your local time next to events and articles. The UTC value in the DB stays the same.",
@@ -1216,6 +1270,12 @@
       "overlays": "Overlays",
       "lightPollution": "Light pollution",
       "events": "Events (open)",
+      "clouds": "Cloud cover",
+      "cloudsPlay": "Play animation",
+      "cloudsPause": "Pause",
+      "cloudsSingleFrame": "Current snapshot (provider doesn't support animation)",
+      "cloudsEmpty": "Provider {{provider}} currently returns no frames.",
+      "cloudsOsmHint": "💡 Tip: clouds show best on Dark or Satellite map style.",
       "lightPollutionHint": {
         "black_marble_2016": "NASA Black Marble (VIIRS DNB 2016 baseline). Yellow/white = heavily lit night skies.",
         "viirs_dnb_latest": "NASA VIIRS DNB latest ({{date}}). Live nightly image — yellow/white = heavily lit skies."

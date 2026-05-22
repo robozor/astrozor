@@ -99,6 +99,24 @@
         file_server browse
         header Cache-Control "public, max-age=300"
     }
+    # VS Code extension .vsix repo. Populated by the vsce-pkg-builder
+    # one-shot service from vscode-extension/. Stable URL for the latest
+    # build:
+    #     <host>/vscode-extension/astrozor-publish-latest.vsix
+    # Plus a JSON index for the backend /vscode-pkg/info endpoint.
+    handle_path /vscode-extension/* {
+        root * /srv/vsce-repo
+        file_server browse
+        header Cache-Control "public, max-age=300"
+    }
+    # Sample article sources (.md, .qmd, .ipynb) — bind-mounted from
+    # samples/ repo dir. Users download these from the docs pages, render
+    # locally, and publish back via the addins to verify their toolchain.
+    handle_path /samples/* {
+        root * /srv/samples
+        file_server browse
+        header Cache-Control "public, max-age=600"
+    }
 
     # Everything else → Vite dev server (frontend)
     handle {

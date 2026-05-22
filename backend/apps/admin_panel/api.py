@@ -531,6 +531,97 @@ def update_chat_settings(request: HttpRequest, payload: ChatSettingsIn):
     return 200, _infra_out(infra)
 
 
+class CloudsSettingsIn(Schema):
+    """Admin payload for the clouds integration. All fields optional —
+    only those provided are updated. Passing an empty string for a
+    credential clears it; omit the field to leave it untouched."""
+
+    enabled: bool | None = None
+    provider: str | None = None
+    frame_count: int | None = None
+    cache_ttl_seconds: int | None = None
+    opacity_default: float | None = None
+    openweathermap_api_key: str | None = None
+    eumetsat_consumer_key: str | None = None
+    eumetsat_consumer_secret: str | None = None
+
+
+def _clouds_settings_out(m: MapInfra) -> dict:
+    """Return admin-visible clouds settings. Credentials are surfaced
+    as boolean `*_set` flags — never the actual secret. The provider
+    list is included so the UI can render the dropdown without hard-
+    coding the choices."""
+    return {
+        "enabled": m.clouds_enabled,
+        "provider": m.clouds_provider,
+        "provider_choices": [
+            {"value": v, "label": l}
+            for v, l in MapInfra.CloudsProvider.choices
+        ],
+        "frame_count": m.clouds_frame_count,
+        "cache_ttl_seconds": m.clouds_cache_ttl_seconds,
+        "opacity_default": m.clouds_opacity_default,
+        "openweathermap_api_key_set": bool(m.clouds_openweathermap_api_key),
+        "eumetsat_consumer_key_set": bool(m.clouds_eumetsat_consumer_key),
+        "eumetsat_consumer_secret_set": bool(m.clouds_eumetsat_consumer_secret),
+    }
+
+
+@router.get("/admin/clouds", response={200: dict, 403: dict})
+def get_clouds_settings(request: HttpRequest):
+    if not _require_staff(request):
+        return 403, {"detail": "Staff only"}
+    return 200, _clouds_settings_out(MapInfra.get())
+
+
+@router.patch("/admin/clouds", response={200: dict, 400: dict, 403: dict})
+def update_clouds_settings(request: HttpRequest, payload: CloudsSettingsIn):
+    if not _require_staff(request):
+        return 403, {"detail": "Staff only"}
+    from .clouds import clear_cache as _clear_clouds_cache
+
+    m = MapInfra.get()
+    fields: list[str] = []
+    if payload.enabled is not None:
+        m.clouds_enabled = payload.enabled
+        fields.append("clouds_enabled")
+    if payload.provider is not None:
+        if payload.provider not in MapInfra.CloudsProvider.values:
+            return 400, {"detail": f"Unknown provider: {payload.provider}"}
+        m.clouds_provider = payload.provider
+        fields.append("clouds_provider")
+    if payload.frame_count is not None:
+        if not 1 <= payload.frame_count <= 24:
+            return 400, {"detail": "frame_count must be 1..24"}
+        m.clouds_frame_count = payload.frame_count
+        fields.append("clouds_frame_count")
+    if payload.cache_ttl_seconds is not None:
+        if not 60 <= payload.cache_ttl_seconds <= 3600:
+            return 400, {"detail": "cache_ttl_seconds must be 60..3600"}
+        m.clouds_cache_ttl_seconds = payload.cache_ttl_seconds
+        fields.append("clouds_cache_ttl_seconds")
+    if payload.opacity_default is not None:
+        if not 0 <= payload.opacity_default <= 1:
+            return 400, {"detail": "opacity_default must be 0..1"}
+        m.clouds_opacity_default = payload.opacity_default
+        fields.append("clouds_opacity_default")
+    if payload.openweathermap_api_key is not None:
+        m.clouds_openweathermap_api_key = payload.openweathermap_api_key.strip()
+        fields.append("clouds_openweathermap_api_key")
+    if payload.eumetsat_consumer_key is not None:
+        m.clouds_eumetsat_consumer_key = payload.eumetsat_consumer_key.strip()
+        fields.append("clouds_eumetsat_consumer_key")
+    if payload.eumetsat_consumer_secret is not None:
+        m.clouds_eumetsat_consumer_secret = payload.eumetsat_consumer_secret.strip()
+        fields.append("clouds_eumetsat_consumer_secret")
+    if fields:
+        m.save(update_fields=fields)
+        # Settings changed → drop the cached frame list (and any
+        # EUMETSAT token) so the next public read fetches afresh.
+        _clear_clouds_cache()
+    return 200, _clouds_settings_out(m)
+
+
 class LightPollutionSourceIn(Schema):
     source: str
 
@@ -681,6 +772,24 @@ def refresh_light_pollution_latest(request: HttpRequest):
 # Frontend reads this to decide which tile / search backend to use.
 
 public_router = Router(tags=["map"])
+
+
+@public_router.get("/clouds/frames", response={200: dict})
+def public_cloud_frames(request: HttpRequest):  # noqa: ARG001
+    """Last N RainViewer satellite frames for the cloud-cover overlay.
+
+    Shape:
+      { enabled, frames: [{time, tile_url_template}], opacity_default,
+        attribution, fetched_at, cache_ttl_seconds }
+
+    `frames` is empty when the admin has disabled the feature OR when
+    the upstream is unreachable and we have nothing cached. The
+    fetched_at + cache_ttl_seconds lets the frontend decide how often
+    to re-poll (we recommend half the TTL).
+    """
+    from .clouds import get_frames
+
+    return 200, get_frames()
 
 
 @public_router.get("/map/config", response={200: dict})

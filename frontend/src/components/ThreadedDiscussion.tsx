@@ -77,6 +77,7 @@ export function ThreadedDiscussion({
   emptyLabel,
   testidPrefix = "thread",
   entityTimezone,
+  inline = false,
 }: {
   items: ThreadedItem[];
   me: Me | null;
@@ -94,6 +95,12 @@ export function ThreadedDiscussion({
    * timestamps render a "Local" row next to UTC + user. Article
    * comments leave this undefined since articles aren't location-bound. */
   entityTimezone?: string;
+  /** When `true`, render in inline / document-flow mode — no fixed
+   * min-height, no flex-grow on the list, so an empty state collapses
+   * to just the label height. Defaults to `false` (the chat-tab
+   * variant used in PlaceDetailPanel / EventDetailPanel that wants
+   * a fixed scrollable area). Article comments use `inline`. */
+  inline?: boolean;
 }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -106,9 +113,17 @@ export function ThreadedDiscussion({
   };
 
   return (
-    <div className="flex flex-col h-full min-h-[20rem]">
+    <div
+      className={
+        inline
+          ? "flex flex-col"
+          : "flex flex-col h-full min-h-[20rem]"
+      }
+    >
       <ul
-        className="flex-1 overflow-y-auto dark-scroll space-y-3 pr-1 mb-3"
+        className={`${
+          inline ? "" : "flex-1 overflow-y-auto"
+        } dark-scroll space-y-3 pr-1 mb-3`}
         data-testid={`${testidPrefix}-list`}
       >
         {tree.length === 0 && (

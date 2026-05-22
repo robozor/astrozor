@@ -20,12 +20,14 @@ const pmtilesProtocol = new Protocol();
 maplibregl.addProtocol("pmtiles", pmtilesProtocol.tile);
 import {
   auth,
+  clouds,
   events as eventsApi,
   geocoding,
   mapConfig,
   places,
   subscriptions,
   ApiError,
+  type CloudFramesOut,
   type Event,
   type GeocodeHit,
   type MapPreferences,
@@ -824,6 +826,24 @@ const STYLES: Record<StyleKey, MapStyle> = {
   topo: STYLE_TOPO,
 };
 
+// Per-style maximum zoom matching each tile provider's hard ceiling.
+// MapLibre clamps user zoom to this value, so the map stops responding
+// to further wheel-in / pinch instead of issuing requests for tiles
+// that don't exist (which would 404 → fall back to OSM and break the
+// user's "I'm on satellite" expectation).
+//   - OSM tile servers serve up to z19 in most regions
+//   - CARTO Dark Matter: z19
+//   - ESRI World Imagery: z19 in most areas (rural may stop earlier;
+//     the server's response wins server-side regardless)
+//   - OpenTopoMap: hard ceiling at z17 (the SRTM contour rendering
+//     simply doesn't produce z18+ tiles)
+const STYLE_MAX_ZOOM: Record<StyleKey, number> = {
+  osm: 19,
+  dark: 19,
+  satellite: 19,
+  topo: 17,
+};
+
 const ALL_KINDS: Place["kind"][] = [
   "observatory_public",
   "observatory_private",
@@ -928,6 +948,64 @@ export function MapView({
     });
   }, [eventsEnabled, eventsQuery.data]);
   const [lpOpacity, setLpOpacity] = useState(prefs.lp_opacity ?? 0.4);
+
+  // Cloud cover overlay — off by default. When enabled, fetch the
+  // provider's frame list (1..N tiles depending on provider). Multi-
+  // frame providers (EUMETSAT) get a play button + scrubber for a
+  // pseudo-animation; single-frame providers (OpenWeatherMap) just
+  // render the one frame. Auto-refresh fires at half the cache TTL so
+  // the overlay stays current without spamming the upstream.
+  const [cloudsEnabled, setCloudsEnabled] = useState(prefs.clouds_enabled ?? false);
+  // OpenWeatherMap clouds_new tiles are semi-transparent white — on
+  // OSM's busy background they wash out at lower opacity. Default 0.85
+  // makes the layer pop without fully hiding the base map; user can
+  // dial down with the slider for subtle Dark-style maps.
+  const [cloudsOpacity, setCloudsOpacity] = useState(prefs.clouds_opacity ?? 0.85);
+  const [cloudsFrameIndex, setCloudsFrameIndex] = useState(0);
+  const [cloudsPlaying, setCloudsPlaying] = useState(true);
+
+  // Query runs unconditionally so the controls panel knows whether the
+  // admin activated a provider — the toggle should appear before the
+  // user clicks, not after. Backend keeps the response cheap when the
+  // feature is disabled. The auto-refresh interval only kicks in once
+  // the user actually enabled the overlay.
+  const cloudsQuery = useQuery({
+    queryKey: ["clouds-frames"],
+    queryFn: () => clouds.frames(),
+    refetchInterval: (q) => {
+      const d = q.state.data as CloudFramesOut | undefined;
+      if (!cloudsEnabled || !d || d.frames.length === 0) return false;
+      return Math.max(60, d.cache_ttl_seconds / 2) * 1000;
+    },
+    refetchOnWindowFocus: false,
+  });
+  const cloudFrames = cloudsQuery.data?.frames ?? [];
+  const activeCloudFrame =
+    cloudFrames.length > 0
+      ? cloudFrames[Math.min(cloudsFrameIndex, cloudFrames.length - 1)]
+      : null;
+
+  // Re-clamp the frame index whenever the frame list shrinks (e.g.
+  // provider switched). Otherwise we'd render a stale frame.
+  useEffect(() => {
+    if (cloudFrames.length === 0) {
+      setCloudsFrameIndex(0);
+    } else if (cloudsFrameIndex >= cloudFrames.length) {
+      setCloudsFrameIndex(cloudFrames.length - 1);
+    }
+  }, [cloudFrames.length, cloudsFrameIndex]);
+
+  // Animation loop — only relevant for multi-frame providers. Cycle
+  // forward every ~700 ms; pauses when user toggles play/pause or
+  // scrubs the slider.
+  useEffect(() => {
+    if (!cloudsEnabled || !cloudsPlaying || cloudFrames.length < 2) return;
+    const id = window.setInterval(() => {
+      setCloudsFrameIndex((i) => (i + 1) % cloudFrames.length);
+    }, 700);
+    return () => window.clearInterval(id);
+  }, [cloudsEnabled, cloudsPlaying, cloudFrames.length]);
+
   const [addPlaceMode, setAddPlaceMode] = useState(false);
   const [draftPlace, setDraftPlace] = useState<{ lat: number; lon: number } | null>(null);
 
@@ -1066,11 +1144,19 @@ export function MapView({
     };
   }, [styleKey]);
 
-  // Reset error count + warning when user manually picks a new style
+  // Reset error count + warning when user manually picks a new style.
+  // Also clamp the current zoom down to the new style's max — if the
+  // user was at z18 on satellite (max 19) and switches to topo (max 17),
+  // we drop to z17 so the topo tile server doesn't get hit with
+  // out-of-range requests.
   const handleStyleChange = (k: StyleKey) => {
     errorCountRef.current[k] = 0;
     setTileWarning(null);
     setStyleKey(k);
+    const cap = STYLE_MAX_ZOOM[k];
+    setViewState((v) =>
+      v.zoom > cap ? { ...v, zoom: cap } : v,
+    );
   };
 
   return (
@@ -1078,6 +1164,7 @@ export function MapView({
       <Map
         ref={mapRef}
         mapStyle={styles[styleKey]}
+        maxZoom={STYLE_MAX_ZOOM[styleKey]}
         {...viewState}
         onMove={(evt) =>
           setViewState({
@@ -1114,6 +1201,33 @@ export function MapView({
               id="light-pollution-layer"
               type="raster"
               paint={{ "raster-opacity": lpOpacity }}
+            />
+          </Source>
+        )}
+        {cloudsEnabled && activeCloudFrame && (
+          /* Re-keyed per active frame URL so MapLibre tears down the
+             prior raster source and fetches the new tiles when the
+             animation steps forward. The source ID stays constant so
+             the Layer reference doesn't break. `raster-contrast` boost
+             makes OpenWeatherMap's washed-out semi-transparent clouds
+             pop on busy backgrounds (OSM in particular); harmless for
+             EUMETSAT IR which is already high-contrast. */
+          <Source
+            id="clouds"
+            key={activeCloudFrame.tile_url_template}
+            type="raster"
+            tiles={[activeCloudFrame.tile_url_template]}
+            tileSize={256}
+            attribution={cloudsQuery.data?.attribution || ""}
+          >
+            <Layer
+              id="clouds-layer"
+              type="raster"
+              paint={{
+                "raster-opacity": cloudsOpacity,
+                "raster-contrast": 0.4,
+                "raster-saturation": 0.1,
+              }}
             />
           </Source>
         )}
@@ -1250,6 +1364,21 @@ export function MapView({
         onLpOpacityChange={setLpOpacity}
         lightPollutionSource={cfgQuery.data?.light_pollution?.source ?? ""}
         lightPollutionDate={cfgQuery.data?.light_pollution?.dnb_date ?? ""}
+        cloudsAvailable={!!cloudsQuery.data?.enabled}
+        cloudsEnabled={cloudsEnabled}
+        onCloudsToggle={() => setCloudsEnabled((v) => !v)}
+        cloudsOpacity={cloudsOpacity}
+        onCloudsOpacityChange={setCloudsOpacity}
+        cloudsFrames={cloudFrames}
+        cloudsFrameIndex={cloudsFrameIndex}
+        onCloudsFrameChange={(i) => {
+          setCloudsPlaying(false);
+          setCloudsFrameIndex(i);
+        }}
+        cloudsPlaying={cloudsPlaying}
+        onCloudsPlayToggle={() => setCloudsPlaying((v) => !v)}
+        cloudsAttribution={cloudsQuery.data?.attribution ?? ""}
+        cloudsProvider={cloudsQuery.data?.provider ?? "disabled"}
         onFly={handleFly}
         currentPrefs={
           me
@@ -1261,6 +1390,8 @@ export function MapView({
                 lp_opacity: lpOpacity,
                 pmtiles_theme: pmtilesTheme,
                 events_enabled: eventsEnabled,
+                clouds_enabled: cloudsEnabled,
+                clouds_opacity: cloudsOpacity,
               }
             : null
         }
@@ -1315,6 +1446,18 @@ function ControlPanel({
   onLpOpacityChange,
   lightPollutionSource,
   lightPollutionDate,
+  cloudsAvailable,
+  cloudsEnabled,
+  onCloudsToggle,
+  cloudsOpacity,
+  onCloudsOpacityChange,
+  cloudsFrames,
+  cloudsFrameIndex,
+  onCloudsFrameChange,
+  cloudsPlaying,
+  onCloudsPlayToggle,
+  cloudsAttribution,
+  cloudsProvider,
   onFly,
   currentPrefs,
   canAddPlace,
@@ -1345,6 +1488,21 @@ function ControlPanel({
    *  don't re-fetch the map config inside ControlPanel. */
   lightPollutionSource: string;
   lightPollutionDate: string;
+  /** Whether the admin has configured a clouds provider — when false
+   *  the toggle is hidden so we don't show a feature the user can't
+   *  use. */
+  cloudsAvailable: boolean;
+  cloudsEnabled: boolean;
+  onCloudsToggle: () => void;
+  cloudsOpacity: number;
+  onCloudsOpacityChange: (v: number) => void;
+  cloudsFrames: CloudFramesOut["frames"];
+  cloudsFrameIndex: number;
+  onCloudsFrameChange: (i: number) => void;
+  cloudsPlaying: boolean;
+  onCloudsPlayToggle: () => void;
+  cloudsAttribution: string;
+  cloudsProvider: string;
   onFly: (lat: number, lon: number, zoom?: number) => void;
   currentPrefs: MapPreferences | null;
   canAddPlace: boolean;
@@ -1558,6 +1716,105 @@ function ControlPanel({
                     })
                   : t("map.ctl.lightPollutionHint.black_marble_2016")}
               </p>
+            </div>
+          )}
+
+          {/* Cloud cover overlay — visible only when the admin has
+              activated a provider on the backend. Otherwise hidden, so
+              a regular user doesn't see a toggle that does nothing. */}
+          {cloudsAvailable && (
+            <div className="mt-3">
+              <label className="flex items-center gap-2 cursor-pointer hover:text-slate-100">
+                <input
+                  type="checkbox"
+                  checked={cloudsEnabled}
+                  onChange={onCloudsToggle}
+                  className="accent-indigo-500"
+                  data-testid="mapctl-clouds-toggle"
+                />
+                <span>{t("map.ctl.clouds")}</span>
+              </label>
+              {cloudsEnabled && (
+                <div className="mt-2 space-y-2">
+                  <div>
+                    <label className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
+                      <span>{t("map.ctl.opacity")}</span>
+                      <span className="font-mono">
+                        {Math.round(cloudsOpacity * 100)}%
+                      </span>
+                    </label>
+                    <input
+                      type="range"
+                      min={0.1}
+                      max={1}
+                      step={0.05}
+                      value={cloudsOpacity}
+                      onChange={(e) =>
+                        onCloudsOpacityChange(Number(e.target.value))
+                      }
+                      className="w-full accent-indigo-500"
+                      data-testid="mapctl-clouds-opacity"
+                    />
+                  </div>
+                  {cloudsFrames.length > 1 && (
+                    <div>
+                      <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
+                        <button
+                          type="button"
+                          onClick={onCloudsPlayToggle}
+                          className="text-slate-300 hover:text-slate-100"
+                          data-testid="mapctl-clouds-play"
+                        >
+                          {cloudsPlaying ? "⏸" : "▶"}{" "}
+                          {cloudsPlaying
+                            ? t("map.ctl.cloudsPause")
+                            : t("map.ctl.cloudsPlay")}
+                        </button>
+                        <span className="font-mono">
+                          {cloudsFrameIndex + 1} / {cloudsFrames.length}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={cloudsFrames.length - 1}
+                        step={1}
+                        value={cloudsFrameIndex}
+                        onChange={(e) =>
+                          onCloudsFrameChange(Number(e.target.value))
+                        }
+                        className="w-full accent-indigo-500"
+                        data-testid="mapctl-clouds-scrubber"
+                      />
+                      <p className="text-[10px] text-slate-500 mt-1 font-mono">
+                        {new Date(
+                          (cloudsFrames[cloudsFrameIndex]?.time ?? 0) * 1000,
+                        ).toLocaleString()}
+                      </p>
+                    </div>
+                  )}
+                  {cloudsFrames.length === 1 && (
+                    <p className="text-[10px] text-slate-500">
+                      {t("map.ctl.cloudsSingleFrame")}
+                    </p>
+                  )}
+                  {styleKey === "osm" && (
+                    <p className="text-[10px] text-amber-300/80">
+                      {t("map.ctl.cloudsOsmHint")}
+                    </p>
+                  )}
+                  {cloudsAttribution && (
+                    <p className="text-[10px] text-slate-600">
+                      {cloudsAttribution}
+                    </p>
+                  )}
+                  {cloudsEnabled && cloudsFrames.length === 0 && (
+                    <p className="text-[10px] text-amber-300">
+                      {t("map.ctl.cloudsEmpty", { provider: cloudsProvider })}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </section>

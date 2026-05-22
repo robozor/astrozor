@@ -10,6 +10,7 @@ import { ProjectsPage } from "./components/ProjectsPage";
 import { EventsPage } from "./components/EventsPage";
 import { CitizenSciencePage } from "./components/CitizenSciencePage";
 import { AdminPage } from "./components/AdminPage";
+import { DocsPage } from "./components/DocsPage";
 import { NotificationsBell } from "./components/NotificationsBell";
 
 type Page =
@@ -19,11 +20,13 @@ type Page =
   | "projects"
   | "events"
   | "campaigns"
-  | "admin";
+  | "admin"
+  | "docs";
 
 // Pages anonymous (not-logged-in) visitors are allowed to see. Everything
-// else needs auth and triggers the login modal when clicked.
-const ANON_ALLOWED: ReadonlyArray<Page> = ["map", "articles", "events", "campaigns"];
+// else needs auth and triggers the login modal when clicked. Docs are
+// public — anyone can read installation guides without an account.
+const ANON_ALLOWED: ReadonlyArray<Page> = ["map", "articles", "events", "campaigns", "docs"];
 
 // Each section gets its own URL path. Reloading preserves the section,
 // browser Back/Forward navigates between them, links can be shared.
@@ -38,6 +41,7 @@ const PAGE_PATHS: Record<Page, string> = {
   projects: "/projects",
   settings: "/settings",
   admin: "/admin",
+  docs: "/docs",
 };
 
 const PATH_TO_PAGE = new Map<string, Page>(
@@ -46,14 +50,18 @@ const PATH_TO_PAGE = new Map<string, Page>(
 
 function pageFromLocation(): Page | null {
   if (typeof window === "undefined") return null;
+  // ``from=`` query param wins over pathname. Two use cases:
+  //   1. OAuth callback lands on /?from=<page>&oauth_ok=1 — we want to
+  //      render the originating section while the post-OAuth effect
+  //      processes the result, instead of flashing the Map.
+  //   2. SEO redirect from /clanky/<slug> sends users to
+  //      /?from=articles&a=<slug>. Without this branch, pathname "/"
+  //      matches Page "map" first and the article never opens.
+  const fromParam = new URLSearchParams(window.location.search).get("from");
+  if (fromParam && fromParam in PAGE_PATHS) return fromParam as Page;
   const path = window.location.pathname.replace(/\/+$/, "") || "/";
   const fromPath = PATH_TO_PAGE.get(path);
   if (fromPath) return fromPath;
-  // OAuth callback lands on /?from=<page>&oauth_ok=1 before the JS
-  // patches the URL. Honour the ``from`` hint at boot so we don't
-  // briefly render the Map before redirecting to the originating section.
-  const fromParam = new URLSearchParams(window.location.search).get("from");
-  if (fromParam && fromParam in PAGE_PATHS) return fromParam as Page;
   return null;
 }
 
@@ -272,6 +280,7 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
             <NotificationsBell />
             <span className="text-xs text-slate-400 hidden sm:inline">{me.user.display_name}</span>
             <LanguageSwitcher isAuthed={true} />
+            <HelpButton active={page === "docs"} onClick={() => setPage("docs")} />
             <button
               type="button"
               onClick={onLogout}
@@ -303,10 +312,31 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
             {page === "campaigns" && <CitizenSciencePage me={me} />}
             {page === "settings" && <SettingsPage me={me} />}
             {page === "admin" && <AdminPage me={me} />}
+            {page === "docs" && <DocsPage />}
           </div>
         )}
       </div>
     </main>
+  );
+}
+
+function HelpButton({ active, onClick }: { active: boolean; onClick: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={t("nav.help.tooltip")}
+      aria-label={t("nav.help.tooltip")}
+      data-testid="nav-docs"
+      className={`text-sm w-8 h-8 rounded-md inline-flex items-center justify-center transition ${
+        active
+          ? "bg-indigo-600 text-white ring-1 ring-indigo-500"
+          : "bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-slate-100 ring-1 ring-slate-700"
+      }`}
+    >
+      <span className="text-base font-semibold leading-none">?</span>
+    </button>
   );
 }
 
@@ -482,6 +512,7 @@ function AnonApp({ onAuthed }: { onAuthed: () => void }) {
             </nav>
             <div className="ml-auto flex items-center gap-2">
               <LanguageSwitcher isAuthed={false} />
+              <HelpButton active={page === "docs"} onClick={() => setPage("docs")} />
               <button
                 type="button"
                 onClick={() => setLoginOpen(true)}
@@ -503,6 +534,7 @@ function AnonApp({ onAuthed }: { onAuthed: () => void }) {
             {page === "campaigns" && <CitizenSciencePage me={null} />}
             {page === "articles" && <ArticlesPage me={null} onRequireLogin={requireLogin} />}
             {page === "events" && <EventsPage me={null} onRequireLogin={requireLogin} />}
+            {page === "docs" && <DocsPage />}
           </div>
         )}
       </div>

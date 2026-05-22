@@ -208,6 +208,7 @@
       "commentPlaceholder": "Co pozoruji? (volitelně)",
       "anonymous": "Anonymně (pouze 'někdo')",
       "endMine": "Ukončit",
+      "youAnonymous": "to jsi ty",
       "loginToCheckin": "Pro check-in se přihlas."
     }
   },
@@ -246,6 +247,31 @@
     "calloutTitle": "Jak publikovat Quarto články přímo z VS Code a RStudio",
     "calloutBody": "Publikujte plnohodnotné Quarto i R Markdown dokumenty bez kopírování textu — z editoru, ve kterém už pracujete. Návod krok za krokem s instalací RStudio addinu astrozorpub a ukázkou pro VS Code.",
     "calloutOpen": "Otevřít návod",
+    "publishIntro": {
+      "kicker": "Publikuj odkudkoli",
+      "title": "Astrozor přijímá články ze všech tvých nástrojů",
+      "body": "Markdown, Quarto, RMarkdown, Jupyter — všechny cesty vedou do stejného článku s DOI, komentáři a sdílením. Píšeš ve VS Code, RStudiu nebo Jupyteru? Máme addin / extension, který za tebe vyrenderuje a nahraje.",
+      "bullet1": "🧮 Interaktivní grafy (plotly, leaflet, htmlwidgets) zůstanou živé v iframe článku — čtenář může hover-ovat a zoom-ovat",
+      "bullet2": "📐 LaTeX vzorce přes MathJax, syntax-highlighted code bloky, code-fold pro dlouhý kód",
+      "bullet3": "🔁 Idempotentní publish — stejný slug = update existujícího článku, žádné duplicity, DOI zůstává",
+      "openGuide": "Otevřít návod",
+      "astrozor": {
+        "title": "Astrozor in-app editor",
+        "desc": "Markdown editor s živým náhledem. Nic k instalaci, jen prohlížeč."
+      },
+      "vscode": {
+        "title": "VS Code extension",
+        "desc": "Publish .md, .qmd a HTML složky. Token v Secret Storage."
+      },
+      "rstudio": {
+        "title": "RStudio addin",
+        "desc": "astrozorpub balíček — render + publish .qmd / .Rmd jedním klikem."
+      },
+      "jupyter": {
+        "title": "Jupyter notebook",
+        "desc": "nbconvert + VS Code Publish folder, nebo curl s ZIP."
+      }
+    },
     "visibility": {
       "public": "Veřejné",
       "members": "Pro přihlášené",
@@ -407,7 +433,15 @@
     "mastodon": "Mastodon",
     "admin": "Správa",
     "feed": "Feed",
-    "logout": "Odhlásit se"
+    "logout": "Odhlásit se",
+    "help": {
+      "tooltip": "Dokumentace systému"
+    }
+  },
+  "docs": {
+    "loading": "Načítám…",
+    "notFound": "Stránka nenalezena",
+    "fallbackBanner": "Tato stránka není přeložena do češtiny — zobrazena v angličtině."
   },
   "admin": {
     "title": "Správa aplikace",
@@ -1107,6 +1141,26 @@
         "region": "Region (přibližně)",
         "hidden": "Skryto"
       },
+      "locationSection": "Moje poloha",
+      "location": {
+        "labelField": "Popisek lokality",
+        "placeholder": "např. Praha 5, Smíchov · Olomouc · Praděd",
+        "searchBtn": "Vyhledat",
+        "searchTooltip": "Vyhledat zadaný popisek a vyplnit souřadnice",
+        "detectBtn": "Detekovat z prohlížeče",
+        "detectTooltip": "Použít GPS / IP-based polohu z prohlížeče",
+        "noCoords": "Souřadnice nenastaveny — region mód sdílí jen popisek",
+        "clearCoords": "Smazat souřadnice",
+        "errorEmpty": "Napiš nejprve popisek lokality.",
+        "errorNoResults": "Žádné výsledky pro tento popisek. Zkus jinou formulaci.",
+        "errorNoGeolocation": "Tvůj prohlížeč nepodporuje geolokaci.",
+        "errorPermission": "Prohlížeč zamítl povolení k poloze.",
+        "errorUnavailable": "Polohu se nepodařilo zjistit (sensor nedostupný).",
+        "errorTimeout": "Detekce polohy vypršela.",
+        "hintPrecise": "Sdílím přesné GPS souřadnice + popisek (zobrazí se na mapě a profilu).",
+        "hintRegion": "Sdílím jen textový popisek (např. „Praha\"), souřadnice zůstávají soukromé.",
+        "hintHidden": "Polohu vůbec nezveřejňuji."
+      },
       "timezoneSection": "Časové zóny",
       "timezoneName": "Moje časová zóna",
       "timezoneHint": "Tato zóna se používá pro tvůj zobrazený čas u akcí a článků. UTC v DB se nemění.",
@@ -1234,6 +1288,12 @@
       "overlays": "Tématické vrstvy",
       "lightPollution": "Světelné znečištění",
       "events": "Akce (otevřené)",
+      "clouds": "Oblačnost",
+      "cloudsPlay": "Přehrát animaci",
+      "cloudsPause": "Pozastavit",
+      "cloudsSingleFrame": "Aktuální snímek (provider nepodporuje animaci)",
+      "cloudsEmpty": "Provider {{provider}} aktuálně nevrací žádné snímky.",
+      "cloudsOsmHint": "💡 Tip: oblačnost je nejvíc vidět na Dark nebo Satellite stylu mapy.",
       "lightPollutionHint": {
         "black_marble_2016": "NASA Black Marble (VIIRS DNB 2016 baseline). Žlutě/bíle = silně zasvícené noční oblohy.",
         "viirs_dnb_latest": "NASA VIIRS DNB latest ({{date}}). Aktuální noční snímek — žlutě/bíle = silně zasvícené oblohy."

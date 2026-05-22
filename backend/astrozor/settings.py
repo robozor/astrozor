@@ -79,6 +79,7 @@ INSTALLED_APPS = [
     "apps.uploads",
     "apps.geocoding",
     "apps.admin_panel",
+    "apps.docs",
 ]
 
 AUTH_USER_MODEL = "accounts.User"

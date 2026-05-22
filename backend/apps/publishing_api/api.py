@@ -145,7 +145,7 @@ def publish_article(request: HttpRequest, payload: PublishManifest):
         "article_id": article.id,
         "doi": article.doi,
         "status": article.status,
-        "url": f"/articles/{article.slug}",
+        "url": f"/clanky/{article.slug}",
     }
 
 
@@ -196,6 +196,49 @@ def r_pkg_info(request: HttpRequest):
         "repos_url": f"{scheme}://{host}/R",
         "install_command": (
             f'install.packages("astrozorpub", repos = "{scheme}://{host}/R")'
+        ),
+    }
+
+
+# ---- VS Code extension version (for docs install snippet + update-check) ----
+
+
+def _read_vscode_ext_version() -> str:
+    """Parse the version: line from vscode-extension/package.json.
+
+    Same idea as _read_r_pkg_version — the manifest is the source of
+    truth, the vsce-pkg-builder service produces a .vsix with the same
+    version, so they stay in sync. Falls back to "unknown" when the
+    directory isn't bind-mounted (e.g. running api alone).
+    """
+    manifest = Path("/app/vscode-extension/package.json")
+    if not manifest.exists():
+        return "unknown"
+    try:
+        import json
+
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+        return str(data.get("version") or "unknown")
+    except (OSError, ValueError):
+        return "unknown"
+
+
+@router.get("/vscode-pkg/info", response={200: dict})
+def vscode_pkg_info(request: HttpRequest):
+    """Metadata about the published VS Code extension — used by the docs
+    page to render the install snippet (with the right host) and by the
+    extension itself to surface an update prompt if needed."""
+    host = request.get_host()
+    scheme = "https" if request.is_secure() else "http"
+    version = _read_vscode_ext_version()
+    base = f"{scheme}://{host}/vscode-extension"
+    return 200, {
+        "name": "astrozor-publish",
+        "version": version,
+        "vsix_latest_url": f"{base}/astrozor-publish-latest.vsix",
+        "vsix_versioned_url": f"{base}/astrozor-publish-{version}.vsix",
+        "install_command": (
+            f'code --install-extension {base}/astrozor-publish-latest.vsix --force'
         ),
     }
 
@@ -370,6 +413,6 @@ def publish_quarto(
         "article_slug": article.slug,
         "article_id": article.id,
         "status": article.status,
-        "url": f"/articles/{article.slug}",
+        "url": f"/clanky/{article.slug}",
         "asset_url": _quarto_asset_url(asset_root),
     }

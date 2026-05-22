@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   ApiError,
   apiTokens,
   auth,
+  geocoding,
   type ApiToken,
+  type GeocodeHit,
   type Identity,
   type Me,
   type ProfilePatch,
@@ -204,6 +206,9 @@ function ProfileSection({ me }: { me: Me }) {
   const [club, setClub] = useState(me.profile.club);
   const [equipment, setEquipment] = useState(me.profile.equipment);
   const [visibility, setVisibility] = useState(me.profile.location_visibility);
+  const [locationLabel, setLocationLabel] = useState(me.profile.location_label);
+  const [locationLat, setLocationLat] = useState<number | null>(me.profile.location_lat);
+  const [locationLon, setLocationLon] = useState<number | null>(me.profile.location_lon);
   const [language, setLanguage] = useState(me.profile.language);
   const [timezoneName, setTimezoneName] = useState(me.profile.timezone_name);
   const [showUtc, setShowUtc] = useState(me.profile.show_utc);
@@ -256,16 +261,6 @@ function ProfileSection({ me }: { me: Me }) {
           />
         </div>
         <SelectField
-          label={t("settings.profile.locationVisibility")}
-          value={visibility}
-          onChange={(v) => setVisibility(v as "precise" | "region" | "hidden")}
-          options={[
-            { value: "precise", label: t("settings.profile.visibility.precise") },
-            { value: "region", label: t("settings.profile.visibility.region") },
-            { value: "hidden", label: t("settings.profile.visibility.hidden") },
-          ]}
-        />
-        <SelectField
           label={t("settings.profile.language")}
           value={language}
           onChange={(v) => setLanguage(v)}
@@ -273,6 +268,30 @@ function ProfileSection({ me }: { me: Me }) {
             { value: "cs", label: "Čeština" },
             { value: "en", label: "English" },
           ]}
+        />
+      </div>
+
+      {/* Location section — coordinates + label + visibility. The
+          visibility selector is meaningless without an actual position,
+          so we collect lat/lon here too. Three ways to fill it:
+          (1) Geolocation API ("Detect from browser")
+          (2) Geocode the typed label via Photon
+          (3) Just type a label and leave lat/lon null (region/hidden modes) */}
+      <div className="mt-5 pt-4 border-t border-slate-800">
+        <h4 className="text-sm font-medium text-slate-200 mb-2">
+          {t("settings.profile.locationSection")}
+        </h4>
+        <LocationPicker
+          label={locationLabel}
+          lat={locationLat}
+          lon={locationLon}
+          visibility={visibility}
+          onLabelChange={setLocationLabel}
+          onCoordsChange={(la, lo) => {
+            setLocationLat(la);
+            setLocationLon(lo);
+          }}
+          onVisibilityChange={setVisibility}
         />
       </div>
 
@@ -325,6 +344,9 @@ function ProfileSection({ me }: { me: Me }) {
             bio,
             club,
             equipment,
+            location_label: locationLabel,
+            location_lat: locationLat,
+            location_lon: locationLon,
             location_visibility: visibility,
             language,
             timezone_name: timezoneName,
@@ -342,6 +364,223 @@ function ProfileSection({ me }: { me: Me }) {
         <span className="ml-3 text-xs text-emerald-400">✓ {t("settings.saved")}</span>
       )}
     </Card>
+  );
+}
+
+// ---- Location picker (label + GPS + geocode + visibility) ----
+//
+// Lives inside ProfileSection. Three input paths:
+//   1. Type a label → click "Search" → Photon geocode → pick one of
+//      top hits → coords + (often) prettier label auto-fill
+//   2. Click "Detect from browser" → navigator.geolocation → coords
+//      populated, label stays whatever user typed
+//   3. Type a label, leave coords empty (works for region/hidden modes —
+//      label-only sharing without revealing GPS)
+//
+// The visibility selector lives here too so the relationship between
+// "what is shared" (visibility) and "from what data" (coords + label)
+// is visually obvious. Visibility modes:
+//   precise → share coords + label
+//   region  → share label only
+//   hidden  → share nothing
+
+function LocationPicker({
+  label,
+  lat,
+  lon,
+  visibility,
+  onLabelChange,
+  onCoordsChange,
+  onVisibilityChange,
+}: {
+  label: string;
+  lat: number | null;
+  lon: number | null;
+  visibility: "precise" | "region" | "hidden";
+  onLabelChange: (next: string) => void;
+  onCoordsChange: (lat: number | null, lon: number | null) => void;
+  onVisibilityChange: (next: "precise" | "region" | "hidden") => void;
+}) {
+  const { t } = useTranslation();
+  const [searching, setSearching] = useState(false);
+  const [detecting, setDetecting] = useState(false);
+  const [hits, setHits] = useState<GeocodeHit[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  // Clear suggestions whenever label changes manually so stale hits from
+  // a prior search don't linger as the user types a new query.
+  useEffect(() => {
+    setHits([]);
+  }, [label]);
+
+  const search = async () => {
+    const q = label.trim();
+    if (!q) {
+      setError(t("settings.profile.location.errorEmpty"));
+      return;
+    }
+    setError(null);
+    setSearching(true);
+    try {
+      const res = await geocoding.search(q, 5);
+      if (res.items.length === 0) {
+        setError(t("settings.profile.location.errorNoResults"));
+        setHits([]);
+      } else {
+        setHits(res.items);
+      }
+    } catch (e) {
+      const detail = e instanceof ApiError ? e.detail : String(e);
+      setError(detail);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const detect = () => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setError(t("settings.profile.location.errorNoGeolocation"));
+      return;
+    }
+    setError(null);
+    setDetecting(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const la = Number(pos.coords.latitude.toFixed(6));
+        const lo = Number(pos.coords.longitude.toFixed(6));
+        onCoordsChange(la, lo);
+        setDetecting(false);
+      },
+      (err) => {
+        const msg =
+          err.code === err.PERMISSION_DENIED
+            ? t("settings.profile.location.errorPermission")
+            : err.code === err.POSITION_UNAVAILABLE
+              ? t("settings.profile.location.errorUnavailable")
+              : t("settings.profile.location.errorTimeout");
+        setError(msg);
+        setDetecting(false);
+      },
+      { timeout: 10_000, maximumAge: 60_000, enableHighAccuracy: false },
+    );
+  };
+
+  const pickHit = (hit: GeocodeHit) => {
+    onCoordsChange(Number(hit.lat), Number(hit.lon));
+    onLabelChange(hit.display_name);
+    setHits([]);
+  };
+
+  const clearCoords = () => {
+    onCoordsChange(null, null);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div>
+        <Label>{t("settings.profile.location.labelField")}</Label>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={label}
+            onChange={(e) => onLabelChange(e.target.value)}
+            placeholder={t("settings.profile.location.placeholder")}
+            className="flex-1 bg-slate-950 ring-1 ring-slate-700 focus:ring-slate-500 rounded-md px-3 py-2 text-slate-100 outline-none text-sm"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void search();
+              }
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => void search()}
+            disabled={searching || !label.trim()}
+            className="bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-100 text-xs px-3 py-2 rounded-md ring-1 ring-slate-700 transition"
+            title={t("settings.profile.location.searchTooltip")}
+          >
+            {searching ? "…" : `🔍 ${t("settings.profile.location.searchBtn")}`}
+          </button>
+          <button
+            type="button"
+            onClick={detect}
+            disabled={detecting}
+            className="bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-100 text-xs px-3 py-2 rounded-md ring-1 ring-slate-700 transition"
+            title={t("settings.profile.location.detectTooltip")}
+          >
+            {detecting ? "…" : `📍 ${t("settings.profile.location.detectBtn")}`}
+          </button>
+        </div>
+      </div>
+
+      {hits.length > 0 && (
+        <ul className="bg-slate-950 ring-1 ring-slate-800 rounded-md divide-y divide-slate-800 max-h-48 overflow-y-auto">
+          {hits.map((h) => (
+            <li key={h.place_id}>
+              <button
+                type="button"
+                onClick={() => pickHit(h)}
+                className="w-full text-left px-3 py-2 hover:bg-slate-900 text-xs text-slate-200"
+              >
+                <span className="block truncate">{h.display_name}</span>
+                <span className="text-[10px] text-slate-500 font-mono">
+                  {Number(h.lat).toFixed(4)}, {Number(h.lon).toFixed(4)}
+                  {h.type ? ` · ${h.type}` : ""}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {error && (
+        <p className="text-xs text-rose-300 bg-rose-950/40 ring-1 ring-rose-900/50 rounded px-2 py-1.5">
+          {error}
+        </p>
+      )}
+
+      <div className="flex items-center justify-between text-[11px] text-slate-400">
+        <span>
+          {lat !== null && lon !== null ? (
+            <>
+              📍 <span className="font-mono">{lat.toFixed(5)}, {lon.toFixed(5)}</span>
+            </>
+          ) : (
+            <span className="text-slate-500">
+              {t("settings.profile.location.noCoords")}
+            </span>
+          )}
+        </span>
+        {(lat !== null || lon !== null) && (
+          <button
+            type="button"
+            onClick={clearCoords}
+            className="text-slate-500 hover:text-slate-300 underline"
+          >
+            {t("settings.profile.location.clearCoords")}
+          </button>
+        )}
+      </div>
+
+      <SelectField
+        label={t("settings.profile.locationVisibility")}
+        value={visibility}
+        onChange={(v) => onVisibilityChange(v as "precise" | "region" | "hidden")}
+        options={[
+          { value: "precise", label: t("settings.profile.visibility.precise") },
+          { value: "region", label: t("settings.profile.visibility.region") },
+          { value: "hidden", label: t("settings.profile.visibility.hidden") },
+        ]}
+      />
+      <p className="text-[11px] text-slate-500 -mt-1">
+        {visibility === "precise"
+          ? t("settings.profile.location.hintPrecise")
+          : visibility === "region"
+            ? t("settings.profile.location.hintRegion")
+            : t("settings.profile.location.hintHidden")}
+      </p>
+    </div>
   );
 }
 
