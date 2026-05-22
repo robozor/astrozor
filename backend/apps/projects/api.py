@@ -507,6 +507,26 @@ def create_repo_issue(
         labels=labels,
         user=request.user,
     )
+    # Optimistic counter bump + TTL bust so the cached counters used
+    # by the project page (``🐛 Otevřené issues`` metric and the
+    # ``Issues · N`` toggle) update immediately. The bump is atomic
+    # via ``F()`` to survive concurrent creates from multiple users.
+    # Setting ``last_fetched_at=None`` forces the next
+    # ``list_repos`` call to call ``fetch_repo_metadata`` again,
+    # which pulls the authoritative ``open_issues_count`` from GitHub
+    # — that reconciles any issues that were created/closed outside
+    # of Astrozor since the previous fetch (the bump alone can't see
+    # them).
+    if result.get("status") == "ok":
+        from django.db.models import F
+
+        try:
+            GHRepo.objects.filter(pk=r.pk).update(
+                open_issues=F("open_issues") + 1,
+                last_fetched_at=None,
+            )
+        except Exception:
+            pass
     return 200, result
 
 

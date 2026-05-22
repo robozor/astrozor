@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -62,6 +62,47 @@ export function ProjectsPage({ me }: { me: Me }) {
       onNew={() => setView({ kind: "new" })}
     />
   );
+}
+
+/** Render plain text with bare http(s) URLs converted to safe
+ *  external links. Used in project descriptions where the user
+ *  may paste a homepage URL (e.g. for Bolidozor → bolidozor.cz)
+ *  and expect it to be clickable without learning markdown.
+ *
+ *  The regex matches an http/https URL; we strip trailing
+ *  punctuation that's commonly written *after* a URL in prose
+ *  (period/comma/closing parens/quotes) so "see https://x.com." gives
+ *  a link to "https://x.com" instead of "https://x.com.".
+ */
+function linkifyText(text: string): ReactNode[] {
+  const URL_RX = /(https?:\/\/[^\s<>"']+)/g;
+  const nodes: ReactNode[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = URL_RX.exec(text)) !== null) {
+    if (m.index > last) nodes.push(text.slice(last, m.index));
+    let url = m[1];
+    let trailing = "";
+    while (url.length > 0 && ".,!?;:)]}".includes(url[url.length - 1])) {
+      trailing = url[url.length - 1] + trailing;
+      url = url.slice(0, -1);
+    }
+    nodes.push(
+      <a
+        key={`a-${m.index}`}
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-indigo-400 hover:text-indigo-300 underline"
+      >
+        {url}
+      </a>,
+    );
+    if (trailing) nodes.push(trailing);
+    last = m.index + m[1].length;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return nodes;
 }
 
 function ProjectList({
@@ -130,7 +171,9 @@ function ProjectList({
               </div>
             </div>
             {p.description && (
-              <p className="text-sm text-slate-400 mt-2 line-clamp-2">{p.description}</p>
+              <p className="text-sm text-slate-400 mt-2 line-clamp-2">
+                {linkifyText(p.description)}
+              </p>
             )}
             {p.tags && p.tags.length > 0 && (
               <div className="mt-2">
@@ -270,7 +313,9 @@ function ProjectDetail({
           </header>
 
           {p.description && (
-            <p className="text-slate-300 whitespace-pre-wrap">{p.description}</p>
+            <p className="text-slate-300 whitespace-pre-wrap">
+              {linkifyText(p.description)}
+            </p>
           )}
           {p.tags.length > 0 && <TagsList tags={p.tags} size="xs" />}
 
@@ -893,15 +938,27 @@ function IssuesPanel({ repo }: { repo: GHRepo }) {
         <NewIssueDialog
           repo={repo}
           onClose={() => setNewIssueOpen(false)}
-          onCreated={() => {
+          onCreated={async () => {
+            // Small delay before refetch: GitHub's REST API has
+            // brief read-after-write inconsistency on the issues
+            // listing — POST /issues returns the new issue, but a
+            // GET /issues right after sometimes still serves the
+            // pre-create snapshot. 800ms is enough in practice for
+            // the new ticket to surface. We then fetch directly and
+            // seed the cache, bypassing React Query's fetch
+            // machinery (which empirically failed to refresh in
+            // this flow even with refetch/cancel/remove).
+            await new Promise((r) => setTimeout(r, 800));
+            const [freshIssues, freshRepos] = await Promise.all([
+              projects.issues(repo.id),
+              projects.repos(repo.project_slug),
+            ]);
+            qc.setQueryData(["repo-issues", repo.id], freshIssues);
+            qc.setQueryData(
+              ["project-repos", repo.project_slug],
+              freshRepos,
+            );
             setNewIssueOpen(false);
-            qc.invalidateQueries({ queryKey: ["repo-issues", repo.id] });
-            // The created issue counts toward open_issues in repo
-            // metadata — bust the repo list so the count refreshes
-            // without waiting for the TTL.
-            qc.invalidateQueries({
-              queryKey: ["project-repos", repo.project_slug],
-            });
           }}
         />
       )}
@@ -920,7 +977,7 @@ function NewIssueDialog({
 }: {
   repo: GHRepo;
   onClose: () => void;
-  onCreated: () => void;
+  onCreated: () => void | Promise<void>;
 }) {
   const { t } = useTranslation();
   const [type, setType] = useState<GHIssueType>("bug");
@@ -935,9 +992,9 @@ function NewIssueDialog({
         body: body.trim(),
         type,
       }),
-    onSuccess: (res) => {
+    onSuccess: async (res) => {
       if (res.status === "ok") {
-        onCreated();
+        await onCreated();
       } else if (res.status === "no_token") {
         setError(t("projects.issues.newIssueNoToken"));
       } else {
