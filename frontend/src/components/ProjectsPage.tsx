@@ -508,6 +508,25 @@ function RepoCard({
     mutationFn: () => projects.removeRepo(repo.id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["project-repos", projectSlug] }),
   });
+  // Live issue count — GitHub's ``open_issues_count`` on the repo
+  // endpoint includes pull requests, so for a repo with 8 PRs + 1
+  // bug it reports 9. Our list filters PRs out and shows 1, leaving
+  // the toggle button ("Issues · 9") inconsistent with the panel.
+  // Fetch the filtered list here too (React Query dedups with the
+  // child IssuesPanel so only one network call hits) and use its
+  // length as the authoritative issue count. ``repo.open_issues``
+  // stays the fallback for the rare case the query is still loading.
+  const issuesQuery = useQuery({
+    queryKey: ["repo-issues", repo.id],
+    queryFn: () => projects.issues(repo.id),
+    enabled: repo.last_status === "ok" || repo.last_status === "",
+  });
+  const liveIssueCount = issuesQuery.data?.length;
+  const prCount =
+    liveIssueCount !== undefined
+      ? Math.max(0, repo.open_issues - liveIssueCount)
+      : 0;
+  const displayIssueCount = liveIssueCount ?? repo.open_issues;
 
   return (
     <li
@@ -577,7 +596,14 @@ function RepoCard({
         <RepoMetric
           icon="🐛"
           label={t("projects.repos.openIssuesLabel")}
-          value={String(repo.open_issues)}
+          value={
+            prCount > 0
+              ? t("projects.repos.openIssuesWithPRs", {
+                  issues: displayIssueCount,
+                  count: prCount,
+                })
+              : String(displayIssueCount)
+          }
         />
       </div>
 
@@ -596,8 +622,20 @@ function RepoCard({
           onClick={() => setShowIssues((s) => !s)}
           className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1 rounded transition"
           data-testid={`repo-toggle-issues-${repo.id}`}
+          title={
+            prCount > 0
+              ? t("projects.issues.togglePRTooltip", { count: prCount })
+              : undefined
+          }
         >
-          {showIssues ? "▾" : "▸"} {t("projects.issues.toggle", { count: repo.open_issues })}
+          {showIssues ? "▾" : "▸"}{" "}
+          {t("projects.issues.toggle", { count: displayIssueCount })}
+          {prCount > 0 && (
+            <span className="ml-1 text-indigo-200/70">
+              {" "}
+              · {t("projects.issues.plusPRs", { count: prCount })}
+            </span>
+          )}
         </button>
         <a
           href={`${repo.html_url}/issues`}
