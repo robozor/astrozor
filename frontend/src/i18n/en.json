@@ -560,13 +560,13 @@
     },
     "delete": "Delete project",
     "confirmDelete": "Really delete this project?",
-    "by": "by",
+    "by": "Owner:",
     "edit": "Edit",
     "save": "Save",
     "editTitle": "Edit project",
     "join": "Join",
     "leave": "Leave",
-    "creatorCantLeave": "The creator can't leave their own project — transfer ownership in a future release.",
+    "creatorCantLeave": "The owner can't leave their own project — transfer ownership in a future release.",
     "empty": "No projects yet",
     "emptyHint": "Click 'New project' — track GitHub repos and collaborators.",
     "field": {
@@ -582,7 +582,7 @@
     "members": {
       "heading": "Joined users",
       "empty": "No members yet.",
-      "creator": "Creator"
+      "creator": "Owner"
     },
     "repos": {
       "title": "GitHub repositories",

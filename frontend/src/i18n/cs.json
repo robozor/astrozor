@@ -564,10 +564,10 @@
     "editTitle": "Upravit projekt",
     "delete": "Smazat projekt",
     "confirmDelete": "Opravdu smazat tento projekt?",
-    "by": "vytvořil",
+    "by": "Vlastník:",
     "join": "Připojit se",
     "leave": "Odpojit se",
-    "creatorCantLeave": "Vytvořitel se z projektu nemůže odpojit — předej vlastnictví v budoucí verzi.",
+    "creatorCantLeave": "Vlastník se z projektu nemůže odpojit — předej vlastnictví v budoucí verzi.",
     "empty": "Žádný projekt",
     "emptyHint": "Klikni na 'Nový projekt' — můžeš v něm sledovat GitHub repozitáře.",
     "field": {
@@ -583,7 +583,7 @@
     "members": {
       "heading": "Připojení uživatelé",
       "empty": "Zatím nikdo není připojený.",
-      "creator": "Vytvořitel"
+      "creator": "Vlastník"
     },
     "repos": {
       "title": "GitHub repozitáře",
