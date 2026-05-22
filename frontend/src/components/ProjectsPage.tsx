@@ -105,6 +105,251 @@ function linkifyText(text: string): ReactNode[] {
   return nodes;
 }
 
+/** Inviting hero block above the project list. Pitch + illustration
+ *  encouraging visitors to pick a GitHub-tracked task and contribute.
+ *  Illustration is a self-contained SVG so it works offline / behind
+ *  proxies that block external image hosts. */
+function ProjectsIntro() {
+  const { t } = useTranslation();
+  return (
+    <div
+      className="relative overflow-hidden bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 ring-1 ring-indigo-900/40 rounded-xl p-5 sm:p-7 mb-6"
+      data-testid="projects-intro"
+    >
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 opacity-30"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 18% 22%, rgba(165,180,252,0.6) 1px, transparent 1.5px)," +
+            "radial-gradient(circle at 72% 18%, rgba(199,210,254,0.5) 1px, transparent 1.5px)," +
+            "radial-gradient(circle at 40% 65%, rgba(165,180,252,0.5) 1px, transparent 1.5px)," +
+            "radial-gradient(circle at 88% 78%, rgba(129,140,248,0.6) 1px, transparent 1.5px)",
+          backgroundSize: "240px 200px",
+        }}
+      />
+      <div className="relative flex flex-col sm:flex-row items-stretch gap-5">
+        <div className="shrink-0 self-center sm:self-start">
+          <CollaborationIllustration />
+        </div>
+        <div className="flex-1 space-y-2">
+          <h2 className="text-lg sm:text-xl font-semibold text-slate-100">
+            {t("projects.intro.title")}
+          </h2>
+          <p className="text-sm text-slate-300 leading-relaxed">
+            {t("projects.intro.body")}
+          </p>
+          <ul className="text-xs text-slate-400 space-y-1 pt-1">
+            <li>
+              ✦ {t("projects.intro.bullet1")}
+            </li>
+            <li>
+              ✦ {t("projects.intro.bullet2")}
+            </li>
+            <li>
+              ✦ {t("projects.intro.bullet3")}
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Inline SVG showing a stylized scene of astronomical collaboration:
+ *  two people looking up at a star/constellation through a connected
+ *  network of nodes. No external assets required.
+ */
+function CollaborationIllustration() {
+  return (
+    <svg
+      width="180"
+      height="160"
+      viewBox="0 0 180 160"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      className="block"
+    >
+      <defs>
+        <radialGradient id="aiGlow" cx="50%" cy="40%" r="50%">
+          <stop offset="0%" stopColor="#a5b4fc" stopOpacity="0.6" />
+          <stop offset="100%" stopColor="#1e1b4b" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id="aiSky" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#312e81" />
+          <stop offset="100%" stopColor="#0f172a" />
+        </linearGradient>
+      </defs>
+
+      {/* sky */}
+      <circle cx="90" cy="58" r="72" fill="url(#aiGlow)" />
+
+      {/* stars + constellation lines */}
+      <g stroke="#818cf8" strokeWidth="0.8" opacity="0.65">
+        <line x1="42" y1="30" x2="72" y2="18" />
+        <line x1="72" y1="18" x2="110" y2="28" />
+        <line x1="110" y1="28" x2="138" y2="48" />
+        <line x1="138" y1="48" x2="120" y2="74" />
+        <line x1="120" y1="74" x2="72" y2="18" />
+      </g>
+      <g fill="#fef9c3">
+        <circle cx="42" cy="30" r="2.4" />
+        <circle cx="72" cy="18" r="3" />
+        <circle cx="110" cy="28" r="2.4" />
+        <circle cx="138" cy="48" r="2.6" />
+        <circle cx="120" cy="74" r="2" />
+      </g>
+      {/* extra star sparkles */}
+      <g fill="#e0e7ff" opacity="0.7">
+        <circle cx="20" cy="50" r="1" />
+        <circle cx="55" cy="64" r="0.8" />
+        <circle cx="155" cy="22" r="1" />
+        <circle cx="160" cy="68" r="0.8" />
+        <circle cx="32" cy="78" r="0.8" />
+      </g>
+
+      {/* two people silhouettes */}
+      <g fill="#cbd5e1">
+        {/* person 1 */}
+        <circle cx="58" cy="100" r="7" />
+        <path d="M48 132 L48 118 Q48 110 58 110 Q68 110 68 118 L68 132 Z" />
+        {/* person 2 */}
+        <circle cx="118" cy="100" r="7" />
+        <path d="M108 132 L108 118 Q108 110 118 110 Q128 110 128 118 L128 132 Z" />
+      </g>
+
+      {/* connecting "collaboration" arc between them */}
+      <path
+        d="M62 102 Q88 86 114 102"
+        stroke="#818cf8"
+        strokeWidth="1.5"
+        fill="none"
+        strokeDasharray="2 3"
+      />
+
+      {/* tiny telescope to the right */}
+      <g fill="#a5b4fc" transform="translate(132 108)">
+        <rect x="0" y="6" width="20" height="3" rx="1.5" transform="rotate(-25 0 6)" />
+        <rect x="-3" y="14" width="6" height="2" rx="1" />
+        <rect x="-1" y="14" width="2" height="6" />
+      </g>
+
+      {/* ground line */}
+      <line
+        x1="14"
+        y1="138"
+        x2="166"
+        y2="138"
+        stroke="#334155"
+        strokeWidth="1"
+        strokeDasharray="4 4"
+      />
+    </svg>
+  );
+}
+
+/** Leaderboard of the most-active GitHub assignees across all linked
+ *  repos the caller can see. Shows up to 8 by default with a "Show all"
+ *  affordance when more exist. Astrozor display name (when known) +
+ *  GH login in parens; users without an Astrozor account show as
+ *  "(GH only)".
+ */
+function IssueLeaderboardPanel() {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
+  const q = useQuery({
+    queryKey: ["issue-leaderboard"],
+    queryFn: () => projects.issueLeaderboard(20),
+    staleTime: 60_000,
+  });
+  if (q.isError) return null;
+  const all = q.data ?? [];
+  const top = expanded ? all : all.slice(0, 8);
+  if (q.isSuccess && all.length === 0) return null;
+
+  return (
+    <div
+      className="bg-slate-950/60 ring-1 ring-slate-800 rounded-xl p-4 mb-6"
+      data-testid="issue-leaderboard"
+    >
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-medium text-slate-200">
+          🏆 {t("projects.leaderboard.title")}
+        </h3>
+        {all.length > 8 && (
+          <button
+            type="button"
+            onClick={() => setExpanded((s) => !s)}
+            className="text-[11px] text-indigo-300 hover:text-indigo-200"
+          >
+            {expanded
+              ? t("projects.leaderboard.collapse")
+              : t("projects.leaderboard.expand", { count: all.length })}
+          </button>
+        )}
+      </div>
+      {q.isLoading && (
+        <p className="text-[11px] text-slate-500">{t("common.loading")}</p>
+      )}
+      {q.isSuccess && top.length === 0 && (
+        <p className="text-[11px] text-slate-500">
+          {t("projects.leaderboard.empty")}
+        </p>
+      )}
+      <ul className="space-y-1.5">
+        {top.map((row, idx) => (
+          <li
+            key={row.gh_login}
+            className="flex items-center gap-2 text-xs"
+            data-testid={`leaderboard-row-${row.gh_login}`}
+          >
+            <span className="w-5 text-right text-slate-500 font-mono">
+              {idx + 1}.
+            </span>
+            {row.gh_avatar ? (
+              <img
+                src={row.gh_avatar}
+                alt={row.gh_login}
+                width={20}
+                height={20}
+                className="rounded-full ring-1 ring-slate-800"
+              />
+            ) : (
+              <span className="w-5 h-5 rounded-full bg-slate-800 ring-1 ring-slate-700" />
+            )}
+            <div className="flex-1 min-w-0 truncate">
+              {row.astrozor_display_name ? (
+                <span className="text-slate-100">
+                  {row.astrozor_display_name}{" "}
+                  <span className="text-slate-500">({row.gh_login})</span>
+                </span>
+              ) : (
+                <a
+                  href={row.gh_html_url}
+                  target="_blank"
+                  rel="noopener"
+                  className="text-slate-300 hover:text-indigo-300"
+                >
+                  {row.gh_login}{" "}
+                  <span className="text-slate-500 text-[10px]">
+                    · {t("projects.leaderboard.ghOnly")}
+                  </span>
+                </a>
+              )}
+            </div>
+            <span
+              className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-indigo-900/40 text-indigo-200 ring-1 ring-indigo-900/60"
+              title={t("projects.leaderboard.countTooltip")}
+            >
+              {row.open_issue_count}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function ProjectList({
   onOpen,
   onNew,
@@ -126,6 +371,8 @@ function ProjectList({
 
   return (
     <section data-testid="projects-list">
+      <ProjectsIntro />
+      <IssueLeaderboardPanel />
       <header className="flex items-center justify-between mb-4 gap-2 flex-wrap">
         <h2 className="text-xl font-semibold">{t("projects.title")}</h2>
         <div className="flex items-center gap-2 flex-wrap">
@@ -825,9 +1072,11 @@ function IssuesPanel({ repo }: { repo: GHRepo }) {
     queryKey: ["identities"],
     queryFn: () => auth.listIdentities(),
   });
-  const hasGhIdentity = !!identities.data?.some(
+  const ghIdentity = identities.data?.find(
     (i) => i.provider === "github" && i.has_token,
   );
+  const hasGhIdentity = !!ghIdentity;
+  const currentGhLogin = ghIdentity?.provider_username ?? "";
 
   const [stateFilter, setStateFilter] = useState<IssueStateFilter>("all");
   const [priorityFilter, setPriorityFilter] =
@@ -964,6 +1213,7 @@ function IssuesPanel({ repo }: { repo: GHRepo }) {
             issue={issue}
             repo={repo}
             canClaim={hasGhIdentity}
+            currentGhLogin={currentGhLogin}
           />
         ))}
       </ul>
@@ -1204,15 +1454,45 @@ function IssueRow({
   issue,
   repo,
   canClaim,
+  currentGhLogin,
 }: {
   issue: GHIssue;
   repo: GHRepo;
   canClaim: boolean;
+  currentGhLogin: string;
 }) {
   const { t } = useTranslation();
+  const qc = useQueryClient();
   const [detailOpen, setDetailOpen] = useState(false);
+  const [claimNote, setClaimNote] = useState<string>("");
 
   const ghLink = issue.html_url || `${repo.html_url}/issues/${issue.number}`;
+  const alreadyAssigned =
+    !!currentGhLogin &&
+    issue.assignees.some(
+      (a) => a.login.toLowerCase() === currentGhLogin.toLowerCase(),
+    );
+  const someoneAssigned = issue.assignees.length > 0;
+
+  const claim = useMutation({
+    mutationFn: () => projects.assignIssueToSelf(repo.id, issue.number),
+    onSuccess: (res) => {
+      if (res.status === "ok") {
+        setClaimNote("");
+        qc.invalidateQueries({ queryKey: ["repo-issues", repo.id] });
+        qc.invalidateQueries({ queryKey: ["issue-leaderboard"] });
+      } else if (res.status === "not_collaborator") {
+        setClaimNote(t("projects.issues.claimNotCollaborator"));
+      } else if (res.status === "no_token" || res.status === "no_identity") {
+        setClaimNote(t("projects.issues.claimNoToken"));
+      } else {
+        setClaimNote(
+          `${res.status}${res.detail ? `: ${res.detail.slice(0, 200)}` : ""}`,
+        );
+      }
+    },
+    onError: (err) => setClaimNote(String(err)),
+  });
 
   return (
     <li
@@ -1244,11 +1524,33 @@ function IssueRow({
               </span>
             ))}
           </div>
-          {issue.assignees.length > 0 && (
-            <p className="text-[10px] text-slate-500 mt-1">
-              {t("projects.issues.assignedTo")}:{" "}
-              {issue.assignees.map((a) => a.login).join(", ")}
-            </p>
+          {someoneAssigned && (
+            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+              <span className="text-[10px] text-slate-500 uppercase tracking-wider">
+                {t("projects.issues.solver")}:
+              </span>
+              {issue.assignees.map((a) => (
+                <a
+                  key={a.login}
+                  href={a.html_url}
+                  target="_blank"
+                  rel="noopener"
+                  className="flex items-center gap-1 text-[11px] bg-slate-800/70 hover:bg-slate-700 ring-1 ring-slate-700 hover:ring-slate-600 px-1.5 py-0.5 rounded-full transition"
+                  title={a.login}
+                >
+                  {a.avatar_url && (
+                    <img
+                      src={a.avatar_url}
+                      alt={a.login}
+                      width={16}
+                      height={16}
+                      className="rounded-full"
+                    />
+                  )}
+                  <span className="text-slate-200">{a.login}</span>
+                </a>
+              ))}
+            </div>
           )}
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
@@ -1267,7 +1569,36 @@ function IssueRow({
         >
           {t("projects.issues.openIssue")} ↗
         </a>
+        {canClaim && !alreadyAssigned && (
+          <button
+            type="button"
+            onClick={() => {
+              setClaimNote("");
+              claim.mutate();
+            }}
+            disabled={claim.isPending}
+            className="text-[11px] bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:text-slate-400 text-white px-2 py-0.5 rounded transition"
+            data-testid={`issue-claim-${issue.number}`}
+          >
+            {claim.isPending
+              ? "…"
+              : someoneAssigned
+                ? t("projects.issues.claimJoin")
+                : t("projects.issues.claimSelf")}
+          </button>
+        )}
+        {alreadyAssigned && (
+          <span
+            className="text-[11px] text-emerald-300 bg-emerald-900/30 ring-1 ring-emerald-800/60 px-2 py-0.5 rounded"
+            data-testid={`issue-claimed-${issue.number}`}
+          >
+            ✓ {t("projects.issues.claimedByYou")}
+          </span>
+        )}
       </div>
+      {claimNote && (
+        <p className="text-[11px] text-amber-300 break-words">{claimNote}</p>
+      )}
       {detailOpen && (
         <IssueDetailPanel
           repoId={repo.id}

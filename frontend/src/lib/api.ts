@@ -1217,6 +1217,29 @@ export type GHIssueCreateResult = {
   detail?: string;
 };
 
+/** Response from POST /repos/{id}/issues/{n}/assign. Status values:
+ *  - ok: the caller is now in the issue's assignees list
+ *  - not_collaborator: GH accepted the call but dropped the assignee
+ *    (caller doesn't have write access to the repo)
+ *  - no_token / no_identity: caller hasn't connected GitHub
+ *  - http_NNN / error: GitHub HTTP failure */
+export type GHIssueAssignResult = {
+  status: string;
+  assignees?: string[];
+  detail?: string;
+};
+
+/** One row of the GH user open-issue leaderboard, joined with
+ *  Astrozor identities when present. */
+export type IssueLeaderboardEntry = {
+  gh_login: string;
+  gh_avatar: string;
+  gh_html_url: string;
+  astrozor_display_name: string;
+  astrozor_email: string;
+  open_issue_count: number;
+};
+
 export type GHIssueClaim = {
   status: string;
   html_url?: string;
@@ -1271,6 +1294,21 @@ export const projects = {
     api.post<GHIssueClaim>(`/repos/${repoId}/issues/${issueNumber}/claim`, {
       body: body ?? "",
     }),
+  /** Add the caller as a GH assignee on the issue. Requires the
+   *  caller to be a repo collaborator with write access — non-
+   *  collaborators get ``status="not_collaborator"`` and the UI
+   *  hints them to ask the owner for access. */
+  assignIssueToSelf: (repoId: string, issueNumber: number) =>
+    api.post<GHIssueAssignResult>(
+      `/repos/${repoId}/issues/${issueNumber}/assign`,
+    ),
+  /** GH user → open-issue-count leaderboard across all linked repos
+   *  the caller can see. ``astrozor_*`` fields are empty for users
+   *  who don't have a connected Astrozor account. */
+  issueLeaderboard: (limit = 20) =>
+    api.get<IssueLeaderboardEntry[]>(
+      `/issues/leaderboard?limit=${limit}`,
+    ),
   /** Open a new GitHub issue (bug / feature / task) on the linked repo
    *  using the caller's connected GH OAuth token. Backend maps
    *  ``type`` to GH labels (bug → ``bug``, feature → ``enhancement``,

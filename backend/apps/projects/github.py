@@ -542,6 +542,72 @@ def post_issue_comment(
     return {"status": "ok", "html_url": data.get("html_url", "")}
 
 
+def assign_issue_to_self(
+    repo: GHRepo, issue_number: int, user
+) -> dict:
+    """Add the caller's GitHub login to the issue's assignees.
+
+    Uses GH's dedicated ``POST /issues/{n}/assignees`` endpoint (vs.
+    ``PATCH /issues/{n}`` which replaces the whole assignees list).
+    The caller's GH login is read from their connected Identity. GH
+    silently drops assignees who aren't repo collaborators — in that
+    case the response will be 201 but the login won't appear in the
+    ``assignees`` array. We surface this as ``status="not_collaborator"``
+    so the UI can show a helpful hint.
+
+    Returns one of:
+      * ``{"status": "ok", "assignees": [...]}`` — login is in assignees
+      * ``{"status": "not_collaborator", "assignees": [...]}`` — GH
+        accepted the call but dropped the assignee (no write access)
+      * ``{"status": "no_token" | "no_identity"}`` — caller hasn't
+        connected GitHub or their Identity has no GH username
+      * ``{"status": "http_NNN" | "error", "detail": "..."}``
+    """
+    token = _resolve_user_token(user) if user else None
+    if not token:
+        return {"status": "no_token", "detail": "User has no connected GitHub token"}
+    from apps.accounts.models import Identity
+
+    ident = (
+        Identity.objects.filter(user=user, provider="github")
+        .exclude(provider_username="")
+        .first()
+    )
+    if not ident or not ident.provider_username:
+        return {"status": "no_identity", "detail": "GitHub login unknown for this user"}
+    login = ident.provider_username
+    url = (
+        f"{GH_API}/repos/{repo.owner_login}/{repo.repo_name}/"
+        f"issues/{issue_number}/assignees"
+    )
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            r = client.post(
+                url,
+                headers=_headers(token),
+                json={"assignees": [login]},
+            )
+    except httpx.HTTPError as e:
+        return {"status": "error", "detail": str(e)}
+    if r.status_code not in (200, 201):
+        return {"status": f"http_{r.status_code}", "detail": r.text[:200]}
+    data = r.json()
+    assignees = [
+        (a.get("login") or "").lower()
+        for a in (data.get("assignees") or [])
+    ]
+    if login.lower() not in assignees:
+        return {
+            "status": "not_collaborator",
+            "detail": "GitHub accepted the request but dropped the assignee — caller is not a collaborator on this repo.",
+            "assignees": [a.get("login") for a in (data.get("assignees") or [])],
+        }
+    return {
+        "status": "ok",
+        "assignees": [a.get("login") for a in (data.get("assignees") or [])],
+    }
+
+
 def create_issue(
     repo: GHRepo,
     *,

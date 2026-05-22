@@ -138,6 +138,24 @@ class GHIssueCreateIn(Schema):
     type: str = "task"
 
 
+class IssueLeaderboardEntry(Schema):
+    """One row of the per-user open-issue leaderboard.
+
+    The leaderboard counts open GH issues assigned to each user
+    across every linked repo the caller can see. ``gh_login`` is the
+    GitHub username (always present); ``astrozor_*`` fields are
+    populated when the user has a connected Astrozor account, else
+    empty so the UI can show a "Pouze GH" badge.
+    """
+
+    gh_login: str
+    gh_avatar: str = ""
+    gh_html_url: str = ""
+    astrozor_display_name: str = ""
+    astrozor_email: str = ""
+    open_issue_count: int = 0
+
+
 class GHActivityBucket(Schema):
     """One day of aggregated commit count across all linked repos."""
 

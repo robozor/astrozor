@@ -10,6 +10,7 @@ from apps.chat.schemas import MessageIn, MessageListOut, MessageOut
 
 from .github import (
     _render_gh_markdown,
+    assign_issue_to_self,
     create_issue,
     fetch_issue_detail,
     fetch_repo_issues,
@@ -25,6 +26,7 @@ from .schemas import (
     GHIssueDetailOut,
     GHRepoIn,
     GHRepoOut,
+    IssueLeaderboardEntry,
     ProjectIn,
     ProjectMemberOut,
     ProjectOut,
@@ -608,6 +610,117 @@ def claim_repo_issue(
     )
     result = post_issue_comment(r, issue_number, body, request.user)
     return 200, result
+
+
+@router.post(
+    "/repos/{repo_id}/issues/{issue_number}/assign",
+    response={200: dict, 401: dict, 403: dict, 404: dict},
+)
+def assign_repo_issue_to_caller(
+    request: HttpRequest, repo_id: str, issue_number: int
+):
+    """Add the caller as an assignee on the GH issue.
+
+    GitHub requires the assignee to be a collaborator on the repo
+    with at least read+triage permissions. Random users self-assigning
+    will get a 200 with ``status="not_collaborator"`` — the UI shows
+    that as a "ask the owner to add you as a collaborator" hint.
+    """
+    if not _require_auth(request):
+        return 401, {"detail": "Authentication required"}
+    try:
+        r = GHRepo.objects.select_related("project").get(id=repo_id)
+    except (GHRepo.DoesNotExist, ValueError):
+        return 404, {"detail": "Repo not found"}
+    if not _can_view_project(r.project, request.user):
+        return 403, {"detail": "Forbidden"}
+    result = assign_issue_to_self(r, issue_number, request.user)
+    return 200, result
+
+
+@router.get(
+    "/issues/leaderboard",
+    response={200: list[IssueLeaderboardEntry]},
+)
+def issue_leaderboard(request: HttpRequest, limit: int = 20):
+    """Top GitHub users by number of open issues they're assigned to.
+
+    Aggregates across every linked repo the caller can see. Joins
+    against ``apps.accounts.Identity`` so users with a connected
+    Astrozor account get their display name attached — others show
+    as GH-only. The list is sorted by count desc (ties broken by
+    GH login asc for stable order).
+
+    Cost: one ``/issues`` GH call per linked repo (cached by the
+    backend caller's token). React Query on the client adds another
+    layer of caching with a generous ``staleTime``.
+    """
+    from collections import defaultdict
+
+    from apps.accounts.models import Identity
+
+    counts: dict[str, int] = defaultdict(int)
+    avatars: dict[str, str] = {}
+    html_urls: dict[str, str] = {}
+    user = request.user if request.user.is_authenticated else None
+    repos_qs = GHRepo.objects.filter(last_status="ok").select_related("project")
+    for r in repos_qs:
+        if not _can_view_project(r.project, request.user):
+            continue
+        try:
+            issues = fetch_repo_issues(r, user=user, limit=100)
+        except Exception:
+            continue
+        for it in issues:
+            for a in it.get("assignees") or []:
+                login = (a.get("login") or "").strip()
+                if not login:
+                    continue
+                counts[login] += 1
+                if login not in avatars:
+                    avatars[login] = a.get("avatar_url") or ""
+                    html_urls[login] = a.get("html_url") or ""
+
+    # Join with Identity to attach Astrozor display names. The match
+    # is case-insensitive on ``provider_username`` because GH login
+    # capitalization differs between the OAuth callback (preserves
+    # user case, e.g. "Robozor") and the issue assignee field
+    # (lowercased, e.g. "robozor"). We fetch all GH identities once
+    # and bucket them by lowercase login in Python — cheaper than
+    # ``Q(iexact=...) | Q(iexact=...)`` per login.
+    login_lowers = {l.lower() for l in counts.keys()}
+    identities = Identity.objects.filter(provider="github").select_related(
+        "user", "user__profile"
+    )
+    by_login: dict[str, tuple[str, str]] = {}
+    for ident in identities:
+        login_key = (ident.provider_username or "").lower()
+        if not login_key or login_key not in login_lowers:
+            continue
+        u = ident.user
+        display = ""
+        if hasattr(u, "profile"):
+            display = getattr(u.profile, "display_name", "") or ""
+        if not display and u.email:
+            display = u.email.split("@")[0]
+        by_login[login_key] = (display, u.email)
+
+    rows: list[dict] = []
+    for login, count in sorted(
+        counts.items(), key=lambda x: (-x[1], x[0].lower())
+    ):
+        astro_name, astro_email = by_login.get(login.lower(), ("", ""))
+        rows.append(
+            {
+                "gh_login": login,
+                "gh_avatar": avatars.get(login, ""),
+                "gh_html_url": html_urls.get(login, ""),
+                "astrozor_display_name": astro_name,
+                "astrozor_email": astro_email,
+                "open_issue_count": count,
+            }
+        )
+    return 200, rows[: max(1, min(int(limit or 20), 100))]
 
 
 class MarkdownPreviewIn(Schema):
