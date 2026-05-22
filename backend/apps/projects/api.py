@@ -17,6 +17,7 @@ from .github import (
     fetch_repo_metadata,
     post_issue_comment,
     refresh_repo_commit_cache,
+    unassign_issue_from_self,
 )
 from .models import GHRepo, Membership, Project
 from .schemas import (
@@ -635,6 +636,30 @@ def assign_repo_issue_to_caller(
     if not _can_view_project(r.project, request.user):
         return 403, {"detail": "Forbidden"}
     result = assign_issue_to_self(r, issue_number, request.user)
+    return 200, result
+
+
+@router.delete(
+    "/repos/{repo_id}/issues/{issue_number}/assign",
+    response={200: dict, 401: dict, 403: dict, 404: dict},
+)
+def unassign_repo_issue_from_caller(
+    request: HttpRequest, repo_id: str, issue_number: int
+):
+    """Remove the caller from the GH issue's assignees list.
+
+    Only the caller's login is removed — any other assignees stay.
+    Safe to call even if the caller wasn't assigned (GH no-ops it).
+    """
+    if not _require_auth(request):
+        return 401, {"detail": "Authentication required"}
+    try:
+        r = GHRepo.objects.select_related("project").get(id=repo_id)
+    except (GHRepo.DoesNotExist, ValueError):
+        return 404, {"detail": "Repo not found"}
+    if not _can_view_project(r.project, request.user):
+        return 403, {"detail": "Forbidden"}
+    result = unassign_issue_from_self(r, issue_number, request.user)
     return 200, result
 
 

@@ -1302,6 +1302,12 @@ export const projects = {
     api.post<GHIssueAssignResult>(
       `/repos/${repoId}/issues/${issueNumber}/assign`,
     ),
+  /** Remove the caller from the issue's GH assignees list. Other
+   *  assignees on the same issue are left untouched. */
+  unassignIssueFromSelf: (repoId: string, issueNumber: number) =>
+    api.del<GHIssueAssignResult>(
+      `/repos/${repoId}/issues/${issueNumber}/assign`,
+    ),
   /** GH user → open-issue-count leaderboard across all linked repos
    *  the caller can see. ``astrozor_*`` fields are empty for users
    *  who don't have a connected Astrozor account. */

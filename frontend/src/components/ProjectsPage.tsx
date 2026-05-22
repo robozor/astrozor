@@ -1493,6 +1493,23 @@ function IssueRow({
     },
     onError: (err) => setClaimNote(String(err)),
   });
+  const unclaim = useMutation({
+    mutationFn: () => projects.unassignIssueFromSelf(repo.id, issue.number),
+    onSuccess: (res) => {
+      if (res.status === "ok") {
+        setClaimNote("");
+        qc.invalidateQueries({ queryKey: ["repo-issues", repo.id] });
+        qc.invalidateQueries({ queryKey: ["issue-leaderboard"] });
+      } else if (res.status === "no_token" || res.status === "no_identity") {
+        setClaimNote(t("projects.issues.claimNoToken"));
+      } else {
+        setClaimNote(
+          `${res.status}${res.detail ? `: ${res.detail.slice(0, 200)}` : ""}`,
+        );
+      }
+    },
+    onError: (err) => setClaimNote(String(err)),
+  });
 
   return (
     <li
@@ -1588,12 +1605,26 @@ function IssueRow({
           </button>
         )}
         {alreadyAssigned && (
-          <span
-            className="text-[11px] text-emerald-300 bg-emerald-900/30 ring-1 ring-emerald-800/60 px-2 py-0.5 rounded"
-            data-testid={`issue-claimed-${issue.number}`}
-          >
-            ✓ {t("projects.issues.claimedByYou")}
-          </span>
+          <>
+            <span
+              className="text-[11px] text-emerald-300 bg-emerald-900/30 ring-1 ring-emerald-800/60 px-2 py-0.5 rounded"
+              data-testid={`issue-claimed-${issue.number}`}
+            >
+              ✓ {t("projects.issues.claimedByYou")}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setClaimNote("");
+                unclaim.mutate();
+              }}
+              disabled={unclaim.isPending}
+              className="text-[11px] text-slate-300 hover:text-slate-100 bg-slate-800/60 hover:bg-slate-700 ring-1 ring-slate-700 disabled:text-slate-500 disabled:bg-slate-900 px-2 py-0.5 rounded transition"
+              data-testid={`issue-unclaim-${issue.number}`}
+            >
+              {unclaim.isPending ? "…" : `✕ ${t("projects.issues.unclaim")}`}
+            </button>
+          </>
         )}
       </div>
       {claimNote && (

@@ -633,6 +633,7 @@
       "claimSelf": "🙋 Vzít si na starost",
       "claimJoin": "🤝 Připojit se k řešitelům",
       "claimedByYou": "Jsi řešitel",
+      "unclaim": "Nechci být řešitel",
       "claimNotCollaborator": "GitHub tě nepřiřadil — nejsi spolupracovník tohoto repa. Požádej majitele projektu, aby tě přidal mezi collaborators.",
       "claimNoToken": "Pro přihlášení k řešení potřebuješ propojený GitHub účet v Nastavení.",
       "needGhConnect": "Pro 'Ujmout se úkolu' potřebuješ propojený GitHub účet v Nastavení.",

@@ -608,6 +608,60 @@ def assign_issue_to_self(
     }
 
 
+def unassign_issue_from_self(
+    repo: GHRepo, issue_number: int, user
+) -> dict:
+    """Remove the caller's GitHub login from the issue's assignees.
+
+    Mirror of ``assign_issue_to_self``: uses GH's dedicated
+    ``DELETE /issues/{n}/assignees`` endpoint, which only removes
+    the listed logins (vs. ``PATCH`` which replaces the whole list).
+    Other assignees on the same issue are left untouched.
+
+    Returns one of:
+      * ``{"status": "ok", "assignees": [...]}`` — caller no longer
+        in the assignees array
+      * ``{"status": "no_token" | "no_identity"}``
+      * ``{"status": "http_NNN" | "error", "detail": "..."}``
+    """
+    token = _resolve_user_token(user) if user else None
+    if not token:
+        return {"status": "no_token", "detail": "User has no connected GitHub token"}
+    from apps.accounts.models import Identity
+
+    ident = (
+        Identity.objects.filter(user=user, provider="github")
+        .exclude(provider_username="")
+        .first()
+    )
+    if not ident or not ident.provider_username:
+        return {"status": "no_identity", "detail": "GitHub login unknown for this user"}
+    login = ident.provider_username
+    url = (
+        f"{GH_API}/repos/{repo.owner_login}/{repo.repo_name}/"
+        f"issues/{issue_number}/assignees"
+    )
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            # httpx supports request body on DELETE — GitHub requires
+            # the assignees list in the body, not as query params.
+            r = client.request(
+                "DELETE",
+                url,
+                headers=_headers(token),
+                json={"assignees": [login]},
+            )
+    except httpx.HTTPError as e:
+        return {"status": "error", "detail": str(e)}
+    if r.status_code not in (200, 201):
+        return {"status": f"http_{r.status_code}", "detail": r.text[:200]}
+    data = r.json()
+    return {
+        "status": "ok",
+        "assignees": [a.get("login") for a in (data.get("assignees") or [])],
+    }
+
+
 def create_issue(
     repo: GHRepo,
     *,
