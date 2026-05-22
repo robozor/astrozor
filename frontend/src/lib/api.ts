@@ -1203,6 +1203,20 @@ export type GHActivity = {
   buckets: GHActivityBucket[];
 };
 
+/** User-facing ticket kind for "open new issue" form. Backend
+ *  translates this into the appropriate GitHub labels. */
+export type GHIssueType = "bug" | "feature" | "task";
+
+/** Response from POST /repos/{id}/issues — ``status`` mirrors what
+ *  GitHub returned (``ok`` / ``no_token`` / ``http_NNN`` / ``error``)
+ *  so the dialog can show a connect-GH prompt when relevant. */
+export type GHIssueCreateResult = {
+  status: string;
+  number?: number;
+  html_url?: string;
+  detail?: string;
+};
+
 export type GHIssueClaim = {
   status: string;
   html_url?: string;
@@ -1257,6 +1271,16 @@ export const projects = {
     api.post<GHIssueClaim>(`/repos/${repoId}/issues/${issueNumber}/claim`, {
       body: body ?? "",
     }),
+  /** Open a new GitHub issue (bug / feature / task) on the linked repo
+   *  using the caller's connected GH OAuth token. Backend maps
+   *  ``type`` to GH labels (bug → ``bug``, feature → ``enhancement``,
+   *  task → no extra label) and always tacks on ``astrozor`` so the
+   *  issue is identifiable as raised from our UI. */
+  createIssue: (
+    repoId: string,
+    payload: { title: string; body: string; type: GHIssueType },
+  ) =>
+    api.post<GHIssueCreateResult>(`/repos/${repoId}/issues`, payload),
   activity: (slug: string, days = 365) =>
     api.get<GHActivity>(`/projects/${slug}/activity?days=${days}`),
   /** Render markdown to sanitised HTML for the composer preview.

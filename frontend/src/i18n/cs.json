@@ -627,7 +627,20 @@
       "chatEmpty": "Zatím žádné zprávy v tomto vlákně.",
       "chatPlaceholder": "Napiš komentář k této issue…",
       "chatSend": "Odeslat na GitHub",
-      "postsToGh": "Odešle se jako komentář na GitHub pod tvým GH účtem"
+      "postsToGh": "Odešle se jako komentář na GitHub pod tvým GH účtem",
+      "newIssue": "Nový tiket",
+      "newIssueTitle": "Nový tiket na GitHub",
+      "newIssueIntoRepo": "Vytvoří se v repu {{repo}}",
+      "newIssueType_bug": "Bug",
+      "newIssueType_feature": "Nová funkce",
+      "newIssueType_task": "Úkol",
+      "newIssueTitleLabel": "Titulek",
+      "newIssueTitlePlaceholder": "Stručně popiš problém nebo požadavek",
+      "newIssueBodyLabel": "Popis (markdown)",
+      "newIssueBodyPlaceholder": "Co se stalo, jak to reprodukovat, případně proč je ten požadavek důležitý…",
+      "newIssueSubmit": "Vytvořit issue",
+      "newIssuePostsToGh": "Issue se vytvoří na GitHubu pod tvým propojeným GH účtem",
+      "newIssueNoToken": "Nemáš v Nastavení propojený GitHub účet — připoj se přes OAuth, jinak nelze tiket založit."
     },
     "activity": {
       "heading": "Aktivita commitů (365 dní)",

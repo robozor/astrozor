@@ -10,6 +10,7 @@ from apps.chat.schemas import MessageIn, MessageListOut, MessageOut
 
 from .github import (
     _render_gh_markdown,
+    create_issue,
     fetch_issue_detail,
     fetch_repo_issues,
     fetch_repo_metadata,
@@ -20,6 +21,7 @@ from .models import GHRepo, Membership, Project
 from .schemas import (
     GHActivityOut,
     GHIssueCommentIn,
+    GHIssueCreateIn,
     GHIssueDetailOut,
     GHRepoIn,
     GHRepoOut,
@@ -28,6 +30,28 @@ from .schemas import (
     ProjectOut,
     ProjectPatchIn,
 )
+
+
+# Issue-type → GitHub labels mapping. We use the GH default labels
+# (``bug``, ``enhancement``) so they're already present on most repos
+# created from a template; ``task`` falls back to ``documentation``-ish
+# but really we just emit no special label for plain tasks. The
+# composer always tacks on the marker ``astrozor`` label so issues
+# raised from our UI are searchable on GH.
+ISSUE_LABELS: dict[str, list[str]] = {
+    "bug": ["bug", "astrozor"],
+    "feature": ["enhancement", "astrozor"],
+    "task": ["astrozor"],
+}
+
+
+# Repo metadata cache TTL — if ``last_fetched_at`` is older than this
+# when ``list_repos`` runs, we refresh in-band before returning. Same
+# 1-hour window as the project-activity commit cache, sized so it
+# absorbs project-page renders without burning a /repos call on every
+# tab switch but still lets releases / contributors land within an
+# hour of being published.
+REPO_METADATA_TTL_SECONDS = 60 * 60
 
 
 class IssueClaimIn(Schema):
@@ -348,11 +372,49 @@ def delete_project(request: HttpRequest, slug: str):
 
 
 @router.get("/projects/{slug}/repos", response={200: list[GHRepoOut], 404: dict})
-def list_repos(request: HttpRequest, slug: str):  # noqa: ARG001
+def list_repos(request: HttpRequest, slug: str):
+    """List linked repos for a project.
+
+    Lazy-refresh: if a repo's cached metadata is older than
+    ``REPO_METADATA_TTL_SECONDS`` (or has never been fetched), we
+    re-fetch from GitHub inline using the caller's token. That way a
+    repo added before its first release was published still picks up
+    the release info on the next project-page render — without the
+    user having to hit the per-repo refresh button manually.
+
+    Only authenticated users with a connected GitHub identity drive
+    the refresh: anonymous callers (or users without a GH token)
+    would hit the public 60 req/h budget and, worse, would burn the
+    private-repo cache to ``not_found`` because they can't see it.
+    Refresh failures are swallowed so a single bad repo doesn't
+    blank the list; the stale cache is returned as fallback.
+    """
+    from datetime import timedelta
+    from django.utils import timezone as dj_tz
+
     try:
         p = Project.objects.get(slug=slug)
     except Project.DoesNotExist:
         return 404, {"detail": "Project not found"}
+    user = request.user if request.user.is_authenticated else None
+    can_refresh = user is not None and bool(
+        getattr(user, "is_authenticated", False)
+    )
+    if can_refresh:
+        from .github import _resolve_user_token  # local import: avoid cycle
+
+        can_refresh = _resolve_user_token(user) is not None
+    if can_refresh:
+        ttl = timedelta(seconds=REPO_METADATA_TTL_SECONDS)
+        now = dj_tz.now()
+        for r in p.gh_repos.all():
+            if r.last_fetched_at is None or (now - r.last_fetched_at) > ttl:
+                try:
+                    fetch_repo_metadata(r, user=user)
+                except Exception:
+                    # Stale cache better than an empty list; the per-repo
+                    # refresh button stays available for manual recovery.
+                    pass
     return 200, [_repo_out(r) for r in p.gh_repos.all()]
 
 
@@ -401,6 +463,51 @@ def list_repo_issues(request: HttpRequest, repo_id: str):
         return 404, {"detail": "Repo not found"}
     user = request.user if request.user.is_authenticated else None
     return 200, fetch_repo_issues(r, user=user)
+
+
+@router.post(
+    "/repos/{repo_id}/issues",
+    response={200: dict, 400: dict, 401: dict, 403: dict, 404: dict},
+)
+def create_repo_issue(
+    request: HttpRequest, repo_id: str, payload: GHIssueCreateIn
+):
+    """Create a new GH issue (bug / feature / task) using the caller's
+    connected GitHub access_token.
+
+    Visibility: caller must be authenticated and pass the parent
+    project's view gate (public + auth users for internal, members
+    for private). The actual write permission is enforced by GitHub
+    — if the user can post on the repo, the issue is created; if not,
+    GH returns 403/404 and we surface the status code so the UI can
+    show a "you don't have write access" hint.
+
+    Returns ``{"status": "ok", "number": N, "html_url": "..."}`` on
+    success or ``{"status": "no_token" | "http_NNN", ...}`` so the
+    UI can prompt the user to connect / re-auth GitHub.
+    """
+    if not _require_auth(request):
+        return 401, {"detail": "Authentication required"}
+    try:
+        r = GHRepo.objects.select_related("project").get(id=repo_id)
+    except (GHRepo.DoesNotExist, ValueError):
+        return 404, {"detail": "Repo not found"}
+    if not _can_view_project(r.project, request.user):
+        return 403, {"detail": "Forbidden"}
+    title = (payload.title or "").strip()
+    if not title:
+        return 400, {"detail": "Title is required"}
+    body = (payload.body or "").strip()
+    type_key = (payload.type or "task").lower()
+    labels = ISSUE_LABELS.get(type_key, ISSUE_LABELS["task"])
+    result = create_issue(
+        r,
+        title=title,
+        body=body,
+        labels=labels,
+        user=request.user,
+    )
+    return 200, result
 
 
 @router.get(

@@ -625,7 +625,20 @@
       "chatEmpty": "No messages in this thread yet.",
       "chatPlaceholder": "Write a comment about this issue…",
       "chatSend": "Send to GitHub",
-      "postsToGh": "Posts as a GitHub comment under your linked GH account"
+      "postsToGh": "Posts as a GitHub comment under your linked GH account",
+      "newIssue": "New ticket",
+      "newIssueTitle": "New GitHub ticket",
+      "newIssueIntoRepo": "Will be created in {{repo}}",
+      "newIssueType_bug": "Bug",
+      "newIssueType_feature": "Feature request",
+      "newIssueType_task": "Task",
+      "newIssueTitleLabel": "Title",
+      "newIssueTitlePlaceholder": "Briefly describe the problem or request",
+      "newIssueBodyLabel": "Description (markdown)",
+      "newIssueBodyPlaceholder": "What happened, how to reproduce, or why the request matters…",
+      "newIssueSubmit": "Create issue",
+      "newIssuePostsToGh": "Posts to GitHub under your linked GH account",
+      "newIssueNoToken": "No connected GitHub account in Settings — link it via OAuth to file tickets."
     },
     "activity": {
       "heading": "Commit activity (365 days)",

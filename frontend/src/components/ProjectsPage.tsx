@@ -8,6 +8,7 @@ import {
   type GHIssue,
   type GHIssueComment,
   type GHIssueDetail,
+  type GHIssueType,
   type GHRepo,
   type Me,
   type Project,
@@ -752,6 +753,7 @@ function IssuesPanel({ repo }: { repo: GHRepo }) {
   // issues at the top without picking a sort each time. Ties fall
   // back to newest-first inside the same priority bucket.
   const [sort, setSort] = useState<IssueSort>("priority");
+  const [newIssueOpen, setNewIssueOpen] = useState(false);
 
   useEffect(() => {
     if (issues.isSuccess && repo.last_status && repo.last_status !== "ok") {
@@ -796,14 +798,26 @@ function IssuesPanel({ repo }: { repo: GHRepo }) {
   return (
     <div className="border-t border-slate-800 pt-3 space-y-2">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <h4 className="text-xs font-medium text-slate-300">
-          {t("projects.issues.title")}
-          {issues.data && (
-            <span className="text-slate-500 font-normal ml-1">
-              · {filteredCount === totalCount
-                ? totalCount
-                : `${filteredCount} / ${totalCount}`}
-            </span>
+        <h4 className="text-xs font-medium text-slate-300 flex items-center gap-2">
+          <span>
+            {t("projects.issues.title")}
+            {issues.data && (
+              <span className="text-slate-500 font-normal ml-1">
+                · {filteredCount === totalCount
+                  ? totalCount
+                  : `${filteredCount} / ${totalCount}`}
+              </span>
+            )}
+          </span>
+          {hasGhIdentity && !repoUnreachable && (
+            <button
+              type="button"
+              onClick={() => setNewIssueOpen(true)}
+              className="text-[11px] bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-0.5 rounded transition"
+              data-testid={`new-issue-button-${repo.id}`}
+            >
+              + {t("projects.issues.newIssue")}
+            </button>
           )}
         </h4>
         {issues.data && issues.data.length > 0 && (
@@ -875,6 +889,189 @@ function IssuesPanel({ repo }: { repo: GHRepo }) {
           {t("projects.issues.needGhConnect")}
         </p>
       )}
+      {newIssueOpen && (
+        <NewIssueDialog
+          repo={repo}
+          onClose={() => setNewIssueOpen(false)}
+          onCreated={() => {
+            setNewIssueOpen(false);
+            qc.invalidateQueries({ queryKey: ["repo-issues", repo.id] });
+            // The created issue counts toward open_issues in repo
+            // metadata — bust the repo list so the count refreshes
+            // without waiting for the TTL.
+            qc.invalidateQueries({
+              queryKey: ["project-repos", repo.project_slug],
+            });
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Modal that posts a new issue to GitHub via the user's connected
+ *  OAuth token. Kind selector (bug/feature/task) maps to GH labels
+ *  on the backend; body uses the shared MarkdownComposer so the
+ *  preview matches what GitHub will render. */
+function NewIssueDialog({
+  repo,
+  onClose,
+  onCreated,
+}: {
+  repo: GHRepo;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const { t } = useTranslation();
+  const [type, setType] = useState<GHIssueType>("bug");
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [error, setError] = useState<string>("");
+
+  const create = useMutation({
+    mutationFn: () =>
+      projects.createIssue(repo.id, {
+        title: title.trim(),
+        body: body.trim(),
+        type,
+      }),
+    onSuccess: (res) => {
+      if (res.status === "ok") {
+        onCreated();
+      } else if (res.status === "no_token") {
+        setError(t("projects.issues.newIssueNoToken"));
+      } else {
+        setError(
+          `${res.status}${res.detail ? `: ${res.detail.slice(0, 200)}` : ""}`,
+        );
+      }
+    },
+    onError: (err) => {
+      setError(String(err));
+    },
+  });
+
+  const titleTooShort = title.trim().length < 3;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 backdrop-blur-sm p-4 pt-16"
+      onClick={onClose}
+      data-testid="new-issue-modal"
+    >
+      <div
+        className="bg-slate-900 ring-1 ring-slate-700 rounded-lg shadow-xl w-full max-w-2xl p-5 space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-100">
+              {t("projects.issues.newIssueTitle")}
+            </h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              {t("projects.issues.newIssueIntoRepo", { repo: repo.full_name })}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-100 text-lg leading-none"
+            aria-label={t("common.close")}
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="flex items-center gap-3 text-[11px]">
+          {(["bug", "feature", "task"] as GHIssueType[]).map((opt) => (
+            <label
+              key={opt}
+              className={`flex items-center gap-1.5 cursor-pointer px-2 py-1 rounded ring-1 transition ${
+                type === opt
+                  ? "ring-indigo-500 bg-indigo-500/10 text-indigo-200"
+                  : "ring-slate-700 text-slate-400 hover:ring-slate-600"
+              }`}
+            >
+              <input
+                type="radio"
+                name="issue-type"
+                value={opt}
+                checked={type === opt}
+                onChange={() => setType(opt)}
+                className="sr-only"
+              />
+              <span>
+                {opt === "bug" && "🐛"}
+                {opt === "feature" && "✨"}
+                {opt === "task" && "📌"}
+              </span>
+              <span>{t(`projects.issues.newIssueType_${opt}`)}</span>
+            </label>
+          ))}
+        </div>
+
+        <label className="block space-y-1">
+          <span className="text-[11px] text-slate-400">
+            {t("projects.issues.newIssueTitleLabel")}
+          </span>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder={t("projects.issues.newIssueTitlePlaceholder")}
+            maxLength={200}
+            className="w-full bg-slate-950/60 ring-1 ring-slate-700 focus:ring-indigo-500 rounded px-2 py-1.5 text-sm text-slate-100 outline-none transition"
+            data-testid="new-issue-title"
+            autoFocus
+          />
+        </label>
+
+        <div className="space-y-1">
+          <span className="text-[11px] text-slate-400">
+            {t("projects.issues.newIssueBodyLabel")}
+          </span>
+          <MarkdownComposer
+            value={body}
+            onChange={setBody}
+            placeholder={t("projects.issues.newIssueBodyPlaceholder")}
+            rows={8}
+            testid="new-issue-body"
+          />
+        </div>
+
+        {error && (
+          <p className="text-[11px] text-rose-400 break-words">{error}</p>
+        )}
+
+        <div className="flex items-center justify-between gap-2 pt-1">
+          <span className="text-[10px] text-slate-500 italic">
+            {t("projects.issues.newIssuePostsToGh")}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-xs text-slate-300 hover:text-slate-100 px-3 py-1.5 rounded"
+            >
+              {t("common.cancel")}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setError("");
+                create.mutate();
+              }}
+              disabled={create.isPending || titleTooShort}
+              className="text-xs bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:text-slate-400 text-white px-3 py-1.5 rounded transition"
+              data-testid="new-issue-submit"
+            >
+              {create.isPending
+                ? "…"
+                : t("projects.issues.newIssueSubmit")}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

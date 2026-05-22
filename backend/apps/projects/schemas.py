@@ -124,6 +124,20 @@ class GHIssueCommentIn(Schema):
     body: str = Field(min_length=1, max_length=20_000)
 
 
+class GHIssueCreateIn(Schema):
+    """Body for creating a new GitHub issue from the project page.
+
+    ``type`` is the user-facing ticket kind (bug / feature / task)
+    which the backend translates to the matching GitHub labels.
+    GH silently ignores unknown labels, so an empty mapping just
+    creates an unlabelled issue — fine.
+    """
+
+    title: str = Field(min_length=3, max_length=200)
+    body: str = Field(default="", max_length=20_000)
+    type: str = "task"
+
+
 class GHActivityBucket(Schema):
     """One day of aggregated commit count across all linked repos."""
 

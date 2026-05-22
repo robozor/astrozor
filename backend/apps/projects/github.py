@@ -540,3 +540,43 @@ def post_issue_comment(
         return {"status": f"http_{r.status_code}", "detail": r.text[:200]}
     data = r.json()
     return {"status": "ok", "html_url": data.get("html_url", "")}
+
+
+def create_issue(
+    repo: GHRepo,
+    *,
+    title: str,
+    body: str,
+    labels: list[str],
+    user,
+) -> dict:
+    """POST a new GitHub issue using the caller's connected token.
+
+    GitHub will silently drop labels that don't exist on the target
+    repo, so we don't pre-validate them — the bug/feature/task labels
+    just won't stick if the repo doesn't have them defined. The caller
+    sees the created issue regardless.
+
+    Returns ``{"status": "ok", "number": N, "html_url": "..."}`` or
+    ``{"status": "no_token" | "http_NNN" | "error", "detail": "..."}``.
+    """
+    token = _resolve_user_token(user) if user else None
+    if not token:
+        return {"status": "no_token", "detail": "User has no connected GitHub token"}
+    url = f"{GH_API}/repos/{repo.owner_login}/{repo.repo_name}/issues"
+    payload: dict = {"title": title, "body": body}
+    if labels:
+        payload["labels"] = labels
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            r = client.post(url, headers=_headers(token), json=payload)
+    except httpx.HTTPError as e:
+        return {"status": "error", "detail": str(e)}
+    if r.status_code not in (200, 201):
+        return {"status": f"http_{r.status_code}", "detail": r.text[:200]}
+    data = r.json()
+    return {
+        "status": "ok",
+        "number": int(data.get("number") or 0),
+        "html_url": data.get("html_url", ""),
+    }
