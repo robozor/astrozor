@@ -7,11 +7,12 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-COPY frontend/package.json frontend/package-lock.json* ./
-# npm install (not ci): rollup's optional native deps
-# (@rollup/rollup-linux-{amd64,arm64}-musl) aren't in the Windows-generated
-# lockfile, and npm ci refuses to add them — see npm/cli#4828. Trading
-# strict lockfile fidelity for a build that actually works on arm64.
+COPY frontend/package.json ./
+# Intentionally skip package-lock.json: it was generated on Windows and
+# omits rollup's platform-specific optional natives
+# (@rollup/rollup-linux-{amd64,arm64}-musl). Both npm ci AND npm install
+# honour the missing entries and break at vite build time on linux —
+# see npm/cli#4828. Trading lockfile fidelity for a working multi-arch build.
 RUN npm install --no-audit --no-fund
 
 COPY frontend/ ./
