@@ -1,0 +1,134 @@
+name: Release Docker images
+
+# Publishes multi-arch (linux/amd64, linux/arm64) production images to GHCR.
+# Triggered on tag push (v*) or manually via workflow_dispatch.
+#
+# Images published:
+#   ghcr.io/<owner>/astrozor-python-base:<tag>  (build stage shared by api/worker/beat)
+#   ghcr.io/<owner>/astrozor-api:<tag>          (api + worker + beat all use this image)
+#   ghcr.io/<owner>/astrozor-frontend:<tag>     (nginx serving Vite static build)
+#   ghcr.io/<owner>/astrozor-proxy:<tag>        (Caddy reverse proxy, prod Caddyfile baked in)
+#
+# Each image is also tagged `latest`.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish (e.g. v1.2.0)'
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build-and-push:
+    name: Build & push to GHCR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Lowercase owner
+        id: owner
+        run: echo "name=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Resolve version tag
+        id: version
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            echo "tag=${{ inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Step 1 — python-base (api/worker/beat depend on this via FROM).
+      - name: Build & push python-base
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/base/Dockerfile.python
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ steps.owner.outputs.name }}/astrozor-python-base:${{ steps.version.outputs.tag }}
+            ghcr.io/${{ steps.owner.outputs.name }}/astrozor-python-base:latest
+          cache-from: type=gha,scope=python-base
+          cache-to: type=gha,scope=python-base,mode=max
+
+      # Step 2 — api (prod Dockerfile, gunicorn + uvicorn workers).
+      # Worker and beat in docker-compose.prod.yml reuse this same image.
+      - name: Build & push api
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/api/Dockerfile.prod
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            BASE_IMAGE=ghcr.io/${{ steps.owner.outputs.name }}/astrozor-python-base:${{ steps.version.outputs.tag }}
+          tags: |
+            ghcr.io/${{ steps.owner.outputs.name }}/astrozor-api:${{ steps.version.outputs.tag }}
+            ghcr.io/${{ steps.owner.outputs.name }}/astrozor-api:latest
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+
+      # Step 3 — frontend (multi-stage build → nginx static).
+      - name: Build & push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/frontend/Dockerfile.prod
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ steps.owner.outputs.name }}/astrozor-frontend:${{ steps.version.outputs.tag }}
+            ghcr.io/${{ steps.owner.outputs.name }}/astrozor-frontend:latest
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
+
+      # Step 4 — proxy (Caddy with prod Caddyfile baked in).
+      - name: Build & push proxy
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/proxy/Dockerfile.prod
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ steps.owner.outputs.name }}/astrozor-proxy:${{ steps.version.outputs.tag }}
+            ghcr.io/${{ steps.owner.outputs.name }}/astrozor-proxy:latest
+          cache-from: type=gha,scope=proxy
+          cache-to: type=gha,scope=proxy,mode=max
+
+      - name: Summary
+        run: |
+          {
+            echo "### Astrozor images published"
+            echo ""
+            echo "Tag: \`${{ steps.version.outputs.tag }}\`"
+            echo ""
+            echo "| Image | Pull command |"
+            echo "|---|---|"
+            for name in python-base api frontend proxy; do
+              echo "| \`astrozor-$name\` | \`docker pull ghcr.io/${{ steps.owner.outputs.name }}/astrozor-$name:${{ steps.version.outputs.tag }}\` |"
+            done
+          } >> $GITHUB_STEP_SUMMARY

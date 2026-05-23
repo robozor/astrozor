@@ -1,0 +1,11 @@
+# Astrozor reverse proxy — production image.
+# Same as docker/proxy/Dockerfile but with the prod Caddyfile baked in (uses
+# {$SITE_ADDRESS} env var so the same image works for HTTP-only and HTTPS).
+FROM caddy:2.8-alpine
+
+COPY docker/proxy/Caddyfile.prod /etc/caddy/Caddyfile
+
+EXPOSE 80 443
+
+HEALTHCHECK --interval=15s --timeout=5s --retries=5 --start-period=5s \
+    CMD wget -qO- http://localhost/ >/dev/null 2>&1 || exit 1

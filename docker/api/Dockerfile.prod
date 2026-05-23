@@ -1,0 +1,38 @@
+# Astrozor API — production image.
+# Identical to docker/api/Dockerfile but with prod CMD: gunicorn + uvicorn
+# workers instead of uvicorn --reload. Same entrypoint (DB wait + migrate).
+ARG BASE_IMAGE=astrozor/python-base:dev
+FROM ${BASE_IMAGE}
+
+WORKDIR /app/backend
+
+USER root
+COPY --chown=astrozor:astrozor backend/ /app/backend/
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends gosu \
+ && rm -rf /var/lib/apt/lists/* \
+ && chmod +x /app/backend/entrypoint.sh \
+ && mkdir -p /var/lib/astrozor/media/uploads /var/lib/astrozor/pmtiles \
+ && chown -R astrozor:astrozor /var/lib/astrozor
+# Stay as root so entrypoint.sh can chmod the bind-mounted docker.sock; it
+# drops to astrozor via gosu before exec'ing the app.
+
+ENV PYTHONPATH=/app/backend \
+    DJANGO_SETTINGS_MODULE=astrozor.settings \
+    DJANGO_DEBUG=false \
+    COLLECTSTATIC=1 \
+    GUNICORN_WORKERS=3 \
+    GUNICORN_TIMEOUT=60
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=15s --timeout=5s --retries=10 --start-period=20s \
+    CMD curl -fsS http://localhost:8000/api/v1/healthz || exit 1
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/app/backend/entrypoint.sh"]
+CMD ["sh", "-c", "exec gunicorn astrozor.asgi:application \
+    --bind 0.0.0.0:8000 \
+    --worker-class uvicorn.workers.UvicornWorker \
+    --workers ${GUNICORN_WORKERS:-3} \
+    --timeout ${GUNICORN_TIMEOUT:-60} \
+    --access-logfile - --error-logfile -"]

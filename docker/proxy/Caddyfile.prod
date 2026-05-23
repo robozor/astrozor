@@ -1,0 +1,105 @@
+# Astrozor reverse proxy — production Caddyfile.
+#
+# Behaviour:
+#   - Listens on the {$SITE_ADDRESS} block. Set SITE_ADDRESS in the env to one of:
+#       :80                          → HTTP only (DSM / external proxy does TLS)
+#       astrozor.example.com         → automatic Let's Encrypt TLS
+#       astrozor.example.com:8443    → Let's Encrypt on a custom port
+#   - All other behaviour matches docker/proxy/Caddyfile (the dev one). The only
+#     differences are: (a) frontend upstream is :80 (nginx static) instead of
+#     :5173 (vite dev), and (b) no `auto_https off` toggle.
+#
+# Bind-mounted Caddyfiles are not used in prod — this file is baked into the
+# astrozor-proxy image at /etc/caddy/Caddyfile.
+
+{
+    admin off
+}
+
+{$SITE_ADDRESS} {
+    # API + admin → Django
+    handle /api/* {
+        reverse_proxy api:8000
+    }
+    handle /admin/* {
+        reverse_proxy api:8000
+    }
+    handle /static/* {
+        reverse_proxy api:8000
+    }
+    # Public discoverability surfaces — RSS/Atom feed of articles and the
+    # server-rendered per-article HTML page that emits OG / JSON-LD meta
+    # tags for social-network crawlers. The latter then redirects browsers
+    # to the SPA via <meta refresh>.
+    handle /articles.atom {
+        reverse_proxy api:8000
+    }
+    handle /articles.rss {
+        reverse_proxy api:8000
+    }
+    handle /clanky/* {
+        reverse_proxy api:8000
+    }
+    handle /sitemap.xml {
+        reverse_proxy api:8000
+    }
+    handle /robots.txt {
+        reverse_proxy api:8000
+    }
+    # Pre-rendered Quarto/RMarkdown/Jupyter bundles served by Caddy file_server
+    # (bypassing Django so iframe + sendfile work).
+    handle_path /media/quarto/* {
+        root * /srv/media/quarto
+        file_server
+        @html path *.html
+        header @html Cache-Control "no-cache, must-revalidate"
+        header Cache-Control "public, max-age=86400"
+    }
+    handle /media/* {
+        reverse_proxy api:8000
+    }
+    handle_path /pmtiles/* {
+        root * /srv/pmtiles
+        file_server {
+            precompressed gzip
+        }
+        header Cache-Control "public, max-age=2592000, immutable"
+        header Access-Control-Allow-Origin "*"
+    }
+    handle_path /lp-tiles/* {
+        root * /srv/lp-tiles
+        file_server
+        header Cache-Control "public, max-age=2592000, immutable"
+        header Access-Control-Allow-Origin "*"
+    }
+    # CRAN-like R package repo. Populated by the r-pkg-builder one-shot
+    # service from rstudio-addin/.
+    handle_path /R/* {
+        root * /srv/r-repo
+        file_server browse
+        header Cache-Control "public, max-age=300"
+    }
+    # VS Code .vsix repo. Populated by the vsce-pkg-builder one-shot service.
+    handle_path /vscode-extension/* {
+        root * /srv/vsce-repo
+        file_server browse
+        header Cache-Control "public, max-age=300"
+    }
+    # Sample article sources — bind-mounted from samples/ on the host.
+    handle_path /samples/* {
+        root * /srv/samples
+        file_server browse
+        header Cache-Control "public, max-age=600"
+    }
+
+    # Everything else → frontend (nginx serving Vite static build)
+    handle {
+        reverse_proxy frontend:80
+    }
+
+    encode gzip
+    log {
+        output stdout
+        format console
+    }
+}

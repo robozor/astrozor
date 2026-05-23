@@ -12,6 +12,22 @@
 | Changelog | [`CHANGELOG.md`](./CHANGELOG.md) |
 | E2E test plan | [`e2e/PLAN.md`](./e2e/PLAN.md) |
 
+## Deploy (Synology / VPS / cokoli s Dockerem)
+
+Pre-built images publikujeme do **GHCR**. Pro nasazení nepotřebuješ
+klonovat repo — stačí stáhnout `docker-compose.prod.yml` + `.env.example`:
+
+```bash
+mkdir astrozor && cd astrozor
+curl -fL https://raw.githubusercontent.com/robozor/astrozor/main/docker-compose.prod.yml -o docker-compose.yml
+curl -fL https://raw.githubusercontent.com/robozor/astrozor/main/.env.example -o .env
+# ...edit .env (DJANGO_SECRET_KEY, POSTGRES_PASSWORD, ASTROZOR_DOMAIN, SITE_ADDRESS, ...)
+docker compose pull
+docker compose up -d
+```
+
+Návod krok-za-krokem pro Synology je v [`docs/deploy-synology.md`](./docs/deploy-synology.md).
+
 ## Quickstart (dev)
 
 Requires only **Docker Desktop**. Nothing installed on the host.

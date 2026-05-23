@@ -1,0 +1,257 @@
+# Astrozor — production Docker Compose stack.
+#
+# Pulls pre-built images from GHCR (no local build). Use the dev
+# docker-compose.yml if you want to build from source.
+#
+# Quickstart:
+#   cp .env.example .env
+#   # ...edit .env (DJANGO_SECRET_KEY, POSTGRES_PASSWORD, ASTROZOR_DOMAIN, SMTP, ...)
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# To pin a specific release tag (defaults to `latest`):
+#   ASTROZOR_TAG=v1.2.0 docker compose -f docker-compose.prod.yml up -d
+#
+# Services exposed on the host:
+#   proxy   → ${ASTROZOR_HTTP_PORT:-80} (and 443 if you enable TLS)
+#
+# Everything else (api, worker, beat, db, redis, frontend) stays on the
+# internal compose network.
+
+name: astrozor
+
+x-api-image: &api-image
+  image: ghcr.io/${ASTROZOR_IMAGE_OWNER:-robozor}/astrozor-api:${ASTROZOR_TAG:-latest}
+
+x-api-env: &api-env
+  DJANGO_SETTINGS_MODULE: astrozor.settings
+  DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?DJANGO_SECRET_KEY is required in .env}
+  DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
+  DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-${ASTROZOR_DOMAIN:-localhost},localhost,127.0.0.1,api,proxy}
+  DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-https://${ASTROZOR_DOMAIN:-localhost},http://${ASTROZOR_DOMAIN:-localhost}}
+  POSTGRES_DB: ${POSTGRES_DB:-astrozor}
+  POSTGRES_USER: ${POSTGRES_USER:-astrozor}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required in .env}
+  POSTGRES_HOST: db
+  POSTGRES_PORT: 5432
+  REDIS_URL: redis://redis:6379/0
+  PYTHONPATH: /app/backend
+  COLLECTSTATIC: "1"
+  PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://${ASTROZOR_DOMAIN:-localhost}}
+  # SMTP (real mailserver — mailhog is dev-only and excluded here)
+  EMAIL_HOST: ${EMAIL_HOST:-}
+  EMAIL_PORT: ${EMAIL_PORT:-587}
+  EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+  EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+  EMAIL_USE_TLS: ${EMAIL_USE_TLS:-true}
+  DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-noreply@${ASTROZOR_DOMAIN:-localhost}}
+  # OAuth providers — blank disables the provider.
+  GITHUB_OAUTH_CLIENT_ID: ${GITHUB_OAUTH_CLIENT_ID:-}
+  GITHUB_OAUTH_CLIENT_SECRET: ${GITHUB_OAUTH_CLIENT_SECRET:-}
+  GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+  GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+  GITLAB_OAUTH_CLIENT_ID: ${GITLAB_OAUTH_CLIENT_ID:-}
+  GITLAB_OAUTH_CLIENT_SECRET: ${GITLAB_OAUTH_CLIENT_SECRET:-}
+  GITLAB_OAUTH_BASE_URL: ${GITLAB_OAUTH_BASE_URL:-https://gitlab.com}
+  DISCORD_APP_CLIENT_ID: ${DISCORD_APP_CLIENT_ID:-}
+  DISCORD_APP_CLIENT_SECRET: ${DISCORD_APP_CLIENT_SECRET:-}
+  DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-}
+  ZOONIVERSE_OAUTH_CLIENT_ID: ${ZOONIVERSE_OAUTH_CLIENT_ID:-}
+  ZOONIVERSE_OAUTH_CLIENT_SECRET: ${ZOONIVERSE_OAUTH_CLIENT_SECRET:-}
+  ZOONIVERSE_GROUP_ID: ${ZOONIVERSE_GROUP_ID:-}
+  # External services
+  ZENODO_SANDBOX_TOKEN: ${ZENODO_SANDBOX_TOKEN:-}
+  ZENODO_PROD_TOKEN: ${ZENODO_PROD_TOKEN:-}
+  GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+  MEDIA_ROOT: /var/lib/astrozor/media
+  # Gunicorn tuning (api Dockerfile.prod CMD reads these).
+  GUNICORN_WORKERS: ${GUNICORN_WORKERS:-3}
+  GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-60}
+  TZ: ${TZ:-Europe/Prague}
+
+services:
+  db:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: astrozor-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-astrozor}
+      POSTGRES_USER: ${POSTGRES_USER:-astrozor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required in .env}
+      TZ: ${TZ:-Europe/Prague}
+    volumes:
+      - astrozor_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-astrozor} -d ${POSTGRES_DB:-astrozor}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: astrozor-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - astrozor_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    <<: *api-image
+    container_name: astrozor-api
+    environment:
+      <<: *api-env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - astrozor_media:/var/lib/astrozor/media
+      - astrozor_pmtiles:/var/lib/astrozor/pmtiles
+      - astrozor_light_pollution:/var/lib/astrozor/light_pollution
+      # static collected by COLLECTSTATIC=1, served by Django via Caddy.
+      - astrozor_static:/app/backend/static_collected
+      # Docker socket so admin endpoints can tail the photon container's
+      # logs (live download progress). See _live_photon_progress.
+      - /var/run/docker.sock:/var/run/docker.sock
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  worker:
+    <<: *api-image
+    container_name: astrozor-worker
+    environment:
+      <<: *api-env
+      RUN_MIGRATIONS: "0"
+      COLLECTSTATIC: "0"
+    depends_on:
+      api:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    volumes:
+      - astrozor_media:/var/lib/astrozor/media
+      - astrozor_pmtiles:/var/lib/astrozor/pmtiles
+      - astrozor_light_pollution:/var/lib/astrozor/light_pollution
+      - /var/run/docker.sock:/var/run/docker.sock
+    entrypoint: ["/usr/bin/tini", "--", "/app/backend/entrypoint.sh"]
+    command: ["celery", "-A", "astrozor", "worker", "--loglevel=info", "--concurrency=${CELERY_CONCURRENCY:-2}"]
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A astrozor inspect ping -d celery@$$HOSTNAME -t 5 > /dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  beat:
+    <<: *api-image
+    container_name: astrozor-beat
+    environment:
+      <<: *api-env
+      RUN_MIGRATIONS: "0"
+      COLLECTSTATIC: "0"
+    depends_on:
+      api:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    volumes:
+      - astrozor_media:/var/lib/astrozor/media
+      - astrozor_pmtiles:/var/lib/astrozor/pmtiles
+      - astrozor_light_pollution:/var/lib/astrozor/light_pollution
+      - /var/run/docker.sock:/var/run/docker.sock
+    entrypoint: ["/usr/bin/tini", "--", "/app/backend/entrypoint.sh"]
+    command: ["celery", "-A", "astrozor", "beat", "--loglevel=info"]
+    healthcheck:
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import os,sys; sys.exit(0 if any('celery' in open(f'/proc/{p}/cmdline','rb').read().decode('latin1','ignore') for p in os.listdir('/proc') if p.isdigit()) else 1)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  frontend:
+    image: ghcr.io/${ASTROZOR_IMAGE_OWNER:-robozor}/astrozor-frontend:${ASTROZOR_TAG:-latest}
+    container_name: astrozor-frontend
+    expose:
+      - "80"
+    restart: unless-stopped
+
+  proxy:
+    image: ghcr.io/${ASTROZOR_IMAGE_OWNER:-robozor}/astrozor-proxy:${ASTROZOR_TAG:-latest}
+    container_name: astrozor-proxy
+    depends_on:
+      - api
+      - frontend
+    environment:
+      # SITE_ADDRESS controls the Caddy site block.
+      #   :80                          → HTTP only (DSM reverse-proxy / external TLS)
+      #   astrozor.example.com         → auto Let's Encrypt
+      #   astrozor.example.com:8443    → LE on a custom port
+      # See docs/deploy-synology.md.
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+      TZ: ${TZ:-Europe/Prague}
+    ports:
+      - "${ASTROZOR_HTTP_PORT:-80}:80"
+      - "${ASTROZOR_HTTPS_PORT:-443}:443"
+    volumes:
+      - astrozor_caddy_data:/data
+      - astrozor_caddy_config:/config
+      # Media, tiles, R repo, .vsix repo — same layout as dev.
+      - astrozor_pmtiles:/srv/pmtiles:ro
+      - astrozor_light_pollution:/srv/lp-tiles:ro
+      - astrozor_media:/srv/media:ro
+      - astrozor_r_repo:/srv/r-repo:ro
+      - astrozor_vsce_repo:/srv/vsce-repo:ro
+      # Sample articles — optional; if you didn't clone the repo on the
+      # host (e.g. pull-from-registry only), comment this out or point to
+      # an empty directory. Caddy returns 404 cleanly when missing.
+      - ${ASTROZOR_SAMPLES_DIR:-./samples}:/srv/samples:ro
+    restart: unless-stopped
+
+  # Note: r-pkg-builder and vsce-pkg-builder are intentionally not in prod.
+  # They need source code mounts (rstudio-addin/, vscode-extension/) and
+  # are only useful if you want this NAS instance to self-host the addin
+  # downloads. If you do, run the dev docker-compose.yml on this host with
+  # `--profile build run --rm r-pkg-builder`; the artifacts will land in
+  # the same astrozor_r_repo / astrozor_vsce_repo volumes used here.
+
+  # ---- Optional self-hosted geocoder (Photon) ----
+  # Activated by `--profile photon`. ~70 GB CZ extract — make sure your
+  # NAS has the disk.
+  photon:
+    image: rtuszik/photon-docker:latest
+    container_name: astrozor-photon
+    profiles: ["photon"]
+    environment:
+      COUNTRY_CODE: ${PHOTON_COUNTRY_CODE:-cz}
+      TZ: ${TZ:-Europe/Prague}
+    volumes:
+      - astrozor_photon_data:/photon/photon_data
+    expose:
+      - "2322"
+    restart: unless-stopped
+
+volumes:
+  astrozor_db_data:
+  astrozor_redis_data:
+  astrozor_caddy_data:
+  astrozor_caddy_config:
+  astrozor_media:
+  astrozor_pmtiles:
+  astrozor_light_pollution:
+  astrozor_static:
+  astrozor_r_repo:
+  astrozor_vsce_repo:
+  astrozor_photon_data:
