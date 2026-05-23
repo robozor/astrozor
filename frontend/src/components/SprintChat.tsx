@@ -31,7 +31,7 @@ export function SprintChat({
   /** Drives owner-only edit/delete buttons. Server is authoritative
    *  (PATCH/DELETE return 403 if not owner); this is purely a UX
    *  signal to hide buttons the user can't use. */
-  currentUserEmail?: string;
+  currentUserEmail?: string | undefined;
 }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -106,7 +106,7 @@ function MessageNode({
 }: {
   message: ChatMessage;
   replies: ChatMessage[];
-  currentUserEmail?: string;
+  currentUserEmail?: string | undefined;
   onReply: (m: ChatMessage) => void;
   onRefresh: () => void;
 }) {
@@ -142,7 +142,7 @@ function MessageBubble({
   onRefresh,
 }: {
   message: ChatMessage;
-  currentUserEmail?: string;
+  currentUserEmail?: string | undefined;
   onReply: (m: ChatMessage) => void;
   onRefresh: () => void;
 }) {

@@ -124,8 +124,8 @@ function parseRadio(v: string): Parsed {
   if (!trimmed) return { band: "", channel: null };
   const m = trimmed.match(/^(PMR|CB)\s+(\d+)$/i);
   if (m) {
-    const band = m[1].toUpperCase() as "PMR" | "CB";
-    const ch = parseInt(m[2], 10);
+    const band = m[1]!.toUpperCase() as "PMR" | "CB";
+    const ch = parseInt(m[2]!, 10);
     const max = band === "PMR" ? PMR_CH_COUNT : CB_CH_COUNT;
     return { band, channel: Math.max(1, Math.min(max, ch)) };
   }

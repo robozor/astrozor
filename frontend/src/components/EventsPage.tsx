@@ -1,14 +1,5 @@
 import { useEffect, useState } from "react";
 
-// Convert an ISO timestamp ("2026-06-01T20:00:00Z") to the value format
-// the native <input type="datetime-local"> expects ("YYYY-MM-DDTHH:mm",
-// local time, no Z). Cheap inline so we don't pull a date lib for one
-// formatter.
-function toDatetimeLocal(iso: string): string {
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -549,7 +540,7 @@ function EventDetail({
   me: Me | null;
   onBack: () => void;
   onEdit: () => void;
-  onRequireLogin?: () => void;
+  onRequireLogin?: (() => void) | undefined;
 }) {
   const { t } = useTranslation();
   const qc = useQueryClient();

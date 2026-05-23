@@ -94,7 +94,7 @@ export function ThreadedDiscussion({
   /** IANA TZ of the host entity (place / event) — when set, message
    * timestamps render a "Local" row next to UTC + user. Article
    * comments leave this undefined since articles aren't location-bound. */
-  entityTimezone?: string;
+  entityTimezone?: string | undefined;
   /** When `true`, render in inline / document-flow mode — no fixed
    * min-height, no flex-grow on the list, so an empty state collapses
    * to just the label height. Defaults to `false` (the chat-tab
@@ -175,7 +175,7 @@ function ItemNode({
   onReply: (n: ThreadedItem) => void;
   onDelete: ((id: string) => Promise<unknown>) | undefined;
   testidPrefix: string;
-  entityTimezone?: string;
+  entityTimezone?: string | undefined;
 }) {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(false);

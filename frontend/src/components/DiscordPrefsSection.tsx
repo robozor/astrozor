@@ -118,7 +118,7 @@ function KindRow({
   onChange,
 }: {
   kind: DiscordPrefKind;
-  pref?: DiscordPref;
+  pref?: DiscordPref | undefined;
   disabled: boolean;
   onChange: (enabled: boolean, filters: Record<string, unknown>) => void;
 }) {

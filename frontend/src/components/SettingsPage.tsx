@@ -669,7 +669,7 @@ function ProviderRow({
 }: {
   provider: "github" | "google" | "mastodon" | "discord" | "zooniverse";
   label: string;
-  identity?: Identity;
+  identity?: Identity | undefined;
   configured: boolean;
   onDisconnect: (id: string) => void;
 }) {

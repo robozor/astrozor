@@ -33,7 +33,7 @@ export function EventFeatureIcons({
     label: string;
     icon: string;
     value: string;
-    href?: string;
+    href?: string | undefined;
     /** Background classes applied when the feature is set. */
     activeBg: string;
   }> = [

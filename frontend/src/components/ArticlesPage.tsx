@@ -861,8 +861,8 @@ function ArticleList({
               longer fits a filtered subset. */}
           {filtered.length > 0 && !searchQ && engineFilter === "all" && tagFilter.length === 0 && (
             <HeroCard
-              article={filtered[0]}
-              onOpen={() => onOpen(filtered[0].slug)}
+              article={filtered[0]!}
+              onOpen={() => onOpen(filtered[0]!.slug)}
             />
           )}
           <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1050,13 +1050,12 @@ function ArticleDetail({
   me,
   onBack,
   onEdit,
-  onRequireLogin,
 }: {
   slug: string;
   me: Me | null;
   onBack: () => void;
   onEdit: () => void;
-  onRequireLogin?: () => void;
+  onRequireLogin?: (() => void) | undefined;
 }) {
   const { t } = useTranslation();
   const detail = useQuery({

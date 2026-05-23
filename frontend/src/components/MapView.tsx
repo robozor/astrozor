@@ -160,8 +160,8 @@ const BIG_CITY_NAMES: string[] = [
 // Tier classifier expressions — reused for both `text-size` (so font
 // scales per tier) and `symbol-sort-key` (so collision priority matches
 // importance). Mega beats big beats regular in collisions.
-// Typed as `unknown[]` so MapLibre style expression types accept them.
-const MEGA_MATCH: unknown[] = [
+// Typed as `any` so MapLibre style expression types accept them.
+const MEGA_MATCH: any = [
   "any",
   ["<=", ["coalesce", ["get", "min_zoom"], 99], 7],
   [">=", ["coalesce", ["get", "population"], 0], 500000],
@@ -169,7 +169,7 @@ const MEGA_MATCH: unknown[] = [
   ["in", ["coalesce", ["get", "name"], ""], ["literal", MEGA_CITY_NAMES]],
 ];
 
-const BIG_MATCH: unknown[] = [
+const BIG_MATCH: any = [
   "any",
   ["<=", ["coalesce", ["get", "min_zoom"], 99], 9],
   [">=", ["coalesce", ["get", "population"], 0], 100000],
@@ -1012,26 +1012,26 @@ export function MapView({
   // After successful delete from PlaceDetailPanel, close the panel so
   // the user doesn't see a marker-less detail.
   useEffect(() => {
-    function onDeleted(e: Event) {
+    function onDeleted(e: globalThis.Event) {
       const ev = e as CustomEvent<{ slug: string }>;
       if (selected && ev.detail.slug === selected.slug) setSelected(null);
     }
-    window.addEventListener("astrozor:place-deleted", onDeleted);
-    return () => window.removeEventListener("astrozor:place-deleted", onDeleted);
+    window.addEventListener("astrozor:place-deleted", onDeleted as EventListener);
+    return () => window.removeEventListener("astrozor:place-deleted", onDeleted as EventListener);
   }, [selected]);
 
   // Same pattern for events. EventDetailPanel emits this after the
   // owner confirms deletion so the panel disappears without us having
   // to thread an onClose callback through the React tree.
   useEffect(() => {
-    function onDeleted(e: Event) {
+    function onDeleted(e: globalThis.Event) {
       const ev = e as CustomEvent<{ slug: string }>;
       if (selectedEventSlug && ev.detail.slug === selectedEventSlug) {
         setSelectedEventSlug(null);
       }
     }
-    window.addEventListener("astrozor:event-deleted", onDeleted);
-    return () => window.removeEventListener("astrozor:event-deleted", onDeleted);
+    window.addEventListener("astrozor:event-deleted", onDeleted as EventListener);
+    return () => window.removeEventListener("astrozor:event-deleted", onDeleted as EventListener);
   }, [selectedEventSlug]);
 
   // Keep `selected` in sync with the latest places query data. PlaceDetailPanel
@@ -1918,7 +1918,7 @@ function SearchBox({ onPick }: { onPick: (lat: number, lon: number, zoom?: numbe
     if (Number.isFinite(lat) && Number.isFinite(lon)) {
       onPick(lat, lon, 12);
       setOpen(false);
-      setQ(h.display_name.split(",")[0]);
+      setQ(h.display_name.split(",")[0] ?? "");
     }
   }
 

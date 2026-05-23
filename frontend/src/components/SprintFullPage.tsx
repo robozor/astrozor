@@ -240,7 +240,7 @@ export function SprintFullPage({
       <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6">
         <div className="space-y-4 min-w-0">
           {sprint.is_joined && (
-            <SprintChat sprint={sprint} currentUserEmail={me?.email} />
+            <SprintChat sprint={sprint} currentUserEmail={me?.user.email} />
           )}
         </div>
         <aside className="space-y-4 min-w-0">

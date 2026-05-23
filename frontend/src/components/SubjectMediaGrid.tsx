@@ -9,7 +9,7 @@ import type { ZooniverseSubjectMedia } from "../lib/api";
  * the <img> renderer is the most tolerant on failure.
  */
 function pickMime(url: string): string {
-  const lower = url.toLowerCase().split("?")[0];
+  const lower = url.toLowerCase().split("?")[0] ?? "";
   if (
     lower.endsWith(".png") ||
     lower.endsWith(".jpg") ||

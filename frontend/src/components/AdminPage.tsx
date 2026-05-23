@@ -10,7 +10,6 @@ import {
   type CloudsAdminPatch,
   type Me,
   type MapInfraOut,
-  type ZooniverseDisconnectResult,
   type ZooniverseProject,
   type ZooniverseProjectPreview,
 } from "../lib/api";

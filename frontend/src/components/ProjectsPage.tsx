@@ -11,7 +11,6 @@ import {
   type GHIssueType,
   type GHRepo,
   type Me,
-  type Project,
   type ProjectMember,
 } from "../lib/api";
 import { MarkdownComposer } from "./MarkdownComposer";
@@ -81,10 +80,10 @@ function linkifyText(text: string): ReactNode[] {
   let m: RegExpExecArray | null;
   while ((m = URL_RX.exec(text)) !== null) {
     if (m.index > last) nodes.push(text.slice(last, m.index));
-    let url = m[1];
+    let url = m[1]!;
     let trailing = "";
-    while (url.length > 0 && ".,!?;:)]}".includes(url[url.length - 1])) {
-      trailing = url[url.length - 1] + trailing;
+    while (url.length > 0 && ".,!?;:)]}".includes(url[url.length - 1]!)) {
+      trailing = url[url.length - 1]! + trailing;
       url = url.slice(0, -1);
     }
     nodes.push(
@@ -99,7 +98,7 @@ function linkifyText(text: string): ReactNode[] {
       </a>,
     );
     if (trailing) nodes.push(trailing);
-    last = m.index + m[1].length;
+    last = m.index + m[1]!.length;
   }
   if (last < text.length) nodes.push(text.slice(last));
   return nodes;
@@ -928,8 +927,8 @@ function RepoMetric({
   icon: string;
   label: string;
   value: string;
-  href?: string;
-  title?: string;
+  href?: string | undefined;
+  title?: string | undefined;
 }) {
   const inner = (
     <div

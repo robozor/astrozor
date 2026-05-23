@@ -22,7 +22,7 @@ export function UserNameLink({
   testid,
 }: {
   email?: string | null;
-  displayName: string;
+  displayName: string | undefined;
   className?: string;
   testid?: string;
 }) {

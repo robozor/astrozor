@@ -16,12 +16,15 @@ export class ApiError extends Error {
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const res = await fetch(BASE + path, {
+  const init: RequestInit = {
     method,
     credentials: "include",
-    headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  };
+  if (body !== undefined) {
+    init.headers = { "Content-Type": "application/json" };
+    init.body = JSON.stringify(body);
+  }
+  const res = await fetch(BASE + path, init);
   const text = await res.text();
   let json: unknown = null;
   try {
@@ -277,11 +280,11 @@ export const docs = {
 export async function publishQuartoBundle(opts: {
   bundle: File;
   title: string;
-  slug?: string;
-  summary?: string;
-  language?: string;
-  engine?: "quarto" | "rmarkdown" | "jupyter";
-  license?: string;
+  slug?: string | undefined;
+  summary?: string | undefined;
+  language?: string | undefined;
+  engine?: "quarto" | "rmarkdown" | "jupyter" | undefined;
+  license?: string | undefined;
 }): Promise<QuartoPublishResult> {
   // Browser flow uses the SESSION cookie, not a token — so the same
   // endpoint must accept either auth scheme. Today /publish/quarto uses
@@ -1499,18 +1502,25 @@ export const events = {
   get: (slug: string) => api.get<Event>(`/events/${slug}`),
   create: (data: {
     title: string;
-    description?: string;
-    kind?: string;
-    language?: string;
-    place_slug?: string;
-    external_address?: string;
-    external_lat?: number | null;
-    external_lon?: number | null;
-    meeting_url?: string;
+    description?: string | undefined;
+    kind?: string | undefined;
+    language?: string | undefined;
+    place_slug?: string | undefined;
+    external_address?: string | undefined;
+    external_lat?: number | null | undefined;
+    external_lon?: number | null | undefined;
+    meeting_url?: string | undefined;
+    discord_url?: string | undefined;
+    geocache_url?: string | undefined;
+    radio_frequency?: string | undefined;
     starts_at: string;
-    ends_at?: string;
-    capacity?: number;
-    tags?: string[];
+    ends_at?: string | undefined;
+    capacity?: number | undefined;
+    tags?: string[] | undefined;
+    visibility?: VisibilityLevel | undefined;
+    allowed_user_emails?: string[] | undefined;
+    discussion_visibility?: "" | VisibilityLevel | undefined;
+    discussion_allowed_user_emails?: string[] | undefined;
   }) => api.post<Event>("/events", data),
   patch: (slug: string, data: Partial<Event>) => api.patch<Event>(`/events/${slug}`, data),
   remove: (slug: string) => api.del<void>(`/events/${slug}`),

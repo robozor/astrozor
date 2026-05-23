@@ -381,22 +381,6 @@ function NavTab({
   );
 }
 
-function Header({ isAuthed }: { isAuthed: boolean }) {
-  const { t } = useTranslation();
-  return (
-    <div className="flex items-center gap-3 mb-6">
-      <span className="text-3xl" aria-hidden>
-        ☆
-      </span>
-      <h1 className="text-2xl font-semibold tracking-tight">{t("common.brand")}</h1>
-      <span className="ml-auto text-xs px-2 py-1 rounded-full bg-slate-800 text-slate-300">
-        {t("common.krok")} 3
-      </span>
-      <LanguageSwitcher isAuthed={isAuthed} />
-    </div>
-  );
-}
-
 function LanguageSwitcher({ isAuthed }: { isAuthed: boolean }) {
   const { i18n } = useTranslation();
   const queryClient = useQueryClient();

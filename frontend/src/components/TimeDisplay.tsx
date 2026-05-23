@@ -25,7 +25,7 @@ export function TimeDisplay({
   testid,
 }: {
   iso: string | null | undefined;
-  entityTimezone?: string;
+  entityTimezone?: string | undefined;
   me?: Me | null;
   inline?: boolean;
   className?: string;

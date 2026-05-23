@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { CampaignsPage } from "./CampaignsPage";
 import { DateTimePicker } from "./DateTimePicker";
-import { SprintChat } from "./SprintChat";
 import { SprintFullPage } from "./SprintFullPage";
 import { ZooniverseTalkBrowser } from "./ZooniverseTalkBrowser";
 import {
@@ -15,7 +14,6 @@ import {
   type ZooniverseContributor,
   type ZooniverseProject,
   type ZooniverseWorkflow,
-  type ZooniverseWorkflowActivity,
 } from "../lib/api";
 import { useUrlParam } from "../lib/urlParam";
 

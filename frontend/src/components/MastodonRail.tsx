@@ -81,7 +81,7 @@ async function fetchHashtag(tags: string[]): Promise<CommunityToot[]> {
   params.set("limit", String(TIMELINE_LIMIT));
   for (const t of rest) params.append("any[]", t);
   const res = await fetch(
-    `${COMMUNITY_INSTANCE}/api/v1/timelines/tag/${encodeURIComponent(primary)}?${params.toString()}`,
+    `${COMMUNITY_INSTANCE}/api/v1/timelines/tag/${encodeURIComponent(primary!)}?${params.toString()}`,
     { credentials: "omit" },
   );
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -382,7 +382,7 @@ function ModeButton({
   children: React.ReactNode;
   testid?: string;
   disabled?: boolean;
-  title?: string;
+  title?: string | undefined;
 }) {
   return (
     <button

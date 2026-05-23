@@ -39,16 +39,16 @@ export function DateTimePicker({
     <div className="astrozor-datepicker">
       <DatePicker
         selected={date}
-        onChange={(d) => onChange(d ? d.toISOString() : "")}
+        onChange={(d: Date | null) => onChange(d ? d.toISOString() : "")}
         showTimeSelect
         timeIntervals={15}
         dateFormat={locale === "cs" ? "d. M. yyyy HH:mm" : "yyyy-MM-dd HH:mm"}
         timeFormat="HH:mm"
         locale={locale}
-        required={required}
-        placeholderText={placeholder}
+        required={!!required}
+        placeholderText={placeholder ?? ""}
         className="w-full bg-slate-950 ring-1 ring-slate-700 focus:ring-slate-500 rounded-md px-3 py-2 text-slate-100 outline-none transition"
-        data-testid={testId}
+        data-testid={testId ?? ""}
         // Render the popup at the top of the document so it isn't
         // clipped by parent overflow (sticky headers, modals, etc.).
         popperPlacement="bottom-start"

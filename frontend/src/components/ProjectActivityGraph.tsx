@@ -216,7 +216,7 @@ function buildGrid(buckets: GHActivityBucket[]): {
   // Pad the leading edge so the first column starts on Sunday.
   // GitHub renders Sunday at the top — we follow that. Date.getUTCDay
   // returns 0=Sun..6=Sat which lines up nicely.
-  const first = new Date(sorted[0].date + "T00:00:00Z");
+  const first = new Date(sorted[0]!.date + "T00:00:00Z");
   const firstDow = first.getUTCDay();
   const cells: Cell[] = [];
   for (let i = 0; i < firstDow; i++) {

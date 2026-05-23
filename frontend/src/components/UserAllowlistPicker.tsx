@@ -24,7 +24,7 @@ export function UserAllowlistPicker({
 }: {
   selectedEmails: string[];
   onChange: (emails: string[]) => void;
-  ownerEmail?: string;
+  ownerEmail?: string | undefined;
 }) {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
@@ -68,7 +68,7 @@ export function UserAllowlistPicker({
       if (hit) return hit;
       return {
         email,
-        display_name: email.split("@")[0],
+        display_name: email.split("@")[0] ?? email,
         avatar_url: "",
       };
     });
