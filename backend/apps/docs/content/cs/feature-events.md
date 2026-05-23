@@ -146,7 +146,7 @@ Pro úplnost — tyto featury si někdy přečteš v komentářích na fóru, al
 - Carpool board (kdo nabízí svoz) — řeš v Discord kanálu akce
 - QR check-in na místě — používej manuální seznam organizátora
 - Hromadná notifikace organizátora účastníkům — přes Discord webhook (z Astrozor strany)
-- CSV export účastníků — zatím přes Django admin
+- CSV export účastníků — zatím přes `manage.py shell`
 - Automatický reminder 24h před akcí — není
 - ICS feed (subscribe URL) — je jen single-event download
 

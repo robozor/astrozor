@@ -7,9 +7,9 @@ icon: "🛡"
 
 # Administrace (Správa)
 
-Sekce **Správa** je dostupná **jen pro staff uživatele** (`User.is_staff = True`). Anon a běžní uživatelé tlačítko **Správa** v hlavičce nevidí, návštěva `/admin` skončí na rose-banneru „Tato sekce není dostupná".
+Sekce **Správa** je dostupná **jen pro staff uživatele** (`User.is_staff = True`). Anon a běžní uživatelé tlačítko **Správa** v hlavičce nevidí; navigace na /admin v UI skončí na banneru „Tato sekce není dostupná".
 
-Astrozor admin panel je rozdělený do **4 sekcí** + jednoho linku na nativní Django admin.
+Astrozor admin panel je rozdělený do **4 sekcí**. (Nativní Django admin na `/admin/` není vystavený — viz [ADR-008](https://github.com/robozor/astrozor/blob/main/docs/decisions/ADR-008-disable-django-admin.md).)
 
 ## 1) Uživatelé
 
@@ -35,14 +35,14 @@ V horní liště **vyhledávání podle emailu / jména**.
 4. Najdi řádek → klik na **Zablokovat** ve sloupci Stav
 5. `is_active = False` → uživatel se nemůže přihlásit (login flow odmítne)
 6. Jeho obsah (články, komentáře, registrace) zůstávají — soft block, ne delete
-7. Pro úplné smazání: jdi do Django adminu (`/admin/accounts/user/`)
+7. Pro úplné smazání (hard delete): `docker compose exec api python manage.py shell -c "from django.contrib.auth import get_user_model; get_user_model().objects.filter(email='...').delete()"`
 
 ### Use-case: Povýšit někoho na admina
 
 1. **Uživatelé** → vyhledej daného člověka
 2. Klik **+ admin** → `is_staff = True`
 3. Od teď uvidí nav tab **Správa** a má přístup k tomuto panelu
-4. Pro úplná superuser práva (Django admin): nutno nastavit `is_superuser = True` v Django adminu
+4. Pro úplná superuser práva (přístup z `manage.py shell`, ne přes web): `manage.py shell` → `u.is_superuser = True; u.save()`
 
 > **Pozor:** Sebe nelze degradovat (`isMe` flag chrání před lockout-em).
 
@@ -152,19 +152,15 @@ Nejtechničtější panel — správa self-hostovaných tile datasets a geocoder
 
 > **Pozor**: nerestartuj api kontejner během běžícího stahování — přeruší se to.
 
-## 5) Django admin (nativní)
+## 5) Pokročilé úlohy (shell)
 
-Pro pokročilé úlohy (DB editace, content type permissions, Django sessions, atd.):
+Nativní Django admin na `/admin/` **není vystavený** (viz [ADR-008](https://github.com/robozor/astrozor/blob/main/docs/decisions/ADR-008-disable-django-admin.md)). Raw DB inspekce a operace mimo rozsah produkčního adminu se dělají přes Django shell:
 
+```bash
+docker compose -p astrozor exec api python manage.py shell
 ```
-http://<HOST>/admin/
-```
 
-Plný Django admin se všemi modely. Vyžaduje `is_superuser = True` (nutno nastavit v shellu nebo přes existujícího superuser-a, ne přes Astrozor staff toggle).
-
-## Notifikační test (admin only)
-
-Endpoint `/admin/notifications/test` — pošle testovací notifikaci sám sobě (dry-run). Praktické při ladění Discord webhook URL nebo VAPID setupu. Aktuálně dostupné jen přes API call, ne přes UI tlačítko.
+Z shellu máš plný ORM přístup ke všem modelům. Pro masivní změny použij `manage.py` commandy (validace, transakce).
 
 ## Logy a monitoring
 
@@ -179,7 +175,7 @@ Health endpoint: `GET /api/v1/health` (vrátí 200 OK pokud DB + Redis fungují)
 
 ## Best practices pro adminy
 
-1. **Nedělej major data changes přes Django admin** — preferuj management commands nebo Astrozor admin panel (víc validace)
+1. **Pro masivní změny dat preferuj management commands nebo Astrozor admin panel** (víc validace než holý shell)
 2. **Místa**: před smazáním zkontroluj, jestli má check-iny / subscriptions / chat
 3. **Zooniverse**: disconnect je destruktivní — sprinty se kaskádově smažou
 4. **PMTiles / Light Pollution download**: spouštěj v off-peak hours, traffic-heavy job

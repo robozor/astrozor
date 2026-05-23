@@ -10,11 +10,9 @@
 
 # Local dev hostnames
 :80, astrozor.localhost, localhost, 127.0.0.1 {
-    # API + admin → Django
+    # API → Django (django.contrib.admin is not exposed; product admin
+    # lives under /api/v1/admin/* and is consumed by the React UI).
     handle /api/* {
-        reverse_proxy api:8000
-    }
-    handle /admin/* {
         reverse_proxy api:8000
     }
     handle /static/* {

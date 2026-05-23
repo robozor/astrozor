@@ -2,7 +2,6 @@
 
 from django.conf import settings
 from django.conf.urls.static import static
-from django.contrib import admin
 from django.contrib.sitemaps.views import sitemap
 from django.http import HttpResponse
 from django.urls import path
@@ -13,6 +12,10 @@ from apps.publishing.sitemaps import ArticleSitemap, StaticViewsSitemap
 
 from .api import api
 
+# django.contrib.admin stays in INSTALLED_APPS (LogEntry table is referenced
+# by historical migrations on existing deployments) but no URL is exposed.
+# Product-level admin is implemented in the React UI talking to /api/v1/admin/*.
+
 
 def robots_txt(request):
     """Minimal robots.txt pointing crawlers at the sitemap."""
@@ -22,14 +25,12 @@ def robots_txt(request):
         "User-agent: *\n"
         "Allow: /\n"
         "Disallow: /api/\n"
-        "Disallow: /admin/\n"
         f"Sitemap: {scheme}://{host}/sitemap.xml\n"
     )
     return HttpResponse(body, content_type="text/plain")
 
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
     path("api/v1/", api.urls),
     # Discoverability surfaces — Atom/RSS feed of public articles, plus
     # a server-rendered OG/JSON-LD page per article that social-network

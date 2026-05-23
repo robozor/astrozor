@@ -25,7 +25,7 @@ Formát tokenu: `ast_pat_<base64url-40>`.
 
 - Token = trvalé heslo pro publikování pod tvým účtem. **Nesdílej ho.**
 - Pokud ho omylem vystavíš (commit do gitu, screenshot, Slack), **okamžitě ho revokuj** (viz dále) a vytvoř nový.
-- Token vyprší? Aktuálně NE — můžeš nastavit `expires_at` při vytváření (zatím přes Django admin).
+- Token vyprší? Aktuálně NE — pole `expires_at` existuje v modelu, ale UI ho zatím nenastavuje. Lze nastavit v `manage.py shell`.
 - Token NEUMOŽŇUJE přihlášení do webového UI ani změnu profilu / hesla. Jen `publish:articles`.
 
 ## Revokace

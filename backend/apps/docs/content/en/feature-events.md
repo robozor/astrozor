@@ -146,7 +146,7 @@ For honesty — these are sometimes mentioned in forum comments, but **NOT in th
 - Carpool board (who's offering rides) — handle in the event's Discord channel
 - On-site QR check-in — use a manual list as organizer
 - Mass notification from organizer to attendees — via Discord webhook (Astrozor-side)
-- CSV attendee export — only via Django admin for now
+- CSV attendee export — only via `manage.py shell` for now
 - Automatic 24h reminder before the event — not yet
 - ICS subscription feed (subscribe URL) — single-event download only
 

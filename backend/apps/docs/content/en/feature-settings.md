@@ -175,7 +175,7 @@ To raise the quota: contact an admin (or `python manage.py shell` → `user.prof
 For completeness (so the docs don't mislead):
 
 - **Avatar upload** — the avatar comes from the OAuth identity (first linked provider). No own upload yet.
-- **Delete account** UI — for a full delete, go to Django admin (or ask an admin). Soft block is `is_active=False`.
+- **Delete account** UI — for a full delete, ask an admin (hard delete happens via `manage.py shell`). Soft block is `is_active=False`.
 - **Email visibility toggle** — `email` is always private (only you + admin see it). The public profile doesn't show it.
 - **Markdown bio** — `bio` is plain text, not markdown.
 - **Test Discord webhook** button — trigger an event manually (a check-in at a followed place, etc.)

@@ -67,7 +67,7 @@ Sub-section with the `Membership` list:
 
 - **Avatar + display name** (via `UserNameLink` to the public profile)
 - **Role** badge — `OWNER` / `MAINTAINER` / `CONTRIBUTOR`
-- Default `CONTRIBUTOR` on Join; OWNER is the creator (auto); MAINTAINER currently only via Django admin / shell
+- Default `CONTRIBUTOR` on Join; OWNER is the creator (auto); MAINTAINER currently only via `manage.py shell`
 
 ### GitHub repositories (`RepoCard` per repo)
 
@@ -155,13 +155,13 @@ If a claim fails with `not_collaborator`, Astrozor tells you GitHub refused the 
 
 **Not possible.** The server returns 403. Instead:
 
-1. Promote another member to `MAINTAINER` (via Django admin or manually via API — no UI flow yet)
+1. Promote another member to `MAINTAINER` (via `manage.py shell` or manually via API — no UI flow yet)
 2. Then delete the whole project (`Delete` button top-right)
 
 ## What currently DOES NOT EXIST
 
 - **Invitation flow** — no "invite member", "accept invitation". Open membership: anyone can click Join.
-- **UI for role transitions** — promoting `CONTRIBUTOR` → `MAINTAINER` only via Django admin
+- **UI for role transitions** — promoting `CONTRIBUTOR` → `MAINTAINER` only via `manage.py shell`
 - **Project chat / discussion** — comments on projects are planned, missing for now (comments only on articles / events / campaigns)
 - **Activity feed** — who did what in the project, not yet
 - **Issue closing from Astrozor** — for close, go to GitHub (Astrozor isn't a maintainer of GitHub API mutations)

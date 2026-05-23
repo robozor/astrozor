@@ -149,9 +149,11 @@ docker compose -p astrozor --profile photon up -d photon
 - **Disk usage cap**: Until we wire a Caddy quota, monitor with
   `df -h $(docker volume inspect astrozor_astrozor_pmtiles -f '{{.Mountpoint}}')`.
 - **Where status lives**: The `admin_map_infra` table (single row, pk=1)
-  is the source of truth for which backend is active. Editing this row
-  in Django admin (`/admin/admin_panel/mapinfra/1/change/`) achieves the
-  same as the UI buttons.
+  is the source of truth for which backend is active. The product admin
+  in the React UI (Settings → Administrace → Map infra) edits the same
+  row; `manage.py shell` can read/write it directly when the UI is
+  unreachable. (Native Django admin at `/admin/` is intentionally not
+  exposed — see [ADR-008](../decisions/ADR-008-disable-django-admin.md).)
 
 ---
 

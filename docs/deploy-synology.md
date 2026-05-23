@@ -196,7 +196,10 @@ curl -fsS http://localhost:8081/api/v1/healthz
 docker compose exec api python manage.py createsuperuser
 ```
 
-Pak jdi na `https://astrozor.tvoje-domena.cz/admin/` a přihlas se.
+Pak se přihlas na `https://astrozor.tvoje-domena.cz/` — admin panel
+najdeš v UI (ozubené kolo → **Administrace**). Astrozor používá vlastní
+produktový admin nad `/api/v1/admin/*`; nativní `/admin/` (Django) není
+exponovaný — viz [ADR-008](./decisions/ADR-008-disable-django-admin.md).
 
 ---
 

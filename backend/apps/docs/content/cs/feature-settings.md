@@ -175,7 +175,7 @@ Pro navýšení kvóty: kontaktuj admina (nebo `python manage.py shell` → `use
 Pro úplnost (a aby to v docs nezavádělo):
 
 - **Avatar upload** — avatar přichází z OAuth identity (první propojený provider). Vlastní upload zatím není.
-- **Smazat účet** UI — pro úplné smazání jdi do Django admin (nebo si požádej admina). Soft block je `is_active=False`.
+- **Smazat účet** UI — pro úplné smazání požádej admina (hard delete jde přes `manage.py shell`). Soft block je `is_active=False`.
 - **Email visibility toggle** — `email` je vždy private (vidí jen ty + admin). Public profile ho neukáže.
 - **Bio markdown** — `bio` je plain text, ne markdown.
 - **Test Discord webhook** tlačítko — manuálně si vyvolaj událost (check-in na sledovaném místě atd.)

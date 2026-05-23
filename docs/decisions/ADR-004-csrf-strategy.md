@@ -11,7 +11,7 @@ Astrozor uses session-based authentication (Django session cookies). Django's `C
 
 - Django's `SESSION_COOKIE_SAMESITE = "Lax"` prevents cross-origin POST requests from carrying the session cookie. This neutralizes the main CSRF attack vector for state-changing requests.
 - `NinjaAPI(csrf=False)` — API endpoints don't require CSRF tokens. NinjaAPI applies `@csrf_exempt` automatically.
-- The Django admin (`/admin/`) keeps full CSRF protection via the standard middleware.
+- The Django admin (`/admin/`) keeps full CSRF protection via the standard middleware. *(Superseded by [ADR-008](./ADR-008-disable-django-admin.md): the `/admin/` URL is no longer exposed.)*
 - A `/api/v1/csrf` endpoint is provided for future use (e.g., if we ever embed forms or accept third-party referrers).
 
 ## Consequences

@@ -67,7 +67,7 @@ Sub-sekce s listem `Membership`:
 
 - **Avatar + display name** (přes `UserNameLink` na public profil)
 - **Role** badge — `OWNER` / `MAINTAINER` / `CONTRIBUTOR`
-- Defaultně se vytvoří `CONTRIBUTOR` po Join; OWNER je creator (auto); MAINTAINER aktuálně jen přes Django admin / shell
+- Defaultně se vytvoří `CONTRIBUTOR` po Join; OWNER je creator (auto); MAINTAINER aktuálně jen přes `manage.py shell`
 
 ### GitHub repozitáře (`RepoCard` per repo)
 
@@ -155,13 +155,13 @@ Pokud claim selže s `not_collaborator`, Astrozor ti řekne, že GitHub odmítl 
 
 **Nelze.** Server vrátí 403. Místo toho:
 
-1. Promote jiného člena na `MAINTAINER` (přes Django admin nebo manuálně přes API — UI flow zatím neexistuje)
+1. Promote jiného člena na `MAINTAINER` (přes `manage.py shell` nebo manuálně přes API — UI flow zatím neexistuje)
 2. Pak smaž celý projekt (`Delete` tlačítko vpravo nahoře)
 
 ## Co aktuálně NEEXISTUJE
 
 - **Invitation flow** — žádné „pozvat člena", „přijmout pozvánku". Open membership: kdokoliv klikne Join.
-- **UI pro role transition** — promote `CONTRIBUTOR` → `MAINTAINER` jde jen přes Django admin
+- **UI pro role transition** — promote `CONTRIBUTOR` → `MAINTAINER` jde jen přes `manage.py shell`
 - **Project chat / discussion** — komentáře na projektu jsou plánované, zatím chybí (komentáře jen u článků / akcí / kampaní)
 - **Activity feed** — kdo co udělal v projektu, zatím není
 - **Issue closing z Astrozoru** — pro close jdi na GitHub (Astrozor není maintainer GitHub API mutací)

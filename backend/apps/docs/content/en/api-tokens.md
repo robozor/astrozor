@@ -25,7 +25,7 @@ Token format: `ast_pat_<base64url-40>`.
 
 - The token = a persistent password to publish on your behalf. **Don't share it.**
 - If you leak it (git commit, screenshot, Slack), **revoke immediately** (below) and create a new one.
-- Tokens don't expire by default — `expires_at` can be set at creation (currently only via Django admin).
+- Tokens don't expire by default — the `expires_at` field exists on the model, but the UI doesn't set it yet. You can set it from `manage.py shell`.
 - The token CANNOT sign you into the web UI or change your profile / password. Just `publish:articles`.
 
 ## Revocation

@@ -7,9 +7,9 @@ icon: "🛡"
 
 # Administration (Admin panel)
 
-The **Admin** section is available **only to staff users** (`User.is_staff = True`). Anonymous and regular users don't see the **Admin** button in the header; visiting `/admin` hits a rose banner "This section isn't available".
+The **Admin** section is available **only to staff users** (`User.is_staff = True`). Anonymous and regular users don't see the **Admin** button in the header; navigating to /admin in the UI hits a banner "This section isn't available".
 
-The Astrozor admin panel has **4 sections** + a link to the native Django admin.
+The Astrozor admin panel has **4 sections**. (Native Django admin at `/admin/` is intentionally not exposed — see [ADR-008](https://github.com/robozor/astrozor/blob/main/docs/decisions/ADR-008-disable-django-admin.md).)
 
 ## 1) Users
 
@@ -35,14 +35,14 @@ Top bar: **search by email / name**.
 4. Find the row → click **Block** in the Status column
 5. `is_active = False` → the user can't sign in (login flow rejects)
 6. Their content (articles, comments, registrations) stays — soft block, not delete
-7. For a full delete: go to Django admin (`/admin/accounts/user/`)
+7. For a full hard delete: `docker compose exec api python manage.py shell -c "from django.contrib.auth import get_user_model; get_user_model().objects.filter(email='...').delete()"`
 
 ### Use-case: Promote someone to admin
 
 1. **Users** → search for that person
 2. Click **+ admin** → `is_staff = True`
 3. From now on they see the **Admin** nav tab and have access to this panel
-4. For full superuser rights (Django admin), set `is_superuser = True` in Django admin
+4. For full superuser rights (`manage.py shell` access, not via web UI): open the shell → `u.is_superuser = True; u.save()`
 
 > **Heads-up:** You can't demote yourself (`isMe` flag prevents lockout).
 
@@ -152,19 +152,15 @@ The most technical panel — manages self-hosted tile datasets and the geocoder.
 
 > **Heads-up:** Don't restart the api container while a download is running — it'll interrupt.
 
-## 5) Django admin (native)
+## 5) Advanced tasks (shell)
 
-For advanced tasks (DB edits, content-type permissions, Django sessions, etc.):
+The native Django admin at `/admin/` is **not exposed** (see [ADR-008](https://github.com/robozor/astrozor/blob/main/docs/decisions/ADR-008-disable-django-admin.md)). Raw DB inspection and anything outside the product admin's scope happens through the Django shell:
 
+```bash
+docker compose -p astrozor exec api python manage.py shell
 ```
-http://<HOST>/admin/
-```
 
-The full Django admin with all models. Requires `is_superuser = True` (set in the shell or via an existing superuser, not via the Astrozor staff toggle).
-
-## Notification test (admin only)
-
-Endpoint `/admin/notifications/test` — sends a test notification to yourself (dry-run). Handy for debugging the Discord webhook URL or VAPID setup. Currently only accessible via API call, no UI button.
+The shell gives you full ORM access to every model. For bulk changes, prefer `manage.py` commands (validation, transactions).
 
 ## Logs and monitoring
 
@@ -179,7 +175,7 @@ Health endpoint: `GET /api/v1/health` (returns 200 OK if DB + Redis work).
 
 ## Best practices for admins
 
-1. **Don't do major data changes via Django admin** — prefer management commands or the Astrozor admin panel (more validation)
+1. **For bulk data changes, prefer management commands or the Astrozor admin panel** (more validation than the bare shell)
 2. **Places**: before deleting, check whether it has check-ins / subscriptions / chat
 3. **Zooniverse**: disconnect is destructive — sprints cascade-delete
 4. **PMTiles / Light Pollution download**: run off-peak, traffic-heavy job

@@ -10,6 +10,8 @@ This directory captures **non-trivial decisions** made during autonomous develop
 - [ADR-004 — CSRF strategy: SameSite=Lax cookies, no API CSRF tokens](./ADR-004-csrf-strategy.md)
 - [ADR-005 — PostGIS + PMTiles deferred to Krok 3.x; OSM raster + float lat/lon in MVP](./ADR-005-postgis-deferred.md)
 - [ADR-006 — Chat via REST polling (WebSocket deferred to Krok 6.x)](./ADR-006-chat-rest-polling.md)
+- [ADR-007 — Notifications in-app inbox only in MVP](./ADR-007-notifications-inbox-only.md)
+- [ADR-008 — Disable `django.contrib.admin` URL](./ADR-008-disable-django-admin.md)
 
 ## Conventions
 

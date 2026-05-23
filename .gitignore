@@ -64,15 +64,26 @@ test-results/
 /admin-*.png
 /anon-*.png
 /articles-*.png
+/bortle-*.png
 /citizen-*.png
 /discord-*.png
 /events-*.png
+/login-modal-*.png
+/lp-*.png
 /map-*.png
+/marker-*.png
+/markers-*.png
+/modal-*.png
+/narrow-*.png
 /place-*.png
 /projects-*.png
+/quarto-*.png
 
 # Playwright artifacts dropped in repo root
 /map-*.yml
+
+# TypeScript incremental build cache
+*.tsbuildinfo
 
 # Docker / build cache
 .docker/
