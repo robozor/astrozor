@@ -6,6 +6,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 
 ## [Unreleased]
 
+## [1.2.5] — 2026-05-26
+
+### Added
+
+- **Temporary places: `valid_to` is editable** — datetime-local picker in the place form, shown only for `spot_temporary`. Default = now + 4 h (matches the backend's old hidden default). Edit mode pre-fills the existing value so the owner can extend a place that's about to expire. ([#21](https://github.com/robozor/astrozor/issues/21))
+
+### Fixed
+
+- **Expired temporary places now visible to owner + admin** — backend `/places` listing and `/places/{slug}` used to hide expired temp places from *everyone* including the owner, so the user had no way to find, extend, or delete them. Now public still sees them disappear; owner + staff keep them on the map rendered desaturated + 50 % opacity (struck-through-look) with the full edit / delete actions available. ([#21](https://github.com/robozor/astrozor/issues/21))
+- **Modal backdrop click no longer silently discards form data** — PlaceFormModal, LoginModal, Zooniverse import-review + disconnect modals, and the CSV import preview each had `onClick={onClose}` on the backdrop wrapper. A misclick anywhere outside the inner box dropped the entire form. Backdrop click is now a no-op on these form modals; closing happens through ✕ in the header and Cancel buttons. ([#20](https://github.com/robozor/astrozor/issues/20))
+- **Draft events were invisible to the organizer in the listing** — `/events` had a blanket `.exclude(status=DRAFT)` that hid drafts from everyone, including the user who just created the event. Now drafts are hidden from anon + other authed users only; the organizer and staff see their own drafts (matching the per-event GET policy that was already correct). ([#22](https://github.com/robozor/astrozor/issues/22))
+
 ## [1.2.4] — 2026-05-26
 
 ### Added
