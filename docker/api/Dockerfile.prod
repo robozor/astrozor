@@ -12,7 +12,10 @@ RUN apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends gosu \
  && rm -rf /var/lib/apt/lists/* \
  && chmod +x /app/backend/entrypoint.sh \
- && mkdir -p /var/lib/astrozor/media/uploads /var/lib/astrozor/pmtiles \
+ && mkdir -p \
+        /var/lib/astrozor/media/uploads \
+        /var/lib/astrozor/pmtiles \
+        /var/lib/astrozor/light_pollution \
  && chown -R astrozor:astrozor /var/lib/astrozor
 # Stay as root so entrypoint.sh can chmod the bind-mounted docker.sock; it
 # drops to astrozor via gosu before exec'ing the app.
