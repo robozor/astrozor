@@ -1,8 +1,15 @@
 # Astrozor
 
+[![Release](https://img.shields.io/github/v/release/robozor/astrozor?logo=github&label=release&color=green)](https://github.com/robozor/astrozor/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/robozor/astrozor/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/robozor/astrozor/actions/workflows/ci.yml)
+[![Docker build](https://img.shields.io/github/actions/workflow/status/robozor/astrozor/release.yml?label=docker%20images&logo=docker&logoColor=white)](https://github.com/robozor/astrozor/actions/workflows/release.yml)
+[![License: MIT](https://img.shields.io/github/license/robozor/astrozor)](./LICENSE)
+[![Last commit](https://img.shields.io/github/last-commit/robozor/astrozor)](https://github.com/robozor/astrozor/commits/main)
+[![Open issues](https://img.shields.io/github/issues/robozor/astrozor)](https://github.com/robozor/astrozor/issues)
+
 > Collaborative platform for active astronomers — online meetups, observation coordination, article publishing (Markdown / Quarto / Jupyter), a map of observatories and observing spots, GitHub-integrated projects, events, and citizen-science campaigns.
 
-**Status:** v1.2.3 (production-ready, self-hostable) · **License:** [MIT](./LICENSE) · **Partner:** Czech Astronomical Society (ČAS)
+**Status:** production-ready, self-hostable · **Partner:** Czech Astronomical Society (ČAS)
 
 | Tracking | Where |
 |----------|-------|

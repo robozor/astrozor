@@ -21,7 +21,7 @@ on:
         required: true
 
 permissions:
-  contents: read
+  contents: write   # required to create the GitHub Release at the end
   packages: write
 
 env:
@@ -132,3 +132,25 @@ jobs:
               echo "| \`astrozor-$name\` | \`docker pull ghcr.io/${{ steps.owner.outputs.name }}/astrozor-$name:${{ steps.version.outputs.tag }}\` |"
             done
           } >> $GITHUB_STEP_SUMMARY
+
+      # Create the GitHub Release once the images are live. Auto-generates
+      # release notes from PRs/commits since the previous tag; the
+      # CHANGELOG entry for the tag is appended as a body header.
+      # Only runs when triggered by an actual tag push (not workflow_dispatch).
+      - name: Create GitHub Release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          generate_release_notes: true
+          body: |
+            Pre-built multi-arch images for `${{ steps.version.outputs.tag }}` are live on GHCR.
+
+            ```bash
+            # In .env on the deploy host
+            ASTROZOR_TAG=${{ steps.version.outputs.tag }}
+            docker compose pull && docker compose up -d
+            ```
+
+            Full changelog: [`CHANGELOG.md`](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)
