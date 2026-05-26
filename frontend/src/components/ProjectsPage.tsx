@@ -752,7 +752,12 @@ function RepoCard({
   });
   const remove = useMutation({
     mutationFn: () => projects.removeRepo(repo.id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["project-repos", projectSlug] }),
+    onSuccess: () => {
+      // Repo set changed → refresh everything that aggregates over it.
+      qc.invalidateQueries({ queryKey: ["project-repos", projectSlug] });
+      qc.invalidateQueries({ queryKey: ["project-activity", projectSlug, 365] });
+      qc.invalidateQueries({ queryKey: ["issue-leaderboard"] });
+    },
   });
   // Live issue count — GitHub's ``open_issues_count`` on the repo
   // endpoint includes pull requests, so for a repo with 8 PRs + 1
@@ -1862,7 +1867,10 @@ function AddRepoForm({ projectSlug }: { projectSlug: string }) {
     mutationFn: () => projects.addRepo(projectSlug, fullName.trim()),
     onSuccess: () => {
       setFullName("");
+      // Repo set changed → refresh everything that aggregates over it.
       qc.invalidateQueries({ queryKey: ["project-repos", projectSlug] });
+      qc.invalidateQueries({ queryKey: ["project-activity", projectSlug, 365] });
+      qc.invalidateQueries({ queryKey: ["issue-leaderboard"] });
     },
   });
 
