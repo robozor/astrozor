@@ -6,6 +6,26 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 
 ## [Unreleased]
 
+## [1.2.4] — 2026-05-26
+
+### Added
+
+- **Admin delete actions** for the three big disk-eaters: drop the PMTiles archive, reset Photon data (stops container, wipes volume, restarts → fresh import), purge LP tile cache per source. Confirm dialog quotes the bytes that will be freed. All three refuse with 409 if a download is in progress. ([#18](https://github.com/robozor/astrozor/issues/18))
+- **GitHub Release auto-creation**: `release.yml` now runs `softprops/action-gh-release@v2` after pushing images, so tagging `vX.Y.Z` produces the GHCR images *and* the matching GitHub Release page in one step. Notes are auto-generated from PRs/commits since the previous tag.
+- **README status badges**: release version, CI status, Docker build status, MIT, last commit, open issues — all auto-tracked via shields.io.
+- **`/healthz` reports the running release tag** (was hardcoded `0.0.1`). Tag is baked into the api image at build time via `ASTROZOR_VERSION` build-arg, exposed through `settings.ASTROZOR_VERSION`. ([#15](https://github.com/robozor/astrozor/issues/15))
+
+### Fixed
+
+- **Light pollution downloads fail with `Permission denied`**: `astrozor_light_pollution` named volume was creating its mount point as `root:root` because the image didn't pre-create the path; the celery worker (uid 1000) couldn't write. Added the dir to the Dockerfile's `mkdir -p` line so the subsequent `chown -R` covers it. ([#17](https://github.com/robozor/astrozor/issues/17))
+- **OAuth callback error UX**: identity-conflict (and other backend `oauth_error` codes) now show a friendly localized message instead of `OAuth chyba: identity_owned_by_another_user`. New `auth.oauth.errors.<code>` i18n key set in cs/en. The identity-conflict flash gets 30 s display time instead of 5 s. ([#14](https://github.com/robozor/astrozor/issues/14))
+- **Project activity graph stayed stale after add/remove repo**: `addRepo` and `removeRepo` mutations only invalidated `["project-repos", slug]`; the activity graph + issue leaderboard ran on separate query keys and required a page reload. Both mutations now invalidate all three. ([#16](https://github.com/robozor/astrozor/issues/16))
+
+### Changed
+
+- **PMTiles is *not* Europe-only** — the default download is the full world Protomaps Daily build (~130 GB). Dropped the misleading "Europe" label from the admin card title, the i18n keys, and the map-infra runbook; bumped the runbook's disk estimate from 100 GB → 150 GB. ([#19](https://github.com/robozor/astrozor/issues/19))
+- **Backend lint clean**: 93 pre-existing ruff warnings cleared (unused imports, ambiguous loop vars, mis-placed module imports). `pyproject.toml` per-file-ignores for `B008` on Ninja route handlers and `E402` on bootstrap scripts.
+
 ## [1.2.3] — 2026-05-26
 
 ### Fixed
