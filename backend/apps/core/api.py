@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from django.conf import settings
 from django.db import connection
 from ninja import Router, Schema
 
@@ -17,7 +18,11 @@ class HealthOut(Schema):
 @router.get("/healthz", response=HealthOut)
 def healthz(request) -> dict[str, str]:  # noqa: ARG001
     """Liveness probe. Returns 200 if process is running."""
-    return {"status": "ok", "version": "0.0.1", "database": "skipped"}
+    return {
+        "status": "ok",
+        "version": settings.ASTROZOR_VERSION,
+        "database": "skipped",
+    }
 
 
 @router.get("/readyz", response=HealthOut)
@@ -32,6 +37,6 @@ def readyz(request) -> dict[str, str]:  # noqa: ARG001
         db_status = f"error: {exc.__class__.__name__}"
     return {
         "status": "ok" if db_status == "ok" else "degraded",
-        "version": "0.0.1",
+        "version": settings.ASTROZOR_VERSION,
         "database": db_status,
     }

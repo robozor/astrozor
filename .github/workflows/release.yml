@@ -85,6 +85,7 @@ jobs:
           push: true
           build-args: |
             BASE_IMAGE=ghcr.io/${{ steps.owner.outputs.name }}/astrozor-python-base:${{ steps.version.outputs.tag }}
+            ASTROZOR_VERSION=${{ steps.version.outputs.tag }}
           tags: |
             ghcr.io/${{ steps.owner.outputs.name }}/astrozor-api:${{ steps.version.outputs.tag }}
             ghcr.io/${{ steps.owner.outputs.name }}/astrozor-api:latest

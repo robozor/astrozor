@@ -4,6 +4,10 @@
 ARG BASE_IMAGE=astrozor/python-base:dev
 FROM ${BASE_IMAGE}
 
+# Release tag baked in at build time; surfaced via /healthz.
+ARG ASTROZOR_VERSION=dev
+ENV ASTROZOR_VERSION=${ASTROZOR_VERSION}
+
 WORKDIR /app/backend
 
 USER root

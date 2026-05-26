@@ -204,6 +204,12 @@ DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", "Astrozor <noreply@astrozor.local
 # Public-facing URL used in e-mail links
 PUBLIC_BASE_URL = env("PUBLIC_BASE_URL", "http://astrozor.localhost")
 
+# Astrozor release tag, injected at image-build time from the git tag (see
+# .github/workflows/release.yml + docker/api/Dockerfile.prod). Defaults to
+# "dev" when running from source. Exposed via /healthz so we can verify
+# which version a live deploy is actually running.
+ASTROZOR_VERSION = env("ASTROZOR_VERSION", "dev")
+
 # ---- Sessions ----
 
 SESSION_COOKIE_NAME = "astrozor_sessionid"
