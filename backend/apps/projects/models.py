@@ -60,6 +60,9 @@ class Membership(models.Model):
         unique_together = [("project", "user")]
         ordering = ["created_at"]
 
+    def __str__(self) -> str:
+        return f"{self.user} in {self.project} ({self.role})"
+
 
 class GHRepo(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -103,6 +106,9 @@ class GHRepo(models.Model):
         db_table = "projects_ghrepo"
         unique_together = [("project", "owner_login", "repo_name")]
         ordering = ["owner_login", "repo_name"]
+
+    def __str__(self) -> str:
+        return self.full_name
 
     @property
     def full_name(self) -> str:

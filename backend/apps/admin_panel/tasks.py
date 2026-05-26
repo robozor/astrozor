@@ -7,6 +7,7 @@ the admin UI polls the MapInfra row for status updates.
 from __future__ import annotations
 
 import logging
+import math
 import time
 from pathlib import Path
 
@@ -262,9 +263,6 @@ def import_photon(self):
 
 
 # ---- Light pollution local tile cache ----
-
-import math
-import os
 
 LP_BBOX_EUROPE = (-25.0, 34.0, 45.0, 72.0)  # (lon_min, lat_min, lon_max, lat_max)
 LP_ZOOM_MIN = 0

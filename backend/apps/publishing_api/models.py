@@ -57,7 +57,7 @@ class ApiToken(models.Model):
         return True
 
     @classmethod
-    def create_for_user(cls, user, name: str, scopes: list[str] | None = None) -> tuple["ApiToken", str]:
+    def create_for_user(cls, user, name: str, scopes: list[str] | None = None) -> tuple[ApiToken, str]:
         plaintext = _generate_token()
         token = cls.objects.create(
             user=user,
@@ -69,7 +69,7 @@ class ApiToken(models.Model):
         return token, plaintext
 
     @classmethod
-    def find_active(cls, plaintext: str) -> "ApiToken | None":
+    def find_active(cls, plaintext: str) -> ApiToken | None:
         try:
             tok = cls.objects.select_related("user").get(token_hash=_hash(plaintext))
         except cls.DoesNotExist:

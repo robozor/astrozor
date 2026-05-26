@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
+from django.contrib.auth import authenticate
+from django.contrib.auth import login as auth_login
+from django.contrib.auth import logout as auth_logout
 from django.http import HttpRequest, HttpResponseRedirect
 from django.utils import timezone
 from ninja import Router, Schema
-from ninja.errors import HttpError
 
 from .emails import send_magic_link_email, send_verification_email
 from .models import EmailToken, Identity, MastodonInstance, User  # noqa: F401

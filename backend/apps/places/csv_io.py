@@ -11,7 +11,7 @@ from __future__ import annotations
 import csv
 import io
 import math
-from typing import Iterator
+from collections.abc import Iterator
 
 from .models import Place
 
@@ -128,7 +128,7 @@ def parse_csv(text: str) -> Iterator[tuple[int, dict, list[str]]]:
             errors.append(f"bortle_manual must be a number 1..9 (got {b!r})")
             row["bortle_manual"] = None
         if row["bortle_manual"] is not None and not (1.0 <= row["bortle_manual"] <= 9.0):
-            errors.append(f"bortle_manual must be between 1 and 9")
+            errors.append("bortle_manual must be between 1 and 9")
 
         # Plain strings
         for key in (

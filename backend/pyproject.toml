@@ -17,6 +17,14 @@ ignore = ["E501"]  # line too long — handled by formatter
 [tool.ruff.lint.per-file-ignores]
 "**/migrations/*.py" = ["E", "F", "I", "B", "W", "UP", "DJ"]
 "**/settings.py" = ["F405", "F403"]
+# Django Ninja route handlers use File(...) / Query(...) / Schema()
+# sentinels as default values — that's the framework's signature contract
+# for parsing multipart uploads and query params. B008 ("don't call
+# functions in argument defaults") fights the framework here.
+"**/apps/**/api.py" = ["B008"]
+# Django bootstrap scripts must call django.setup() before importing models,
+# which forces non-top-level imports.
+"bootstrap_*.py" = ["E402"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "astrozor.settings"

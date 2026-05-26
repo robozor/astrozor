@@ -35,6 +35,9 @@ class FeedSource(models.Model):
         ordering = ["-created_at"]
         unique_together = [("url", "target_kind", "target_id")]
 
+    def __str__(self) -> str:
+        return f"{self.kind}:{self.name or self.url} → {self.target_kind}:{self.target_id}"
+
 
 class FeedItem(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -51,3 +54,6 @@ class FeedItem(models.Model):
         ordering = ["-published_at", "-fetched_at"]
         unique_together = [("source", "guid")]
         indexes = [models.Index(fields=["source", "-fetched_at"])]
+
+    def __str__(self) -> str:
+        return self.title or self.guid

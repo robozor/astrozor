@@ -46,7 +46,7 @@ UPSTREAM_TIMEOUT = 5.0
 
 
 def _cache_key(q: str, limit: int, lang: str) -> str:
-    h = hashlib.sha256(f"{q.strip().lower()}|{limit}|{lang}".encode("utf-8")).hexdigest()[:16]
+    h = hashlib.sha256(f"{q.strip().lower()}|{limit}|{lang}".encode()).hexdigest()[:16]
     return f"geocode:v1:{h}"
 
 

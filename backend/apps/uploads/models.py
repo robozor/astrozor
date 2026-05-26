@@ -7,7 +7,7 @@ from django.conf import settings
 from django.db import models
 
 
-def _upload_path(instance: "Upload", filename: str) -> str:
+def _upload_path(instance: Upload, filename: str) -> str:
     """Each user gets their own subfolder. UUID-named files prevent
     collisions and (mild) enumeration. Original extension preserved
     so the file is served with a sensible Content-Type by Django/Caddy.

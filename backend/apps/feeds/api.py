@@ -17,7 +17,6 @@ from .fetch import fetch_source
 from .models import FeedItem, FeedSource
 from .schemas import (
     FeedItemListOut,
-    FeedItemOut,
     FeedSourceIn,
     FeedSourceOut,
     FetchResultOut,

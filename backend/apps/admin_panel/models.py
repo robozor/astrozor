@@ -170,6 +170,6 @@ class MapInfra(models.Model):
         return f"MapInfra(tiles={self.tile_backend}, search={self.search_backend})"
 
     @classmethod
-    def get(cls) -> "MapInfra":
+    def get(cls) -> MapInfra:
         obj, _ = cls.objects.get_or_create(pk=1)
         return obj

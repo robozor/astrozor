@@ -6,24 +6,13 @@ from django.conf import settings
 from django.http import HttpRequest
 from django.utils import timezone
 from django.utils.text import slugify
-from ninja import Query, Router
-
-from apps.accounts.mastodon_post import post_status as mastodon_post_status
-from ninja import Schema
+from ninja import Query, Router, Schema
 
 from .doi import mint_doi
 from .models import Article, Comment
 from .rendering import render_markdown
-
-
-class PublishIn(Schema):
-    # Authors must explicitly opt-in to DOI minting each time they publish.
-    # Defaults to False so the publish step never accidentally burns a
-    # Zenodo deposit (or hits the MOCK fallback when no token is configured).
-    mint_doi: bool = False
 from .schemas import (
     ArticleCreateIn,
-    ArticleListItem,
     ArticleListOut,
     ArticleOut,
     ArticlePatchIn,
@@ -31,6 +20,14 @@ from .schemas import (
     CommentListOut,
     CommentOut,
 )
+
+
+class PublishIn(Schema):
+    # Authors must explicitly opt-in to DOI minting each time they publish.
+    # Defaults to False so the publish step never accidentally burns a
+    # Zenodo deposit (or hits the MOCK fallback when no token is configured).
+    mint_doi: bool = False
+
 
 router = Router(tags=["publishing"])
 
@@ -386,7 +383,11 @@ def post_comment(request: HttpRequest, slug: str, payload: CommentIn):
     # length limit. See apps/chat/sanitize.py for the canonical definitions.
     from apps.chat.sanitize import (
         auto_youtube_attachments as _auto_youtube_attachments,
+    )
+    from apps.chat.sanitize import (
         safe_text as _safe_text,
+    )
+    from apps.chat.sanitize import (
         sanitize_attachments as _sanitize_attachments,
     )
 

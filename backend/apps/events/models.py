@@ -199,3 +199,6 @@ class Registration(models.Model):
         db_table = "events_registration"
         unique_together = [("event", "user")]
         ordering = ["created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.user} @ {self.event} ({self.status})"

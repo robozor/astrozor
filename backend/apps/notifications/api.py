@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from django.db.models import Count, Q
+from django.db.models import Q
 from django.http import HttpRequest
 from django.utils import timezone
 from ninja import Query, Router
@@ -207,7 +207,6 @@ def lookup_users(request: HttpRequest, q: str = "", limit: int = 20):
     """
     if not _require_auth(request):
         return 401, {"detail": "Authentication required"}
-    from django.db.models import Q
 
     from apps.accounts.models import User
 

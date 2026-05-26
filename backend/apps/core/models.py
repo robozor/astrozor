@@ -10,7 +10,6 @@ domains. Currently:
 
 from __future__ import annotations
 
-from django.db import models
 from taggit.models import GenericUUIDTaggedItemBase, TaggedItemBase
 
 

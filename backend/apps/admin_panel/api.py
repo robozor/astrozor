@@ -12,8 +12,19 @@ import logging
 
 import httpx
 from django.core.cache import cache
-from django.http import HttpRequest
-from ninja import Router, Schema
+from django.db import transaction
+from django.http import HttpRequest, HttpResponse
+from django.utils.text import slugify
+from ninja import File, Router, Schema
+from ninja.files import UploadedFile as NinjaUploadedFile
+
+from apps.places.csv_io import (
+    DUPLICATE_RADIUS_METERS,
+    find_duplicates,
+    parse_csv,
+    places_to_csv,
+)
+from apps.places.models import BortleMeasurement, Place
 
 from .models import MapInfra
 from .tasks import (
@@ -21,9 +32,7 @@ from .tasks import (
     LP_ZOOM_MAX,
     LP_ZOOM_MIN,
     _lp_grid,
-    _lp_local_dir,
     _lp_source_url,
-    _lp_total_tiles,
     download_light_pollution_tiles,
     download_pmtiles,
     import_photon,
@@ -555,8 +564,8 @@ def _clouds_settings_out(m: MapInfra) -> dict:
         "enabled": m.clouds_enabled,
         "provider": m.clouds_provider,
         "provider_choices": [
-            {"value": v, "label": l}
-            for v, l in MapInfra.CloudsProvider.choices
+            {"value": v, "label": lbl}
+            for v, lbl in MapInfra.CloudsProvider.choices
         ],
         "frame_count": m.clouds_frame_count,
         "cache_ttl_seconds": m.clouds_cache_ttl_seconds,
@@ -829,20 +838,6 @@ def map_config(request: HttpRequest):  # noqa: ARG001
 # ============================================================
 # Admin places management — datagrid + CSV import/export
 # ============================================================
-
-from django.http import HttpResponse
-from django.db import transaction
-from django.utils.text import slugify
-from ninja import File
-from ninja.files import UploadedFile as NinjaUploadedFile
-from apps.places.csv_io import (
-    CSV_COLUMNS,
-    DUPLICATE_RADIUS_METERS,
-    find_duplicates,
-    parse_csv,
-    places_to_csv,
-)
-from apps.places.models import Place, BortleMeasurement
 
 
 @router.get("/admin/places", response={200: list[dict], 403: dict})

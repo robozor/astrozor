@@ -78,6 +78,9 @@ class DiscordPreference(models.Model):
         unique_together = [("user", "kind")]
         ordering = ["kind"]
 
+    def __str__(self) -> str:
+        return f"{self.user_id}:{self.kind} ({'on' if self.enabled else 'off'})"
+
 
 class Notification(models.Model):
     """In-app inbox entry for one user."""

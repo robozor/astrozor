@@ -40,13 +40,14 @@ owner id directly so they stay model-agnostic.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable
+from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 from django.db import models
 from django.db.models import Q
 
 if TYPE_CHECKING:
-    from django.contrib.auth.models import AbstractUser
+    pass
 
 
 class Visibility(models.TextChoices):

@@ -107,7 +107,7 @@ class RegistrationOut(Schema):
 # ---- Event discussion (mirrors publishing.Comment shape) ----
 
 
-from typing import Literal, Optional  # noqa: E402
+from typing import Literal  # noqa: E402
 
 
 class EventCommentAttachment(Schema):
@@ -121,13 +121,13 @@ class EventCommentAttachment(Schema):
 class EventCommentIn(Schema):
     text: str = Field(default="", max_length=50_000)
     attachments: list[EventCommentAttachment] = []
-    parent_id: Optional[UUID] = None
+    parent_id: UUID | None = None
 
 
 class EventCommentOut(Schema):
     id: UUID
     event_slug: str
-    parent_id: Optional[UUID] = None
+    parent_id: UUID | None = None
     user_display_name: str
     user_email: str = ""
     text: str

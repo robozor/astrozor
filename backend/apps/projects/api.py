@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from django.http import HttpRequest
 from django.utils.text import slugify
-from ninja import Router
-
-from ninja import Schema
+from ninja import Router, Schema
 
 from apps.chat.schemas import MessageIn, MessageListOut, MessageOut
 
@@ -33,7 +31,6 @@ from .schemas import (
     ProjectOut,
     ProjectPatchIn,
 )
-
 
 # Issue-type → GitHub labels mapping. We use the GH default labels
 # (``bug``, ``enhancement``) so they're already present on most repos
@@ -393,6 +390,7 @@ def list_repos(request: HttpRequest, slug: str):
     blank the list; the stale cache is returned as fallback.
     """
     from datetime import timedelta
+
     from django.utils import timezone as dj_tz
 
     try:
@@ -713,7 +711,7 @@ def issue_leaderboard(request: HttpRequest, limit: int = 20):
     # (lowercased, e.g. "robozor"). We fetch all GH identities once
     # and bucket them by lowercase login in Python — cheaper than
     # ``Q(iexact=...) | Q(iexact=...)`` per login.
-    login_lowers = {l.lower() for l in counts.keys()}
+    login_lowers = {login.lower() for login in counts.keys()}
     identities = Identity.objects.filter(provider="github").select_related(
         "user", "user__profile"
     )
@@ -793,7 +791,9 @@ def get_project_activity(
     ``fetch_repo_metadata``.
     """
     from collections import defaultdict
-    from datetime import date as date_cls, timedelta
+    from datetime import date as date_cls
+    from datetime import timedelta
+
     from django.utils import timezone as dj_tz
 
     try:

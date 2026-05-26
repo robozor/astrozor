@@ -14,12 +14,11 @@ the cleaned shape, suitable for storing on ``Message.text`` /
 from __future__ import annotations
 
 import re
-from typing import Iterable
+from collections.abc import Iterable
 from urllib.parse import parse_qs, urlparse
 
 import bleach
 from django.conf import settings
-
 
 # ---------------------------------------------------------------------------
 # HTML allowlist

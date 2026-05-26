@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 from django.utils import timezone as dj_tz
@@ -276,9 +276,10 @@ def _render_gh_markdown(body: str) -> str:
     """
     if not body:
         return ""
+    from urllib.parse import urlparse
+
     import bleach
     from markdown_it import MarkdownIt
-    from urllib.parse import urlparse
 
     allowed_tags = [
         "b", "strong", "i", "em", "u", "s", "del",
@@ -457,13 +458,14 @@ def fetch_commit_dates(
     the high-traffic days. Rate limit budget: 1–3 calls per repo
     in steady state.
     """
-    from datetime import datetime as dt, timedelta, timezone as tz
+    from datetime import datetime as dt
+    from datetime import timedelta
 
-    since = (dt.now(tz=tz.utc) - timedelta(days=days)).isoformat()
+    since = (dt.now(tz=UTC) - timedelta(days=days)).isoformat()
     url = f"{GH_API}/repos/{repo.owner_login}/{repo.repo_name}/commits"
     token = _resolve_user_token(user) if user else None
     counts: dict[str, int] = {}
-    cutoff = dt.now(tz=tz.utc) - timedelta(days=days)
+    cutoff = dt.now(tz=UTC) - timedelta(days=days)
     for page in range(1, max_pages + 1):
         try:
             with httpx.Client(timeout=15.0) as client:

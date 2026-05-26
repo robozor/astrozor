@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from ninja import Schema
@@ -80,9 +81,6 @@ class ArticleListOut(Schema):
     items: list[ArticleListItem]
 
 
-from typing import Literal, Optional
-
-
 class CommentAttachment(Schema):
     kind: Literal["image", "video", "youtube"]
     url: str = Field(min_length=1, max_length=500)
@@ -94,13 +92,13 @@ class CommentAttachment(Schema):
 class CommentIn(Schema):
     text: str = Field(default="", max_length=50_000)
     attachments: list[CommentAttachment] = []
-    parent_id: Optional[UUID] = None
+    parent_id: UUID | None = None
 
 
 class CommentOut(Schema):
     id: UUID
     article_slug: str
-    parent_id: Optional[UUID] = None
+    parent_id: UUID | None = None
     user_display_name: str
     user_email: str = ""
     text: str

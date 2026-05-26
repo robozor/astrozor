@@ -4,7 +4,6 @@ import uuid
 
 from django.conf import settings
 from django.db import models
-from django.utils import timezone
 from taggit.managers import TaggableManager
 
 from apps.core.models import UUIDTaggedItem

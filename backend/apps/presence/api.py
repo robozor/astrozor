@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from django.db.models import Q
 from django.http import HttpRequest
 from django.utils import timezone
 from ninja import Router

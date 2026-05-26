@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal
 from uuid import UUID
 
 from ninja import Schema
@@ -34,7 +34,7 @@ class MessageIn(Schema):
     # is enforced via MapInfra.chat_text_max_length inside safe_text.
     text: str = Field(default="", max_length=50_000)
     attachments: list[Attachment] = []
-    parent_id: Optional[UUID] = None
+    parent_id: UUID | None = None
 
 
 class MessageOut(Schema):
@@ -44,8 +44,8 @@ class MessageOut(Schema):
     place_slug: str = ""
     sprint_slug: str = ""
     repo_id: str = ""
-    issue_number: Optional[int] = None
-    parent_id: Optional[UUID] = None
+    issue_number: int | None = None
+    parent_id: UUID | None = None
     user_display_name: str
     user_email: str
     text: str
@@ -53,7 +53,7 @@ class MessageOut(Schema):
     created_at: datetime
     # Stamped on the first owner edit; ``None`` for never-edited
     # messages. UI shows an "(edited)" badge when non-null.
-    edited_at: Optional[datetime] = None
+    edited_at: datetime | None = None
 
 
 class MessageEditIn(Schema):

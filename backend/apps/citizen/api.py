@@ -30,6 +30,7 @@ from .schemas import (
     SprintOut,
     SprintPatchIn,
     SprintStatsOut,
+    ZooniverseCollectionListOut,
     ZooniverseGroupDashboardOut,
     ZooniverseMembershipOut,
     ZooniverseProjectAddIn,
@@ -40,8 +41,6 @@ from .schemas import (
     ZooniverseProjectPreviewOut,
     ZooniverseProjectSearchResult,
     ZooniverseProjectSeriesOut,
-    ZooniverseCollectionListOut,
-    ZooniverseCollectionOut,
     ZooniverseSubjectListOut,
     ZooniverseSubjectResolvedOut,
     ZooniverseTalkBoardsOut,
@@ -1250,7 +1249,7 @@ def _subject_to_resolved(
 
 
 def _favorites_collection_id(
-    panoptes: "Panoptes", owner_login: str
+    panoptes: Panoptes, owner_login: str
 ) -> int | None:
     """Resolve the implicit favorites collection ID for a user.
 

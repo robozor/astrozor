@@ -2,18 +2,22 @@
 
 from __future__ import annotations
 
-from django.middleware.csrf import get_token
 from django.db.models import Count
+from django.middleware.csrf import get_token
 from ninja import NinjaAPI
 from ninja.security import django_auth
 
 from apps.accounts.api import router as accounts_router
 from apps.accounts.mastodon_api import router as mastodon_router
+from apps.admin_panel.api import public_router as map_config_router
+from apps.admin_panel.api import router as admin_router
 from apps.chat.api import router as chat_router
 from apps.citizen.api import router as citizen_router
 from apps.core.api import router as core_router
+from apps.docs.api import router as docs_router
 from apps.events.api import router as events_router
 from apps.feeds.api import router as feeds_router
+from apps.geocoding.api import router as geocoding_router
 from apps.notifications.api import router as notifications_router
 from apps.places.api import router as places_router
 from apps.presence.api import router as presence_router
@@ -21,9 +25,6 @@ from apps.projects.api import router as projects_router
 from apps.publishing.api import router as publishing_router
 from apps.publishing_api.api import router as publishing_api_router
 from apps.uploads.api import router as uploads_router
-from apps.geocoding.api import router as geocoding_router
-from apps.admin_panel.api import router as admin_router, public_router as map_config_router
-from apps.docs.api import router as docs_router
 
 api = NinjaAPI(
     title="Astrozor API",
@@ -74,9 +75,10 @@ def list_tags(request, kind: str | None = None, q: str | None = None, limit: int
     silently failed on UUIDs). So this endpoint counts uses against
     UUIDTaggedItem, not the legacy taggit table.
     """
-    from taggit.models import Tag
-    from apps.core.models import UUIDTaggedItem
     from django.contrib.contenttypes.models import ContentType
+    from taggit.models import Tag
+
+    from apps.core.models import UUIDTaggedItem
 
     qs = Tag.objects.all()
     if kind:

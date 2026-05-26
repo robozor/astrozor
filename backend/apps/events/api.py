@@ -4,18 +4,22 @@ from functools import lru_cache
 
 from django.http import HttpRequest, HttpResponse
 from django.utils.text import slugify
-from icalendar import Calendar, Event as ICalEvent
+from icalendar import Calendar
+from icalendar import Event as ICalEvent
 from ninja import Router
 
 from apps.chat.sanitize import (
     auto_youtube_attachments as _auto_youtube_attachments,
+)
+from apps.chat.sanitize import (
     safe_text as _safe_text,
+)
+from apps.chat.sanitize import (
     sanitize_attachments as _sanitize_attachments,
 )
-
 from apps.places.models import Place
 
-from .models import Comment, Event, Registration, TRANSITIONS, can_transition
+from .models import TRANSITIONS, Comment, Event, Registration, can_transition
 from .schemas import (
     EventCommentIn,
     EventCommentListOut,
@@ -353,13 +357,13 @@ def create_event_discord_channel(request: HttpRequest, slug: str):
         return 403, {"detail": "Forbidden"}
 
     # Find the user's Discord identity with a guild attached.
-    from apps.accounts.models import Identity
     from apps.accounts.discord_bot import (
         DiscordBotError,
         create_invite,
         create_text_channel,
         safe_channel_name,
     )
+    from apps.accounts.models import Identity
 
     identity = (
         Identity.objects.filter(user=e.organizer, provider="discord")

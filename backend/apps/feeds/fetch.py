@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import datetime, timezone as dt_timezone
+from datetime import UTC, datetime
 
 import feedparser
 import httpx
@@ -21,7 +21,7 @@ def _to_datetime(struct_time) -> datetime | None:
     if not struct_time:
         return None
     try:
-        return datetime(*struct_time[:6], tzinfo=dt_timezone.utc)
+        return datetime(*struct_time[:6], tzinfo=UTC)
     except Exception:
         return None
 
