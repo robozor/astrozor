@@ -211,6 +211,16 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", default=False)
 
+# ---- Proxy / TLS termination ----
+# When Astrozor sits behind a TLS-terminating proxy (DSM nginx, Cloudflare,
+# Caddy on a public port, …), trust X-Forwarded-* so request.is_secure()
+# returns True for HTTPS traffic. Without this the OAuth `redirect_uri` is
+# built with http:// and providers reject the callback. The upstream proxy
+# MUST strip client-supplied X-Forwarded-Proto.
+if env_bool("TRUST_FORWARDED_HEADERS", default=not DEBUG):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    USE_X_FORWARDED_HOST = True
+
 # ---- Logging ----
 
 LOGGING = {

@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 
 ## [Unreleased]
 
+## [1.2.2] — 2026-05-26
+
+### Fixed
+
+- **OAuth callback over HTTPS proxy**: behind a TLS-terminating reverse proxy (DSM nginx, Cloudflare, …) Astrozor was building OAuth `redirect_uri` with `http://` even though the user browsed over `https://`, causing GitHub/Google/etc. to reject the callback. Two-place fix:
+  - `docker/proxy/Caddyfile.prod`: declare upstream private ranges as `trusted_proxies` so Caddy preserves `X-Forwarded-Proto: https` from the outer proxy instead of appending its own `http` value.
+  - `backend/astrozor/settings.py`: gate `SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")` + `USE_X_FORWARDED_HOST = True` on the new `TRUST_FORWARDED_HEADERS` env (default `true` in prod, `false` in dev).
+
 ## [1.0.0-rc.1] — 2026-05-17
 
 ### Added — Krok 20: UI completion + cross-post

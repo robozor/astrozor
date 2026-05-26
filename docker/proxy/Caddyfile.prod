@@ -14,6 +14,13 @@
 
 {
     admin off
+    # Trust X-Forwarded-* from upstream reverse proxies in private ranges
+    # (DSM nginx, k8s ingress, etc). Without this Caddy appends its own
+    # X-Forwarded-Proto: http (from the :80 listener), masking the https
+    # value sent by the upstream and breaking OAuth callback URLs.
+    servers {
+        trusted_proxies static private_ranges
+    }
 }
 
 {$SITE_ADDRESS} {
