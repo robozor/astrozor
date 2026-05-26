@@ -56,7 +56,7 @@ def _current_interval_end(schedule: dict, now_local: datetime) -> datetime | Non
         if isinstance(iv, dict):
             start_s = iv.get("start")
             end_s = iv.get("end")
-        elif isinstance(iv, (list, tuple)) and len(iv) >= 2:
+        elif isinstance(iv, list | tuple) and len(iv) >= 2:
             start_s, end_s = iv[0], iv[1]
         else:
             continue

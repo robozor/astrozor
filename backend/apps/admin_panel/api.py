@@ -34,6 +34,7 @@ from .tasks import (
     LP_ZOOM_MAX,
     LP_ZOOM_MIN,
     _lp_grid,
+    _lp_local_dir,
     _lp_source_url,
     download_light_pollution_tiles,
     download_pmtiles,

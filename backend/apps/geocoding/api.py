@@ -252,7 +252,7 @@ def _try_open_meteo(lat: float, lon: float) -> int | None:
             return None
         data = r.json()
         arr = (data or {}).get("elevation") or []
-        if arr and isinstance(arr[0], (int, float)):
+        if arr and isinstance(arr[0], int | float):
             return int(round(arr[0]))
     except (httpx.HTTPError, json.JSONDecodeError, IndexError) as e:
         log.warning("open-meteo elevation error: %s", e)
@@ -274,7 +274,7 @@ def _try_open_elevation(lat: float, lon: float) -> int | None:
         results = (data or {}).get("results") or []
         if results:
             elev = results[0].get("elevation")
-            if isinstance(elev, (int, float)):
+            if isinstance(elev, int | float):
                 return int(round(elev))
     except (httpx.HTTPError, json.JSONDecodeError) as e:
         log.warning("open-elevation fallback error: %s", e)
