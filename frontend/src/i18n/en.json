@@ -494,7 +494,9 @@
       "latestAvailable": "Latest available build:",
       "useLatest": "Use",
       "delete": "🗑 Delete tiles",
-      "deleteConfirm": "This removes the downloaded PMTiles archive ({{size}}). The map will fall back to public OSM tiles. Continue?"
+      "deleteConfirm": "This removes the downloaded PMTiles archive ({{size}}). The map will fall back to public OSM tiles. Continue?",
+      "pause": "⏸ Pause",
+      "resume": "▶ Resume download"
     },
     "photon": {
       "title": "Photon (search backend)",
@@ -506,7 +508,8 @@
       "backToNominatimHint": "Disable self-hosted Photon and route place search back to public Nominatim (online, rate-limited).",
       "deployHint": "Run `docker compose --profile photon up -d photon`, import OSM extract per docs/runbook/map-infra.md, then click 'Probe availability'.",
       "reset": "🗑 Reset data",
-      "resetConfirm": "Wipes the downloaded Photon data, restarts the container, kicks off a fresh import (~hours). Continue?"
+      "resetConfirm": "Wipes the downloaded Photon data, restarts the container, kicks off a fresh import (~hours). Continue?",
+      "pause": "⏸ Pause import"
     },
     "places": {
       "title": "Places",

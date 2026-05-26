@@ -495,7 +495,9 @@
       "latestAvailable": "Nejnovější dostupný build:",
       "useLatest": "Použít",
       "delete": "🗑 Smazat dlaždice",
-      "deleteConfirm": "Tím se odstraní stažené PMTiles ({{size}}). Mapa se vrátí k veřejným OSM dlaždicím. Pokračovat?"
+      "deleteConfirm": "Tím se odstraní stažené PMTiles ({{size}}). Mapa se vrátí k veřejným OSM dlaždicím. Pokračovat?",
+      "pause": "⏸ Pozastavit",
+      "resume": "▶ Pokračovat ve stahování"
     },
     "photon": {
       "title": "Photon (search backend)",
@@ -507,7 +509,8 @@
       "backToNominatimHint": "Vypne self-hosted Photon a přepne vyhledávání míst na veřejnou Nominatim službu (online, rate-limited).",
       "deployHint": "Spusť `docker compose --profile photon up -d photon`, naimportuj OSM extract dle runbooku docs/runbook/map-infra.md, pak klikni 'Otestovat dostupnost'.",
       "reset": "🗑 Smazat data",
-      "resetConfirm": "Tím se vymažou stažená Photon data, container se restartuje a začne stahovat čerstvý dump (~hodiny). Pokračovat?"
+      "resetConfirm": "Tím se vymažou stažená Photon data, container se restartuje a začne stahovat čerstvý dump (~hodiny). Pokračovat?",
+      "pause": "⏸ Pozastavit import"
     },
     "places": {
       "title": "Místa",

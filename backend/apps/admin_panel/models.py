@@ -25,6 +25,7 @@ class MapInfra(models.Model):
     class JobStatus(models.TextChoices):
         IDLE = "idle", "Idle"
         RUNNING = "running", "Running"
+        PAUSED = "paused", "Paused"
         ERROR = "error", "Error"
 
     class LightPollutionSource(models.TextChoices):

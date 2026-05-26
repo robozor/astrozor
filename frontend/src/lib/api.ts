@@ -537,6 +537,10 @@ export const admin = {
     api.del<{ deleted: boolean; bytes_freed: number }>("/admin/map-infra/pmtiles"),
   deletePhoton: () =>
     api.del<{ reset: boolean; detail: string }>("/admin/map-infra/photon"),
+  pausePmtiles: () =>
+    api.post<{ paused: boolean }>("/admin/map-infra/pmtiles/pause"),
+  pausePhoton: () =>
+    api.post<{ paused: boolean }>("/admin/map-infra/photon/pause"),
   deleteLpTiles: (source: "black_marble_2016" | "viirs_dnb_latest") =>
     api.del<{ deleted: boolean; bytes_freed: number }>(
       `/admin/map-infra/light-pollution/${source}`,

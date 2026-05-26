@@ -473,6 +473,57 @@ def trigger_pmtiles_download(request: HttpRequest, payload: PmtilesUrlIn):
     return 202, {"job_id": async_result.id, "status": "queued"}
 
 
+@router.post("/admin/map-infra/pmtiles/pause", response={200: dict, 403: dict, 409: dict})
+def pause_pmtiles(request: HttpRequest):
+    """Revoke the in-flight PMTiles celery task. Leaves the `.part` file on
+    disk so the next *Download* press can resume via HTTP Range. See #25.
+    """
+    if not _require_staff(request):
+        return 403, {"detail": "Staff only"}
+    infra = MapInfra.get()
+    if infra.pmtiles_status != MapInfra.JobStatus.RUNNING:
+        return 409, {"detail": f"Not running (status={infra.pmtiles_status})"}
+    job_id = infra.pmtiles_job_id
+    if job_id:
+        try:
+            from astrozor.celery import app as celery_app
+
+            celery_app.control.revoke(job_id, terminate=True, signal="SIGTERM")
+        except Exception as e:  # noqa: BLE001
+            log.warning("pause_pmtiles: celery revoke failed: %s", e)
+    infra.pmtiles_status = MapInfra.JobStatus.PAUSED
+    infra.pmtiles_status_message = "Paused — click Download to resume from .part"
+    infra.save(update_fields=["pmtiles_status", "pmtiles_status_message"])
+    return 200, {"paused": True}
+
+
+@router.post("/admin/map-infra/photon/pause", response={200: dict, 403: dict, 409: dict, 502: dict})
+def pause_photon(request: HttpRequest):
+    """Stop the photon container so its in-progress import halts. The data
+    volume keeps the partial dump; restarting the container resumes the
+    upstream photon-docker entrypoint from where it left off. See #25.
+    """
+    if not _require_staff(request):
+        return 403, {"detail": "Staff only"}
+    if not os.path.exists(DOCKER_SOCK):
+        return 502, {"detail": "Docker socket not available"}
+    infra = MapInfra.get()
+    if infra.photon_status != MapInfra.JobStatus.RUNNING:
+        return 409, {"detail": f"Not running (status={infra.photon_status})"}
+    try:
+        transport = httpx.HTTPTransport(uds=DOCKER_SOCK)
+        with httpx.Client(transport=transport, base_url="http://localhost", timeout=15.0) as client:
+            r = client.post(f"/containers/{PHOTON_CONTAINER}/stop", timeout=30.0)
+            if r.status_code not in (204, 304):
+                return 502, {"detail": f"Docker /stop returned {r.status_code}: {r.text[:200]}"}
+    except httpx.HTTPError as e:
+        return 502, {"detail": f"Docker socket call failed: {e}"}
+    infra.photon_status = MapInfra.JobStatus.PAUSED
+    infra.photon_status_message = "Paused — start container to resume import"
+    infra.save(update_fields=["photon_status", "photon_status_message"])
+    return 200, {"paused": True}
+
+
 @router.delete("/admin/map-infra/pmtiles", response={200: dict, 403: dict, 409: dict})
 def delete_pmtiles(request: HttpRequest):
     """Delete the downloaded PMTiles archive to reclaim disk. Resets the

@@ -1673,6 +1673,10 @@ function PmtilesCard({ data }: { data: MapInfraOut }) {
       qc.invalidateQueries({ queryKey: ["map-config"] });
     },
   });
+  const pause = useMutation({
+    mutationFn: () => admin.pausePmtiles(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "map-infra"] }),
+  });
 
   const active = data.tile_backend === "pmtiles";
   const sizeMib = (data.pmtiles.size_bytes / 1024 / 1024).toFixed(1);
@@ -1771,10 +1775,23 @@ function PmtilesCard({ data }: { data: MapInfraOut }) {
         >
           {downloading
             ? t("admin.pmtiles.downloading")
-            : data.pmtiles.size_bytes > 0
-              ? t("admin.pmtiles.refresh")
-              : t("admin.pmtiles.download")}
+            : data.pmtiles.status === "paused"
+              ? t("admin.pmtiles.resume")
+              : data.pmtiles.size_bytes > 0
+                ? t("admin.pmtiles.refresh")
+                : t("admin.pmtiles.download")}
         </button>
+        {downloading && (
+          <button
+            type="button"
+            onClick={() => pause.mutate()}
+            disabled={pause.isPending}
+            data-testid="pmtiles-pause"
+            className="text-xs bg-amber-700 hover:bg-amber-600 disabled:bg-amber-900 text-white px-3 py-1.5 rounded-md transition"
+          >
+            {pause.isPending ? "…" : t("admin.pmtiles.pause")}
+          </button>
+        )}
         {data.pmtiles.available && !active && (
           <button
             type="button"
@@ -1846,6 +1863,10 @@ function PhotonCard({ data }: { data: MapInfraOut }) {
       qc.invalidateQueries({ queryKey: ["map-config"] });
     },
   });
+  const pause = useMutation({
+    mutationFn: () => admin.pausePhoton(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "map-infra"] }),
+  });
 
   const active = data.search_backend === "photon";
   const probing = data.photon.status === "running";
@@ -1902,6 +1923,17 @@ function PhotonCard({ data }: { data: MapInfraOut }) {
         >
           {probing ? t("admin.photon.probing") : t("admin.photon.probe")}
         </button>
+        {probing && (
+          <button
+            type="button"
+            onClick={() => pause.mutate()}
+            disabled={pause.isPending}
+            data-testid="photon-pause"
+            className="text-xs bg-amber-700 hover:bg-amber-600 disabled:bg-amber-900 text-white px-3 py-1.5 rounded-md transition"
+          >
+            {pause.isPending ? "…" : t("admin.photon.pause")}
+          </button>
+        )}
         {data.photon.available && !active && (
           <button
             type="button"
