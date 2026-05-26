@@ -6,6 +6,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 
 ## [Unreleased]
 
+## [1.2.6] — 2026-05-26
+
+### Added
+
+- **Pause / resume for the long PMTiles + Photon downloads** — new ⏸ Pause chip on each admin card, visible only while the respective job is running. For PMTiles the celery task is revoked (terminate=True) and the `.part` stays on disk; the next Download click resumes via the existing HTTP `Range:` request. For Photon the container is stopped via the Docker socket; restarting the container picks up the partial dump where it left off. New `JobStatus.PAUSED` enum + migration 0008. ([#25](https://github.com/robozor/astrozor/issues/25))
+
+### Fixed
+
+- **Event meeting / Discord URLs leaked to anyone who could see the event** — `meeting_url`, `discord_url`, `geocache_url`, `radio_frequency` are now masked to `""` unless the viewer passes the same `can_view_discussion` check that already gates the chat. The SPA chip renders only when the URL is set, so it just disappears for out-of-circle viewers. Event form field renamed from "Viditelnost diskuse" to "Viditelnost diskuse a možnost připojení k online setkání" with a hint explaining the new semantics. ([#24](https://github.com/robozor/astrozor/issues/24))
+
 ## [1.2.5] — 2026-05-26
 
 ### Added
