@@ -98,6 +98,8 @@
       "name": "Název",
       "kind": "Typ",
       "kindHint": "Pouze administrátor může zakládat trvalé hvězdárny/stanoviště. Tvoje místo bude dočasné (vyprší za 4 h, pokud nezměníš datum platnosti).",
+      "validTo": "Platnost do",
+      "validToHint": "Po tomto čase místo zmizí z veřejné mapy. Ty (jako vlastník) ho dál uvidíš jako neaktivní a můžeš ho prodloužit nebo smazat.",
       "lat": "Šířka",
       "lon": "Délka",
       "description": "Popis",

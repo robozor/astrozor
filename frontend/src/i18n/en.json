@@ -103,6 +103,8 @@
       "name": "Name",
       "kind": "Kind",
       "kindHint": "Only admins can create permanent observatories/spots. Your place will be temporary (expires after 4 h unless you set valid_to).",
+      "validTo": "Valid until",
+      "validToHint": "After this time the place is hidden from the public map. You (as the owner) still see it as inactive and can extend or delete it.",
       "lat": "Latitude",
       "lon": "Longitude",
       "description": "Description",

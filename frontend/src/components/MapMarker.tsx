@@ -22,6 +22,10 @@ type Props = {
   kind: Place["kind"];
   active: boolean;
   subscribed: boolean;
+  /** Expired temporary places (valid_to in the past). Owner + admin
+   * still see the marker, but it's rendered as desaturated + a strike
+   * line through the body so it's obvious the place is inactive. */
+  expired?: boolean;
   testid?: string;
   ariaLabel?: string;
 };
@@ -63,7 +67,7 @@ function KindIcon({ kind }: { kind: Place["kind"] }) {
   }
 }
 
-export function MapMarker({ kind, active, subscribed, testid, ariaLabel }: Props) {
+export function MapMarker({ kind, active, subscribed, expired, testid, ariaLabel }: Props) {
   const bg = active ? COLORS.activeBg : COLORS.inactiveBg;
   const shape = active ? COLORS.activeShape : COLORS.inactiveShape;
   const ring = active ? COLORS.activeRing : COLORS.inactiveRing;
@@ -73,11 +77,12 @@ export function MapMarker({ kind, active, subscribed, testid, ariaLabel }: Props
       data-testid={testid}
       role="button"
       aria-label={ariaLabel}
-      title={ariaLabel}
-      className="relative cursor-pointer select-none"
+      title={expired ? `${ariaLabel ?? ""} (vypršelo)` : ariaLabel}
+      className={`relative cursor-pointer select-none ${expired ? "opacity-50 grayscale" : ""}`}
       style={{ width: SIZE, height: SIZE + 4 }}
       data-kind={kind}
       data-active={active ? "1" : "0"}
+      data-expired={expired ? "1" : "0"}
     >
       {/* Pulse halo for active places — saturated red so it pops on
           OSM's green vegetation/parks. Body underneath stays pastel

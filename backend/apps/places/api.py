@@ -161,10 +161,16 @@ def list_places(
     """List published places filtered by optional bbox / kind / name search."""
     qs = _annotate_active_checkins(Place.objects.filter(status=Place.Status.PUBLISHED))
 
-    # Hide expired temporary places
-    qs = qs.exclude(
-        Q(kind=Place.Kind.SPOT_TEMPORARY) & Q(valid_to__lte=timezone.now()),
-    )
+    # Hide expired temporary places — except for the owner and staff users
+    # who still need to see them (greyed-out in the UI) to extend or delete.
+    # See issue #21.
+    if not (request.user.is_authenticated and request.user.is_staff):
+        expired_filter = (
+            Q(kind=Place.Kind.SPOT_TEMPORARY) & Q(valid_to__lte=timezone.now())
+        )
+        if request.user.is_authenticated:
+            expired_filter &= ~Q(owner=request.user)
+        qs = qs.exclude(expired_filter)
 
     # Visibility — anon sees only public, logged-in sees more,
     # admins see everything. distinct() because the allowlist M2M
@@ -211,8 +217,13 @@ def get_place(request: HttpRequest, slug: str):
         place = _annotate_active_checkins(Place.objects.filter(slug=slug)).get()
     except Place.DoesNotExist:
         return 404, {"detail": "Place not found"}
+    # Owner and staff can fetch their own expired temporary places (so the
+    # UI can show edit/delete actions). Everyone else gets 404 (#21).
     if not place.is_visible:
-        return 404, {"detail": "Place not visible"}
+        is_owner = request.user.is_authenticated and place.owner_id == request.user.id
+        is_staff = request.user.is_authenticated and request.user.is_staff
+        if not (is_owner or is_staff):
+            return 404, {"detail": "Place not visible"}
     # Privacy: return 404 (not 403) for users without permission. We
     # don't want to leak that a place with this slug exists — the rule
     # is "they won't see it at all", which means even the URL is opaque.

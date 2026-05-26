@@ -1281,6 +1281,11 @@ export function MapView({
                 kind={p.kind}
                 active={p.active_checkin_count > 0}
                 subscribed={subscribedIds.has(p.slug)}
+                expired={
+                  p.kind === "spot_temporary" &&
+                  !!p.valid_to &&
+                  new Date(p.valid_to) <= new Date()
+                }
                 testid={`marker-${p.slug}`}
                 ariaLabel={p.name}
               />

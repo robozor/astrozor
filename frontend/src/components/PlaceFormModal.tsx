@@ -104,6 +104,18 @@ export function PlaceFormModal({
   const [discussionAllowedEmails, setDiscussionAllowedEmails] = useState<string[]>(
     (initial as Place).discussion_allowed_user_emails ?? [],
   );
+  // For temporary spots: when the place expires. Default is +4 hours from
+  // the moment the modal opened. <input type="datetime-local"> needs the
+  // `YYYY-MM-DDTHH:MM` shape; we keep the value in that shape and convert
+  // to ISO on submit.
+  const [validTo, setValidTo] = useState<string>(() => {
+    const base = (initial as Place).valid_to;
+    const dt = base ? new Date(base) : new Date(Date.now() + 4 * 3600_000);
+    // Trim seconds + zone — datetime-local only accepts minute precision.
+    const off = dt.getTimezoneOffset();
+    const local = new Date(dt.getTime() - off * 60_000);
+    return local.toISOString().slice(0, 16);
+  });
 
   const allowedKinds = isStaff ? ALL_KINDS : (["spot_temporary"] as Place["kind"][]);
 
@@ -126,6 +138,9 @@ export function PlaceFormModal({
         allowed_user_emails: allowedEmails,
         discussion_visibility: discussionVisibility,
         discussion_allowed_user_emails: discussionAllowedEmails,
+        // Backend only honours valid_to for temporary spots; sending null
+        // for non-temp keeps the model field clean.
+        valid_to: kind === "spot_temporary" ? new Date(validTo).toISOString() : null,
       };
       if (editingExisting) {
         const patch: PlacePatchIn = { ...body };
@@ -204,6 +219,20 @@ export function PlaceFormModal({
               </p>
             )}
           </Field>
+
+          {kind === "spot_temporary" && (
+            <Field label={t("place.form.validTo")}>
+              <input
+                type="datetime-local"
+                value={validTo}
+                onChange={(e) => setValidTo(e.target.value)}
+                className="w-full bg-slate-950 ring-1 ring-slate-700 rounded px-2 py-1.5 text-sm text-slate-100 font-mono"
+              />
+              <p className="text-[10px] text-slate-500 mt-0.5">
+                {t("place.form.validToHint")}
+              </p>
+            </Field>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <Field label={t("place.form.lat")}>
