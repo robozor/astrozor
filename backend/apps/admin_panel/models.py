@@ -6,7 +6,8 @@ from django.db import models
 class MapInfra(models.Model):
     """Singleton (pk=1) tracking the state of self-hosted map infra:
 
-    * PMTiles Europe extract (replaces OSM raster as default tile source)
+    * PMTiles extract (replaces OSM raster as default tile source; default
+      Source URL is auto-picked from Protomaps Daily — world-scale)
     * Photon search backend (replaces Nominatim for geocoding)
 
     Stored in DB rather than env so the admin UI can edit it without a

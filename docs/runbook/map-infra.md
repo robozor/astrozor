@@ -2,7 +2,7 @@
 
 This guide explains how to switch Astrozor from the public external map
 services (Nominatim, OSM raster tiles) to self-hosted equivalents
-(PMTiles Europe + Photon). After this, Astrozor has **zero dependency**
+(PMTiles + Photon). After this, Astrozor has **zero dependency**
 on external rate-limited services for its primary map experience.
 
 > **Audience:** Astrozor application administrator. Requires shell access
@@ -15,25 +15,27 @@ on external rate-limited services for its primary map experience.
 
 | What | Why | Minimum |
 |---|---|---|
-| Disk space | PMTiles Europe build is ~80 GB. Photon DE/CZ extract is ~3 GB. | **100 GB free SSD** |
+| Disk space | PMTiles world build is ~130 GB. Photon DE/CZ extract is ~3 GB. | **150 GB free SSD** |
 | RAM | Photon needs ~2 GB headroom at runtime; PMTiles is just file serving. | **4 GB free RAM** |
-| Outbound bandwidth | One-time ~80 GB pull for PMTiles, ~1 GB for Photon import. | Stable connection |
+| Outbound bandwidth | One-time ~130 GB pull for PMTiles, ~1 GB for Photon import. | Stable connection |
 | Maintenance | Refresh PMTiles every 1–4 weeks to stay current. | Cron or manual reminder |
 
 ---
 
-## 2. PMTiles Europe (map tiles)
+## 2. PMTiles (map tiles)
 
 ### 2.1 Trigger the download via admin UI
 
 1. Sign into Astrozor as the staff user.
 2. Open the **Admin** tab in the top nav.
-3. In the **PMTiles Europe** card, edit the **Source URL** if needed
-   (default points to a recent Protomaps Daily build; check
-   <https://maps.protomaps.com/builds/> for the freshest date).
+3. In the **PMTiles** card, edit the **Source URL** if needed
+   (default auto-picks the latest Protomaps Daily build — a world-scale
+   extract; check <https://maps.protomaps.com/builds/> for the freshest
+   date or to swap to a regional URL).
 4. Click **Download**. The Celery worker streams the file to
-   `/var/lib/astrozor/pmtiles/europe.pmtiles` (atomic — writes to
-   `.part`, renames on success). Progress polls every 3 s.
+   `/var/lib/astrozor/pmtiles/europe.pmtiles` (the filename is a
+   legacy default — actual content depends on the Source URL; atomic
+   writes via `.part` + rename on success). Progress polls every 3 s.
 5. When `Last update` populates and status flips to `idle`, click
    **Use this** in the same card. Tile backend in `/map/config`
    becomes `pmtiles`. All clients pick this up on next map load.

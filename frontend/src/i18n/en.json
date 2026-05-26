@@ -470,7 +470,7 @@
     "useThis": "Use this",
     "notReady": "Not ready",
     "pmtiles": {
-      "title": "PMTiles Europe (map tiles)",
+      "title": "PMTiles (map tiles)",
       "size": "Size",
       "lastUpdate": "Last update",
       "sourceUrl": "Source URL (Protomaps Daily build)",
