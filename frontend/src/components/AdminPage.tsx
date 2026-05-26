@@ -1450,6 +1450,10 @@ function LpDownloadSection({
     mutationFn: () => admin.triggerLpDownload(source),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "map-infra"] }),
   });
+  const remove = useMutation({
+    mutationFn: () => admin.deleteLpTiles(source),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "map-infra"] }),
+  });
 
   const downloading = data.status === "running";
   const sizeMib = data.size_bytes / 1024 / 1024;
@@ -1482,16 +1486,33 @@ function LpDownloadSection({
       )}
 
       {!showEstimate && !downloading && (
-        <button
-          type="button"
-          onClick={() => setShowEstimate(true)}
-          className="px-2 py-1 rounded-md ring-1 ring-slate-700 hover:bg-slate-800 text-slate-300"
-          data-testid={`admin-lp-estimate-${source}`}
-        >
-          {data.cached
-            ? t("admin.lp.redownload")
-            : t("admin.lp.downloadBtn")}
-        </button>
+        <div className="flex gap-1.5 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setShowEstimate(true)}
+            className="px-2 py-1 rounded-md ring-1 ring-slate-700 hover:bg-slate-800 text-slate-300"
+            data-testid={`admin-lp-estimate-${source}`}
+          >
+            {data.cached
+              ? t("admin.lp.redownload")
+              : t("admin.lp.downloadBtn")}
+          </button>
+          {data.cached && (
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm(t("admin.lp.deleteConfirm", { mib: sizeMib.toFixed(1) }))) {
+                  remove.mutate();
+                }
+              }}
+              disabled={remove.isPending}
+              data-testid={`admin-lp-delete-${source}`}
+              className="px-2 py-1 rounded-md bg-rose-900 hover:bg-rose-800 disabled:bg-rose-950 text-rose-100 ring-1 ring-rose-800"
+            >
+              {remove.isPending ? "…" : t("admin.lp.delete")}
+            </button>
+          )}
+        </div>
       )}
 
       {showEstimate && (
@@ -1644,6 +1665,13 @@ function PmtilesCard({ data }: { data: MapInfraOut }) {
       qc.invalidateQueries({ queryKey: ["map-config"] });
     },
   });
+  const remove = useMutation({
+    mutationFn: () => admin.deletePmtiles(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "map-infra"] });
+      qc.invalidateQueries({ queryKey: ["map-config"] });
+    },
+  });
 
   const active = data.tile_backend === "pmtiles";
   const sizeMib = (data.pmtiles.size_bytes / 1024 / 1024).toFixed(1);
@@ -1767,6 +1795,22 @@ function PmtilesCard({ data }: { data: MapInfraOut }) {
             {t("admin.pmtiles.backToOsm")}
           </button>
         )}
+        {data.pmtiles.size_bytes > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              const sizeGib = (data.pmtiles.size_bytes / 1024 ** 3).toFixed(1);
+              if (window.confirm(t("admin.pmtiles.deleteConfirm", { size: `${sizeGib} GiB` }))) {
+                remove.mutate();
+              }
+            }}
+            disabled={downloading || remove.isPending}
+            data-testid="pmtiles-delete"
+            className="text-xs bg-rose-900 hover:bg-rose-800 disabled:bg-rose-950 text-rose-100 px-3 py-1.5 rounded-md ring-1 ring-rose-800 transition"
+          >
+            {remove.isPending ? "…" : t("admin.pmtiles.delete")}
+          </button>
+        )}
       </div>
     </article>
   );
@@ -1789,6 +1833,13 @@ function PhotonCard({ data }: { data: MapInfraOut }) {
   });
   const useNominatim = useMutation({
     mutationFn: () => admin.switchBackends({ search_backend: "nominatim" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "map-infra"] });
+      qc.invalidateQueries({ queryKey: ["map-config"] });
+    },
+  });
+  const reset = useMutation({
+    mutationFn: () => admin.deletePhoton(),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "map-infra"] });
       qc.invalidateQueries({ queryKey: ["map-config"] });
@@ -1869,6 +1920,21 @@ function PhotonCard({ data }: { data: MapInfraOut }) {
             className="text-xs bg-slate-800 hover:bg-slate-700 ring-1 ring-slate-700 text-slate-200 px-3 py-1.5 rounded-md transition"
           >
             {t("admin.photon.backToNominatim")}
+          </button>
+        )}
+        {data.photon.last_import && (
+          <button
+            type="button"
+            onClick={() => {
+              if (window.confirm(t("admin.photon.resetConfirm"))) {
+                reset.mutate();
+              }
+            }}
+            disabled={probing || reset.isPending}
+            data-testid="photon-reset"
+            className="text-xs bg-rose-900 hover:bg-rose-800 disabled:bg-rose-950 text-rose-100 px-3 py-1.5 rounded-md ring-1 ring-rose-800 transition"
+          >
+            {reset.isPending ? "…" : t("admin.photon.reset")}
           </button>
         )}
       </div>

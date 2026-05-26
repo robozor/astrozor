@@ -9,6 +9,8 @@ admin section instead of falling back to Django's stock admin pages.
 from __future__ import annotations
 
 import logging
+import os
+from pathlib import Path
 
 import httpx
 from django.core.cache import cache
@@ -468,6 +470,168 @@ def trigger_pmtiles_download(request: HttpRequest, payload: PmtilesUrlIn):
         infra.save(update_fields=["pmtiles_source_url"])
     async_result = download_pmtiles.delay()
     return 202, {"job_id": async_result.id, "status": "queued"}
+
+
+@router.delete("/admin/map-infra/pmtiles", response={200: dict, 403: dict, 409: dict})
+def delete_pmtiles(request: HttpRequest):
+    """Delete the downloaded PMTiles archive to reclaim disk. Resets the
+    MapInfra status to IDLE. If the active tile backend is PMTiles, it
+    falls back to the public OSM source on the next /map/config fetch."""
+    if not _require_staff(request):
+        return 403, {"detail": "Staff only"}
+    infra = MapInfra.get()
+    if infra.pmtiles_status == MapInfra.JobStatus.RUNNING:
+        return 409, {
+            "detail": "Download is in progress — cancel the job before deleting",
+        }
+    target = Path(infra.pmtiles_path)
+    part = target.with_suffix(target.suffix + ".part")
+    freed = 0
+    for p in (target, part):
+        try:
+            if p.is_file():
+                freed += p.stat().st_size
+                p.unlink()
+        except OSError as e:
+            log.warning("delete_pmtiles: could not remove %s: %s", p, e)
+    # Also drop the active tile backend if it was pointing at PMTiles; the
+    # map falls back to OSM raster transparently for clients.
+    fields = [
+        "pmtiles_size_bytes",
+        "pmtiles_last_update",
+        "pmtiles_status",
+        "pmtiles_status_message",
+    ]
+    infra.pmtiles_size_bytes = 0
+    infra.pmtiles_last_update = None
+    infra.pmtiles_status = MapInfra.JobStatus.IDLE
+    infra.pmtiles_status_message = ""
+    if infra.tile_backend == MapInfra.TileBackend.PMTILES:
+        infra.tile_backend = MapInfra.TileBackend.OSM
+        fields.append("tile_backend")
+    infra.save(update_fields=fields)
+    return 200, {"deleted": True, "bytes_freed": freed}
+
+
+@router.delete(
+    "/admin/map-infra/photon",
+    response={200: dict, 403: dict, 502: dict},
+)
+def delete_photon(request: HttpRequest):
+    """Wipe the Photon data volume and restart the container so its
+    entrypoint re-imports a fresh dump. Calls Docker's HTTP API on the
+    shared unix socket.
+    """
+    if not _require_staff(request):
+        return 403, {"detail": "Staff only"}
+    if not os.path.exists(DOCKER_SOCK):
+        return 502, {"detail": "Docker socket not available — cannot manage photon container"}
+
+    try:
+        transport = httpx.HTTPTransport(uds=DOCKER_SOCK)
+        with httpx.Client(transport=transport, base_url="http://localhost", timeout=30.0) as client:
+            # 1) exec rm -rf inside the (running or paused) photon container.
+            #    If the container is stopped this returns 409; in that case
+            #    start it briefly so we can exec, then stop again.
+            exec_create = client.post(
+                f"/containers/{PHOTON_CONTAINER}/exec",
+                json={
+                    "Cmd": ["sh", "-c", "rm -rf /photon/photon_data/* /photon/photon_data/.* 2>/dev/null; true"],
+                    "AttachStdout": True,
+                    "AttachStderr": True,
+                },
+            )
+            if exec_create.status_code == 409:
+                # Container not running. Start it, retry exec, then continue.
+                client.post(f"/containers/{PHOTON_CONTAINER}/start", timeout=15.0)
+                exec_create = client.post(
+                    f"/containers/{PHOTON_CONTAINER}/exec",
+                    json={
+                        "Cmd": ["sh", "-c", "rm -rf /photon/photon_data/* /photon/photon_data/.* 2>/dev/null; true"],
+                        "AttachStdout": True,
+                        "AttachStderr": True,
+                    },
+                )
+            if exec_create.status_code not in (200, 201):
+                return 502, {
+                    "detail": f"Docker /exec create returned {exec_create.status_code}: {exec_create.text[:200]}",
+                }
+            exec_id = exec_create.json().get("Id")
+            if not exec_id:
+                return 502, {"detail": "Docker /exec did not return an Id"}
+            start = client.post(f"/exec/{exec_id}/start", json={"Detach": False, "Tty": False}, timeout=120.0)
+            if start.status_code not in (200, 201):
+                return 502, {
+                    "detail": f"Docker /exec/start returned {start.status_code}: {start.text[:200]}",
+                }
+            # 2) restart so photon-docker's entrypoint sees the empty data
+            #    dir and kicks off a fresh import.
+            restart = client.post(f"/containers/{PHOTON_CONTAINER}/restart", timeout=30.0)
+            if restart.status_code not in (200, 204):
+                return 502, {
+                    "detail": f"Docker /restart returned {restart.status_code}: {restart.text[:200]}",
+                }
+    except httpx.HTTPError as e:
+        return 502, {"detail": f"Docker socket call failed: {e}"}
+
+    # Reset MapInfra Photon-side state so the UI doesn't claim the old
+    # import is still valid.
+    infra = MapInfra.get()
+    infra.photon_last_import = None
+    if infra.search_backend == MapInfra.SearchBackend.PHOTON:
+        infra.search_backend = MapInfra.SearchBackend.NOMINATIM
+        infra.save(update_fields=["photon_last_import", "search_backend"])
+    else:
+        infra.save(update_fields=["photon_last_import"])
+    return 200, {"reset": True, "detail": "Photon data wiped; container restarted; re-import in progress."}
+
+
+@router.delete(
+    "/admin/map-infra/light-pollution/{source}",
+    response={200: dict, 400: dict, 403: dict, 409: dict},
+)
+def delete_lp_tiles(request: HttpRequest, source: str):
+    """Delete the local tile cache for one LP source to reclaim disk."""
+    import shutil
+
+    if not _require_staff(request):
+        return 403, {"detail": "Staff only"}
+    if source not in ("black_marble_2016", "viirs_dnb_latest"):
+        return 400, {"detail": f"unknown source: {source}"}
+    infra = MapInfra.get()
+    is_dnb = source == "viirs_dnb_latest"
+    status_field = (
+        "light_pollution_viirs_dnb_status"
+        if is_dnb
+        else "light_pollution_black_marble_status"
+    )
+    if getattr(infra, status_field) == MapInfra.JobStatus.RUNNING:
+        return 409, {"detail": "Download is in progress — cancel the job before deleting"}
+
+    target = _lp_local_dir(source)
+    freed = 0
+    if target.exists():
+        # Compute freed bytes before rm (cheap on local FS, bounded by
+        # tile count ~ thousands).
+        for root, _dirs, files in os.walk(target):
+            for f in files:
+                try:
+                    freed += (Path(root) / f).stat().st_size
+                except OSError:
+                    pass
+        shutil.rmtree(target, ignore_errors=True)
+
+    count_field = (
+        "light_pollution_viirs_dnb_tile_count"
+        if is_dnb
+        else "light_pollution_black_marble_tile_count"
+    )
+    msg_field = status_field.replace("_status", "_status_message")
+    setattr(infra, count_field, 0)
+    setattr(infra, status_field, MapInfra.JobStatus.IDLE)
+    setattr(infra, msg_field, "")
+    infra.save(update_fields=[count_field, status_field, msg_field])
+    return 200, {"deleted": True, "bytes_freed": freed}
 
 
 class BackendSwitchIn(Schema):

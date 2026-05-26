@@ -490,7 +490,9 @@
       "backToOsm": "Switch to online OSM",
       "backToOsmHint": "Disable self-hosted PMTiles and route the map back to public OSM tile servers (online, rate-limited).",
       "latestAvailable": "Latest available build:",
-      "useLatest": "Use"
+      "useLatest": "Use",
+      "delete": "🗑 Delete tiles",
+      "deleteConfirm": "This removes the downloaded PMTiles archive ({{size}}). The map will fall back to public OSM tiles. Continue?"
     },
     "photon": {
       "title": "Photon (search backend)",
@@ -500,7 +502,9 @@
       "probing": "Probing…",
       "backToNominatim": "Switch to online Nominatim",
       "backToNominatimHint": "Disable self-hosted Photon and route place search back to public Nominatim (online, rate-limited).",
-      "deployHint": "Run `docker compose --profile photon up -d photon`, import OSM extract per docs/runbook/map-infra.md, then click 'Probe availability'."
+      "deployHint": "Run `docker compose --profile photon up -d photon`, import OSM extract per docs/runbook/map-infra.md, then click 'Probe availability'.",
+      "reset": "🗑 Reset data",
+      "resetConfirm": "Wipes the downloaded Photon data, restarts the container, kicks off a fresh import (~hours). Continue?"
     },
     "places": {
       "title": "Places",
@@ -562,6 +566,8 @@
       "tiles": "tiles",
       "downloadBtn": "Download to local cache",
       "redownload": "Re-download",
+      "delete": "🗑 Delete",
+      "deleteConfirm": "This removes the local LP tile cache ({{mib}} MiB) for this source. Continue?",
       "estimating": "Estimating size…",
       "willDownload": "Will download {{tiles}} tiles, ~{{mib}} MiB",
       "bboxLabel": "Coverage: Europe, zoom {{zoom_min}}–{{zoom_max}}",

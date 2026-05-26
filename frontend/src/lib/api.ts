@@ -533,6 +533,14 @@ export const admin = {
       `/admin/map-infra/light-pollution/${source}/download`,
       {},
     ),
+  deletePmtiles: () =>
+    api.del<{ deleted: boolean; bytes_freed: number }>("/admin/map-infra/pmtiles"),
+  deletePhoton: () =>
+    api.del<{ reset: boolean; detail: string }>("/admin/map-infra/photon"),
+  deleteLpTiles: (source: "black_marble_2016" | "viirs_dnb_latest") =>
+    api.del<{ deleted: boolean; bytes_freed: number }>(
+      `/admin/map-infra/light-pollution/${source}`,
+    ),
   updateChatSettings: (text_max_length: number) =>
     api.patch<MapInfraOut>("/admin/map-infra/chat/settings", { text_max_length }),
   listPlaces: (q = "") =>
