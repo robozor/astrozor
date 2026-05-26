@@ -6,6 +6,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 
 ## [Unreleased]
 
+## [1.2.3] — 2026-05-26
+
+### Fixed
+
+- **PWA service worker intercepted backend URLs**: vite-plugin-pwa's default `NavigationRoute` served the precached `index.html` for *any* navigation, including direct visits to `/api/v1/auth/<provider>/start`. The OAuth redirect to the provider never happened — the user saw the SPA shell at the wrong URL and stayed anonymous. Added an explicit `navigateFallbackDenylist` covering every backend-served prefix (`/api/`, `/admin/`, `/static/`, `/media/`, `/pmtiles/`, `/lp-tiles/`, `/R/`, `/vscode-extension/`, `/samples/`, `/clanky/`, `/articles.{atom,rss}`, `/sitemap.xml`, `/robots.txt`). Also enabled `cleanupOutdatedCaches`, `skipWaiting`, and `clientsClaim` so a future SW update replaces the old one immediately instead of waiting for every tab to close.
+
 ## [1.2.2] — 2026-05-26
 
 ### Fixed

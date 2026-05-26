@@ -29,6 +29,31 @@ export default defineConfig({
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        // Workbox' default NavigationRoute serves the precached index.html
+        // for ANY navigation request — including direct visits to backend
+        // URLs like /api/v1/auth/github/start. That breaks OAuth: instead
+        // of the 302 to the provider the user sees the SPA shell at the
+        // wrong URL. Exclude every backend-served prefix.
+        navigateFallbackDenylist: [
+          /^\/api\//,
+          /^\/admin\//,
+          /^\/static\//,
+          /^\/media\//,
+          /^\/pmtiles\//,
+          /^\/lp-tiles\//,
+          /^\/R\//,
+          /^\/vscode-extension\//,
+          /^\/samples\//,
+          /^\/clanky\//,
+          /^\/articles\.(atom|rss)$/,
+          /^\/sitemap\.xml$/,
+          /^\/robots\.txt$/,
+        ],
+        // Replace the SW immediately on update — without this, a v1.2.2 SW
+        // would keep serving cached assets until the user closes every tab.
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
         runtimeCaching: [
           {
             urlPattern: /^\/api\/v1\/healthz$/,
