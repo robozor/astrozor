@@ -10,6 +10,7 @@ import {
   type CloudsAdminPatch,
   type Me,
   type MapInfraOut,
+  type MapInfraStatus,
   type ZooniverseProject,
   type ZooniverseProjectPreview,
 } from "../lib/api";
@@ -2077,12 +2078,11 @@ function ActiveBadge({ active }: { active: boolean }) {
   );
 }
 
-function statusClass(s: "idle" | "running" | "error") {
-  return s === "error"
-    ? "text-rose-300"
-    : s === "running"
-      ? "text-amber-300"
-      : "text-emerald-300";
+function statusClass(s: MapInfraStatus) {
+  if (s === "error") return "text-rose-300";
+  if (s === "running") return "text-amber-300";
+  if (s === "paused") return "text-slate-400";
+  return "text-emerald-300";
 }
 
 function StorageBar({ used, quota }: { used: number; quota: number }) {
