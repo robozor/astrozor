@@ -36,11 +36,17 @@ jobs:
     name: Stack smoke test
     runs-on: ubuntu-latest
     needs: lint
+    env:
+      # Stick to the runner's docker daemon (its built-in BuildKit) so that
+      # the image produced by "compose --profile build build python-base"
+      # lands in the same store the next "compose build" reads its
+      # BASE_IMAGE FROM. setup-buildx-action's container-based builder
+      # has a *separate* image store and the api build then fell back to
+      # pulling astrozor/python-base:dev from docker.io (404).
+      DOCKER_BUILDKIT: "1"
+      COMPOSE_DOCKER_CLI_BUILD: "1"
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
 
       - name: Copy .env.example to .env
         run: cp .env.example .env
