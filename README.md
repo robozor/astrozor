@@ -2,7 +2,7 @@
 
 > Collaborative platform for active astronomers — online meetups, observation coordination, article publishing (Markdown / Quarto / Jupyter), a map of observatories and observing spots, GitHub-integrated projects, events, and citizen-science campaigns.
 
-**Status:** v1.2.1 (production-ready, self-hostable) · **License:** [MIT](./LICENSE) · **Partner:** Czech Astronomical Society (ČAS)
+**Status:** v1.2.3 (production-ready, self-hostable) · **License:** [MIT](./LICENSE) · **Partner:** Czech Astronomical Society (ČAS)
 
 | Tracking | Where |
 |----------|-------|
@@ -24,7 +24,7 @@ docker compose pull
 docker compose up -d
 ```
 
-Image catalog (latest stable: `v1.2.1`):
+Image catalog (latest stable: `v1.2.3`):
 
 ```
 ghcr.io/robozor/astrozor-python-base
