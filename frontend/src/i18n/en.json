@@ -367,6 +367,15 @@
       "signInFacebook": "Facebook",
       "notConfigured": "{{provider}} sign-in isn't configured by the administrator yet.",
       "errorFlash": "Sign-in failed: {{error}}. Try again or choose another method.",
+      "connectedFlash": "{{provider}} connected.",
+      "signedInFlash": "Signed in.",
+      "errors": {
+        "identity_owned_by_another_user": "This account is already linked to a different Astrozor user. If it's yours, sign in there and add the SSO from that account — or unlink it there first.",
+        "bad_state": "Sign-in session expired mid-flow. Please try again.",
+        "no_code": "The provider didn't return an authentication code. Try again or use another method.",
+        "not_configured": "This provider isn't configured on this Astrozor install yet.",
+        "identity_email_not_verified": "Your email at the provider isn't verified. Verify it in the provider's settings, then try again."
+      },
       "emailVerifiedFlash": "E-mail verified.",
       "connectGitHub": "Connect GitHub account",
       "connect_github": "Connect GitHub",

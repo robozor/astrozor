@@ -177,12 +177,20 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
     if (ok) {
       setFlash({
         type: "ok",
-        text: provider ? `${provider} připojeno.` : "Přihlášení úspěšné.",
+        text: provider
+          ? t("auth.oauth.connectedFlash", { provider })
+          : t("auth.oauth.signedInFlash"),
       });
     } else if (err) {
-      setFlash({ type: "error", text: `OAuth chyba: ${err}` });
+      // Resolve known error codes to friendly i18n strings; fall back to
+      // the generic errorFlash template for unknown codes (e.g. raw
+      // OAuthError subclass names from the backend).
+      const friendly = t(`auth.oauth.errors.${err}`, {
+        defaultValue: t("auth.oauth.errorFlash", { error: err }),
+      });
+      setFlash({ type: "error", text: friendly });
     } else if (verified) {
-      setFlash({ type: "ok", text: "E-mail ověřen." });
+      setFlash({ type: "ok", text: t("auth.emailVerifiedFlash") });
     }
     if (ok || err || verified) {
       // OAuth callback lands on `/?...` with `from=<page>` telling us
@@ -191,10 +199,13 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
       // back-button doesn't replay the OAuth landing.
       const target = (from && PAGE_PATHS[from as Page] ? (from as Page) : page);
       setPage(target, { replace: true });
-      const t = setTimeout(() => setFlash(null), 5000);
-      return () => clearTimeout(t);
+      // Identity conflict needs longer reading time than 5 s — it tells
+      // the user there are two accounts and asks them to act differently.
+      const isCritical = err === "identity_owned_by_another_user";
+      const tid = setTimeout(() => setFlash(null), isCritical ? 30000 : 5000);
+      return () => clearTimeout(tid);
     }
-  }, [page, setPage]);
+  }, [t, page, setPage]);
 
   return (
     <main className="h-screen flex flex-col p-2 sm:p-3 overflow-hidden">
@@ -451,17 +462,20 @@ function AnonApp({ onAuthed }: { onAuthed: () => void }) {
     const verified = params.get("verified");
     const from = params.get("from") as Page | null;
     if (err) {
-      setFlash({
-        type: "error",
-        text: t("auth.oauth.errorFlash", { error: err }),
+      // Resolve known error codes via i18n; fall back to generic template
+      // for unknown ones. See AuthedApp for the same pattern.
+      const friendly = t(`auth.oauth.errors.${err}`, {
+        defaultValue: t("auth.oauth.errorFlash", { error: err }),
       });
+      setFlash({ type: "error", text: friendly });
     } else if (verified) {
       setFlash({ type: "ok", text: t("auth.emailVerifiedFlash") });
     }
     if (err || verified) {
       const target = from && ANON_ALLOWED.includes(from) ? from : page;
       setPage(target, { replace: true });
-      const tid = setTimeout(() => setFlash(null), 6000);
+      const isCritical = err === "identity_owned_by_another_user";
+      const tid = setTimeout(() => setFlash(null), isCritical ? 30000 : 6000);
       return () => clearTimeout(tid);
     }
   }, [t, page, setPage]);

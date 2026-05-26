@@ -368,6 +368,15 @@
       "signInFacebook": "Facebook",
       "notConfigured": "{{provider}} přihlášení zatím není nakonfigurováno administrátorem.",
       "errorFlash": "Přihlášení selhalo: {{error}}. Zkus znovu nebo zvol jiný způsob.",
+      "connectedFlash": "{{provider}} připojeno.",
+      "signedInFlash": "Přihlášení úspěšné.",
+      "errors": {
+        "identity_owned_by_another_user": "Tento účet je už propojený s jiným Astrozor účtem. Pokud je tvůj, přihlas se na něj a propoj SSO odtamtud — nebo nech to staré propojení v druhém účtě zrušit.",
+        "bad_state": "Přihlašovací relace vypršela během přihlašování. Zkus to prosím znovu.",
+        "no_code": "Provider nevrátil ověřovací kód. Zkus to znovu nebo zvol jiný způsob.",
+        "not_configured": "Tento provider zatím není v této instalaci Astrozoru nakonfigurován.",
+        "identity_email_not_verified": "E-mail u providera není ověřený. Ověř ho v jeho nastavení a zkus to znovu."
+      },
       "emailVerifiedFlash": "E-mail ověřen.",
       "connectGitHub": "Připojit GitHub účet",
       "connect_github": "Propojit GitHub",
