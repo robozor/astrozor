@@ -419,7 +419,7 @@ export const geocoding = {
 
 // ---- Admin: self-hosted map infra ----
 
-export type MapInfraStatus = "idle" | "running" | "error";
+export type MapInfraStatus = "idle" | "running" | "paused" | "error";
 
 export type MapInfraOut = {
   pmtiles: {
