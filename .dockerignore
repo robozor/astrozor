@@ -1,0 +1,48 @@
+# Astrozor build-context excludes.
+# Each prod Dockerfile only needs a slice of the repo; excluding the rest
+# keeps the context tiny and prevents accidental host artifacts from
+# leaking into images (node_modules with .bin symlinks broke local builds
+# before we added this file).
+
+# Node / Vite
+**/node_modules
+**/dist
+**/.vite
+**/.cache
+**/.turbo
+**/.next
+**/coverage
+**/playwright-report
+**/test-results
+
+# Python
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.mypy_cache
+**/.ruff_cache
+**/.pytest_cache
+
+# Docker / IDE / VCS
+.git
+.github
+.idea
+.vscode
+*.log
+.DS_Store
+Thumbs.db
+
+# Astrozor-specific deploy artifacts (gitignored too but Docker still
+# sees them as part of build context).
+.env
+.env.*
+requirements/
+samples/
+
+# Backend collected statics + media (rebuilt inside image)
+backend/static_collected
+backend/media
+
+# Frontend build outputs and developer artifacts
+frontend/dist
+frontend/.vite
