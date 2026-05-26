@@ -348,14 +348,15 @@ function ZooniverseImportReviewModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 backdrop-blur-sm p-4 pt-12"
-      onClick={onClose}
+      // Backdrop click no longer closes — user decisions inside the modal
+      // (tag edits, featured toggle) would be silently discarded (#20).
+      // Close via ✕ / Cancel button.
       role="dialog"
       aria-modal="true"
       data-testid="zooniverse-import-review-modal"
     >
       <div
         className="w-full max-w-2xl bg-slate-900 ring-1 ring-slate-700 rounded-xl shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between px-5 py-3 border-b border-slate-800">
           <div>
@@ -584,14 +585,14 @@ function ZooniverseDisconnectModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 backdrop-blur-sm p-4 pt-12"
-      onClick={onClose}
+      // Backdrop click no longer closes — destructive confirm dialog,
+      // misclick used to act like Cancel. Close via ✕ / Cancel button (#20).
       role="dialog"
       aria-modal="true"
       data-testid="zooniverse-disconnect-modal"
     >
       <div
         className="w-full max-w-2xl bg-slate-900 ring-1 ring-rose-900/40 rounded-xl shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-start justify-between px-5 py-3 border-b border-slate-800">
           <div>

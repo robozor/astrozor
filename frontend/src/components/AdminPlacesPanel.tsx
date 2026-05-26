@@ -265,12 +265,13 @@ function CsvImportWizard({ onClose }: { onClose: () => void }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 backdrop-blur-sm p-4 pt-16"
-      onClick={onClose}
+      // Backdrop click no longer closes — CSV import preview with
+      // per-row decisions; misclick used to silently discard the whole
+      // preview. Close via ✕ / Cancel (#20).
       data-testid="admin-places-import-modal"
     >
       <div
         className="bg-slate-900 ring-1 ring-slate-700 rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden p-5 flex flex-col"
-        onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between mb-3">
           <div>

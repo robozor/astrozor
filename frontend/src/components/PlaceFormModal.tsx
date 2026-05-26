@@ -145,12 +145,13 @@ export function PlaceFormModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 backdrop-blur-sm p-4 pt-16"
-      onClick={onClose}
+      // No onClick=onClose on the backdrop: misclick used to silently
+      // discard the entire form (#20). Closing happens through the ✕
+      // button or the Cancel action only.
       data-testid="place-form-modal"
     >
       <div
         className="bg-slate-900 ring-1 ring-slate-700 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto dark-scroll p-5"
-        onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-slate-100">

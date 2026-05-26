@@ -557,14 +557,14 @@ function LoginModal({ onClose, onAuthed }: { onClose: () => void; onAuthed: () =
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 backdrop-blur-sm p-4 pt-12"
-      onClick={onClose}
+      // Backdrop click no longer closes — form input would be silently
+      // discarded (#20). Close via the ✕ button only.
       role="dialog"
       aria-modal="true"
       data-testid="login-modal"
     >
       <div
         className="w-full max-w-md bg-slate-900 ring-1 ring-slate-700 rounded-xl shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
           <h3 className="text-sm font-semibold text-slate-100">{t("auth.welcome")}</h3>
