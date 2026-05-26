@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+from django.db.models import Q
 from django.http import HttpRequest, HttpResponse
 from django.utils.text import slugify
 from icalendar import Calendar
@@ -134,8 +135,6 @@ def _event_visibility_filter(user):
     """Q-filter for events visible to `user`. Same shape as places —
     staff sees everything, anon only public, logged-in sees public +
     members + own + allowlist."""
-    from django.db.models import Q
-
     if user is not None and user.is_authenticated and user.is_staff:
         return Q()
     q = Q(visibility="public")
@@ -166,7 +165,15 @@ def list_events(
     place_slug: str | None = None,
     tag: list[str] | None = None,
 ):
-    qs = Event.objects.select_related("organizer", "place").exclude(status=Event.Status.DRAFT)
+    qs = Event.objects.select_related("organizer", "place")
+    # Drafts are visible to their organizer and to staff users; everyone
+    # else sees only published/announced/etc. Without this branch, every
+    # newly-created event was invisible to the organizer too (issue #22).
+    if not (request.user.is_authenticated and request.user.is_staff):
+        drafts_q = Q(status=Event.Status.DRAFT)
+        if request.user.is_authenticated:
+            drafts_q &= ~Q(organizer=request.user)
+        qs = qs.exclude(drafts_q)
     # Visibility filter — see _event_visibility_filter().
     qs = qs.filter(_event_visibility_filter(request.user)).distinct()
     if kind:
