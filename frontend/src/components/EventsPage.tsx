@@ -1285,7 +1285,7 @@ function EventEditor({
               testidPrefix="event-visibility"
             />
             <VisibilityPicker
-              label={t("visibility.discussionLabel")}
+              label={t("events.discussionAndJoinLabel")}
               value={discussionVisibility}
               allowedEmails={discussionAllowedEmails}
               onChange={setDiscussionVisibility}
@@ -1294,6 +1294,9 @@ function EventEditor({
               ownerEmail={existing.data?.organizer_email || me.user.email}
               testidPrefix="event-discussion-visibility"
             />
+            <p className="text-[11px] text-slate-500 -mt-2 ml-1">
+              {t("events.discussionAndJoinHint")}
+            </p>
           </div>
         </FormSection>
 

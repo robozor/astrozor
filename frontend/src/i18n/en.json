@@ -769,6 +769,8 @@
     "editTitle": "Edit event",
     "saveChanges": "Save changes",
     "joinMeeting": "Join online",
+    "discussionAndJoinLabel": "Discussion visibility and online-meeting access",
+    "discussionAndJoinHint": "Users outside the configured circle can see the event but won't get the meeting URL or Discord link — even when the event itself is public.",
     "noMeetingConfigured": "not configured",
     "confirmDelete": "Really delete event \"{{title}}\"? Registrations and discussion will also be removed.",
     "tab": {

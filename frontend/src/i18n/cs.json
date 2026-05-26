@@ -776,6 +776,8 @@
     "editTitle": "Upravit akci",
     "saveChanges": "Uložit změny",
     "joinMeeting": "Připojit se online",
+    "discussionAndJoinLabel": "Viditelnost diskuse a možnost připojení k online setkání",
+    "discussionAndJoinHint": "Uživatelé mimo nastavený okruh uvidí akci, ale nedostanou odkaz na online setkání ani na Discord — ani když je akce sama veřejná.",
     "noMeetingConfigured": "není nastaveno",
     "confirmDelete": "Opravdu smazat akci „{{title}}\"? Smaže i registrace a diskuzi.",
     "tab": {

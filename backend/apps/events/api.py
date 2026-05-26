@@ -46,7 +46,16 @@ def _organizer_display(user) -> str:
     return user.email.split("@")[0]
 
 
-def _event_out(e: Event) -> dict:
+def _event_out(e: Event, viewer=None) -> dict:
+    # Join-online links (#24): the meeting / Discord / geocache URL and the
+    # radio frequency are only useful to attendees, not the public listing.
+    # Gate them behind the same discussion_visibility check that controls
+    # access to the chat. Anonymous / out-of-circle users see the event
+    # but get no join links — the SPA chip just doesn't render.
+    can_join = (
+        viewer is None  # legacy callers (iCal export, server-side renders) — leave it to them
+        or _user_can_view_event_discussion(viewer, e)
+    )
     return {
         "id": e.id,
         "slug": e.slug,
@@ -70,10 +79,10 @@ def _event_out(e: Event) -> dict:
         "external_address": e.external_address,
         "external_lat": e.external_lat,
         "external_lon": e.external_lon,
-        "meeting_url": e.meeting_url,
-        "discord_url": e.discord_url,
-        "geocache_url": e.geocache_url,
-        "radio_frequency": e.radio_frequency,
+        "meeting_url": e.meeting_url if can_join else "",
+        "discord_url": e.discord_url if can_join else "",
+        "geocache_url": e.geocache_url if can_join else "",
+        "radio_frequency": e.radio_frequency if can_join else "",
         "starts_at": e.starts_at,
         "ends_at": e.ends_at,
         "capacity": e.capacity,
@@ -148,6 +157,15 @@ def _event_visibility_filter(user):
     return q
 
 
+def _user_can_view_event_discussion(user, event: Event) -> bool:
+    """Wraps apps.core.visibility.can_view_discussion to gate the join-online
+    links + chat membership behind the event's discussion_visibility
+    (falling back to the main visibility when blank). See issue #24."""
+    from apps.core.visibility import can_view_discussion
+
+    return can_view_discussion(event, user)
+
+
 def _user_can_view_event(user, event: Event) -> bool:
     from apps.core.visibility import can_view
 
@@ -186,7 +204,7 @@ def list_events(
         for t in tag:
             qs = qs.filter(tags__name__iexact=t)
         qs = qs.distinct()
-    return 200, [_event_out(e) for e in qs[:200]]
+    return 200, [_event_out(e, viewer=request.user) for e in qs[:200]]
 
 
 @router.get("/events/{slug}", response={200: EventOut, 404: dict})
@@ -204,7 +222,7 @@ def get_event(request: HttpRequest, slug: str):
         not request.user.is_authenticated or (e.organizer_id != request.user.id and not request.user.is_staff)
     ):
         return 404, {"detail": "Event not found"}
-    return 200, _event_out(e)
+    return 200, _event_out(e, viewer=request.user)
 
 
 # ---- Create / edit ----
@@ -252,7 +270,7 @@ def create_event(request: HttpRequest, payload: EventCreateIn):
         e.tags.set(clean_tags)
     _set_allowed_users(e.allowed_users, payload.allowed_user_emails or [])
     _set_allowed_users(e.discussion_allowed_users, payload.discussion_allowed_user_emails or [])
-    return 201, _event_out(e)
+    return 201, _event_out(e, viewer=request.user)
 
 
 def _set_allowed_users(manager, emails: list[str]) -> None:
@@ -311,7 +329,7 @@ def update_event(request: HttpRequest, slug: str, payload: EventPatchIn):
         _set_allowed_users(e.allowed_users, allowed_emails)
     if discussion_allowed_emails is not None:
         _set_allowed_users(e.discussion_allowed_users, discussion_allowed_emails)
-    return 200, _event_out(e)
+    return 200, _event_out(e, viewer=request.user)
 
 
 @router.delete(
@@ -402,7 +420,7 @@ def create_event_discord_channel(request: HttpRequest, slug: str):
 
     e.discord_url = invite.get("url", "")
     e.save(update_fields=["discord_url", "updated_at"])
-    return 200, _event_out(e)
+    return 200, _event_out(e, viewer=request.user)
 
 
 # ---- State machine ----
@@ -453,7 +471,7 @@ def transition_event(request: HttpRequest, slug: str, payload: EventTransitionIn
             "actor_user_id": str(request.user.id),
         },
     )
-    return 200, _event_out(e)
+    return 200, _event_out(e, viewer=request.user)
 
 
 # ---- Registration ----
