@@ -129,18 +129,12 @@ export function App() {
     }
   }, [me.isSuccess, me.data?.profile.language, i18n]);
 
-  // While we don't know auth state yet, show a quick splash. After that
-  // we either render the authed app (full nav) or the anon app (limited
-  // nav with Login CTA). The login form moves into a modal so visitors
-  // can keep reading and switch contexts.
-  if (me.isLoading) {
-    return (
-      <main className="min-h-screen flex items-center justify-center p-6">
-        <Spinner />
-      </main>
-    );
-  }
-
+  // Render AnonApp by default — anonymous users see the SPA shell
+  // immediately without waiting for /auth/me to resolve. If the round-trip
+  // hangs (slow network, SW glitch, OAuth callback in-flight) the visitor
+  // is no longer stuck on a blank "Načítám…" splash; they get the public
+  // article list / map right away. Authed users get a brief anon flash
+  // (~100 ms) then swap to AuthedApp — acceptable trade-off.
   if (isAuthed) {
     return <AuthedApp me={me.data} onLogout={() => logout.mutate()} />;
   }
@@ -429,11 +423,6 @@ function LanguageSwitcher({ isAuthed }: { isAuthed: boolean }) {
       ))}
     </div>
   );
-}
-
-function Spinner() {
-  const { t } = useTranslation();
-  return <p className="text-slate-400 text-sm">{t("common.loading")}</p>;
 }
 
 // ---- Anonymous app shell: limited nav + login CTA ----

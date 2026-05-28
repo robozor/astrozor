@@ -6,6 +6,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 
 ## [Unreleased]
 
+## [1.2.7] — 2026-05-28
+
+### Fixed
+
+- **Anonymous visitors stuck on "Načítám…" splash** — `App` was rendering a full-screen spinner while the `/auth/me` query was in flight, blocking the SPA shell from mounting until the round-trip resolved (typically 100–200 ms, but indefinitely on slow network or service-worker glitches). Anonymous users now see the `AnonApp` (article list, map, events) immediately; authed users get a brief anon flash then swap to `AuthedApp` once `/auth/me` resolves. This fixes the reported "sometimes article pages and article list don't load" symptom on www.astrozor.cz without login.
+
 ## [1.2.6] — 2026-05-26
 
 ### Added
