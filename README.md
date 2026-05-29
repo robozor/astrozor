@@ -60,7 +60,7 @@ Open **http://astrozor.localhost**. Stop with `make down`. Full target list: `ma
 ## What's inside
 
 - `backend/` — Django 5 + Django Ninja (ASGI) API. Apps: `accounts`, `admin_panel`, `chat`, `citizen` (Zooniverse projects), `core`, `docs` (in-app help), `events`, `feeds`, `geocoding`, `notifications`, `places`, `presence` (check-ins), `projects` (GitHub-integrated), `publishing` + `publishing_api`, `uploads`.
-- `frontend/` — Vite + React 18 + TypeScript + Tailwind CSS v4. PWA enabled.
+- `frontend/` — Vite + React 18 + TypeScript + Tailwind CSS v4. PWA enabled. Zooniverse project descriptions are rendered with [`markdownz`](https://github.com/zooniverse/markdownz) (Apache 2.0) so the on-Astrozor output matches the upstream project page — see [ADR-009](./docs/decisions/ADR-009-zooniverse-markdownz.md).
 - `docker/` — per-service Dockerfiles (dev + `.prod` variants for the release stack).
 - `docker-compose.yml` — dev stack (build from source).
 - `docker-compose.prod.yml` — production stack (pull from GHCR).

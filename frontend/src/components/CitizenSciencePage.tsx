@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { Markdown } from "markdownz";
 import { CampaignsPage } from "./CampaignsPage";
 import { DateTimePicker } from "./DateTimePicker";
 import { SprintFullPage } from "./SprintFullPage";
@@ -693,18 +694,25 @@ function ZooniverseProjectDetail({
 
       <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6">
         <div className="space-y-4">
+          {/* Zooniverse project descriptions use a markdown flavour
+              (GFM tables + their =NNNx image-sizing + +tab+ links).
+              `markdownz` is their official renderer — see types/markdownz.d.ts.
+              `.docs-prose` already covers dark-theme table/img/link styling
+              for the matching `article-html` family. */}
           {p.introduction && (
             <section className="bg-slate-950/60 ring-1 ring-slate-800 rounded-xl p-4">
-              <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">
-                {p.introduction}
-              </p>
+              <Markdown
+                content={p.introduction}
+                className="docs-prose text-sm text-slate-300 leading-relaxed"
+              />
             </section>
           )}
           {!p.introduction && p.description && (
             <section className="bg-slate-950/60 ring-1 ring-slate-800 rounded-xl p-4">
-              <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">
-                {p.description}
-              </p>
+              <Markdown
+                content={p.description}
+                className="docs-prose text-sm text-slate-300 leading-relaxed"
+              />
             </section>
           )}
 

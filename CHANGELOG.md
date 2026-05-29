@@ -6,6 +6,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 
 ## [Unreleased]
 
+## [1.2.10] — 2026-05-29
+
+### Fixed
+
+- **Zooniverse project descriptions rendered tables / sized images / new-tab links as raw markdown source** — `CitizenSciencePage` used a plain `<p whitespace-pre-wrap>` for `introduction` / `description`, which left GFM tables (`| ---- |`), Zooniverse's `=NNNx` image-sizing syntax and the `+tab+` link prefix visible as unparsed source on pages like `Galaxy Zoo: Clump Scout II`. Now rendered via Zooniverse's own `markdownz` package (Apache 2.0) so the Astrozor output matches the upstream project page. Scope is limited to citizen-science descriptions; articles / docs / chat keep their existing server-side markdown pipeline. See [ADR-009](./docs/decisions/ADR-009-zooniverse-markdownz.md) for the dependency rationale.
+
 ## [1.2.9] — 2026-05-29
 
 ### Fixed
