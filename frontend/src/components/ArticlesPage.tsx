@@ -125,7 +125,6 @@ export function ArticlesPage({
   me: Me | null;
   onRequireLogin?: () => void;
 }) {
-  const { i18n } = useTranslation();
   // ?a=<slug> in the URL opens the article detail. List / new / edit
   // intentionally don't get URL slots — editor state is ephemeral and
   // not shareable.
