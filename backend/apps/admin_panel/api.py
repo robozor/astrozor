@@ -638,6 +638,49 @@ def delete_photon(request: HttpRequest):
     return 200, {"reset": True, "detail": "Photon data wiped; container restarted; re-import in progress."}
 
 
+# NOTE: This route MUST be declared before the `/light-pollution/{source}`
+# DELETE route below — the URL pattern `/{source}` matches the literal
+# string "refresh" as `source="refresh"`, and Django URL resolution is
+# first-match-wins. With the wildcard registered first, a POST /refresh
+# was routed to the DELETE handler's URL pattern, which only allows DELETE,
+# producing 405 Method Not Allowed. Declare the literal route first.
+@router.post(
+    "/admin/map-infra/light-pollution/refresh",
+    response={200: dict, 403: dict, 502: dict},
+)
+def refresh_light_pollution_latest(request: HttpRequest):
+    """Probe GIBS for the freshest VIIRS DNB nightly composite and store
+    that date. Walks back from today until it finds a date with tiles
+    available (usually t-2 to t-3 because of publication lag)."""
+    from django.utils import timezone
+
+    if not _require_staff(request):
+        return 403, {"detail": "Staff only"}
+    found = _find_latest_dnb_date()
+    infra = MapInfra.get()
+    infra.light_pollution_last_check = timezone.now()
+    if found is None:
+        infra.light_pollution_status_message = (
+            "No VIIRS DNB tiles available in the last 14 days "
+            "(GIBS upstream may be down)."
+        )
+        infra.save(
+            update_fields=["light_pollution_last_check", "light_pollution_status_message"]
+        )
+        return 502, _infra_out(infra)
+    date_str, label = found
+    infra.light_pollution_dnb_date = date_str
+    infra.light_pollution_status_message = label
+    infra.save(
+        update_fields=[
+            "light_pollution_dnb_date",
+            "light_pollution_status_message",
+            "light_pollution_last_check",
+        ]
+    )
+    return 200, _infra_out(infra)
+
+
 @router.delete(
     "/admin/map-infra/light-pollution/{source}",
     response={200: dict, 400: dict, 403: dict, 409: dict},
@@ -954,43 +997,6 @@ def trigger_lp_download(request: HttpRequest, source: str):
         return 400, {"detail": "Set DNB date via 'Aktualizovat na poslední' first."}
     result = download_light_pollution_tiles.delay(source)
     return 202, {"job_id": result.id, "status": "queued"}
-
-
-@router.post(
-    "/admin/map-infra/light-pollution/refresh",
-    response={200: dict, 403: dict, 502: dict},
-)
-def refresh_light_pollution_latest(request: HttpRequest):
-    """Probe GIBS for the freshest VIIRS DNB nightly composite and store
-    that date. Walks back from today until it finds a date with tiles
-    available (usually t-2 to t-3 because of publication lag)."""
-    from django.utils import timezone
-
-    if not _require_staff(request):
-        return 403, {"detail": "Staff only"}
-    found = _find_latest_dnb_date()
-    infra = MapInfra.get()
-    infra.light_pollution_last_check = timezone.now()
-    if found is None:
-        infra.light_pollution_status_message = (
-            "No VIIRS DNB tiles available in the last 14 days "
-            "(GIBS upstream may be down)."
-        )
-        infra.save(
-            update_fields=["light_pollution_last_check", "light_pollution_status_message"]
-        )
-        return 502, _infra_out(infra)
-    date_str, label = found
-    infra.light_pollution_dnb_date = date_str
-    infra.light_pollution_status_message = label
-    infra.save(
-        update_fields=[
-            "light_pollution_dnb_date",
-            "light_pollution_status_message",
-            "light_pollution_last_check",
-        ]
-    )
-    return 200, _infra_out(infra)
 
 
 # ---- Public map config (read-only, no auth) ----

@@ -6,6 +6,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 
 ## [Unreleased]
 
+## [1.2.9] — 2026-05-29
+
+### Fixed
+
+- **VIIRS DNB "Aktualizovat na poslední" returned 405 Method Not Allowed** — `POST /admin/map-infra/light-pollution/refresh` collided with the earlier-declared `DELETE /admin/map-infra/light-pollution/{source}` because Django URL resolution is first-match-wins and the wildcard `{source}` matched the literal `refresh`. The handler for that pattern only accepts DELETE, so POST was rejected before reaching the refresh handler. The refresh route is now declared before the wildcard DELETE; behaviour and contract are unchanged.
+
+### Changed
+
+- **"Aktualizovat na poslední" button hidden once tiles match the latest known DNB date** — backend already computes `viirs_dnb.cached` as `tile_count > 0 AND cached_date === dnb_date`. The admin button is now gated on `!viirs_dnb.cached`, so it disappears the moment a download finishes for the date the backend currently tracks. Clicking it in that state would have been a no-op against GIBS anyway.
+
 ## [1.2.8] — 2026-05-29
 
 ### Changed

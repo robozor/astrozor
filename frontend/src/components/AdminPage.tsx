@@ -1405,21 +1405,31 @@ function LightPollutionCard({ data }: { data: MapInfraOut }) {
                   {lp.status_message}
                 </p>
               )}
-              <button
-                type="button"
-                onClick={() => refresh.mutate()}
-                disabled={refresh.isPending}
-                className="text-xs px-2 py-1 rounded-md bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white"
-                data-testid="admin-lp-refresh"
-              >
-                {refresh.isPending
-                  ? t("admin.lp.refreshing")
-                  : t("admin.lp.refreshLatest")}
-              </button>
-              {refresh.isError && (
-                <p className="text-[11px] text-rose-400">
-                  {(refresh.error as Error)?.message}
-                </p>
+              {/* "Refresh to latest" is hidden once we've locally cached
+                  tiles for the same date the backend currently tracks as
+                  the latest known (`cached` is computed server-side as
+                  tile_count > 0 AND cached_date === dnb_date). Clicking it
+                  in that state is a no-op against GIBS until something
+                  newer is published, so we just don't offer it. */}
+              {!lp.viirs_dnb.cached && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => refresh.mutate()}
+                    disabled={refresh.isPending}
+                    className="text-xs px-2 py-1 rounded-md bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white"
+                    data-testid="admin-lp-refresh"
+                  >
+                    {refresh.isPending
+                      ? t("admin.lp.refreshing")
+                      : t("admin.lp.refreshLatest")}
+                  </button>
+                  {refresh.isError && (
+                    <p className="text-[11px] text-rose-400">
+                      {(refresh.error as Error)?.message}
+                    </p>
+                  )}
+                </>
               )}
               {lp.dnb_date && (
                 <LpDownloadSection source="viirs_dnb_latest" data={lp.viirs_dnb} />
