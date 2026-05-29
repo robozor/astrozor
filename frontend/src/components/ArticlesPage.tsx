@@ -152,16 +152,15 @@ export function ArticlesPage({
 
   // Filter state lives here, NOT in ArticleList. ArticleList unmounts
   // every time the user opens a detail and remounts on back, which
-  // would re-initialise its useState() and reset the lang chip back
-  // to the UI's current language. Lifting up keeps the user's session-
-  // long choice intact across the list ↔ detail roundtrip.
-  const initialLang: "all" | "cs" | "en" = i18n.language.startsWith("cs")
-    ? "cs"
-    : "en";
+  // would re-initialise its useState() and reset the lang chip. Lifting
+  // up keeps the user's session-long choice intact across the list ↔
+  // detail roundtrip. Default is always "all" — independent of the UI
+  // language / profile — so visitors see the full catalogue first and
+  // explicitly opt into narrowing.
   const [searchQ, setSearchQ] = useState("");
   const [engineFilter, setEngineFilter] = useState<"all" | ArticleListItem["engine"]>("all");
   const [tagFilter, setTagFilter] = useState<string[]>([]);
-  const [langFilter, setLangFilter] = useState<"all" | "cs" | "en">(initialLang);
+  const [langFilter, setLangFilter] = useState<"all" | "cs" | "en">("all");
   const [mobileTab, setMobileTab] = useState<"articles" | "mastodon">("articles");
 
   // Anon visitors can only browse: list + detail. Any attempt to enter

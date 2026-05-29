@@ -6,6 +6,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 
 ## [Unreleased]
 
+## [1.2.8] — 2026-05-29
+
+### Changed
+
+- **Article language filter defaults to "All" regardless of profile / UI language** — previously the chip on the article list initialised to `cs` for Czech UI and `en` for English UI, which hid the other half of the catalogue from first-time visitors. The default is now always `all`; users explicitly opt into narrowing per browsing session. The lift-up of filter state to `ArticlesPage` is unchanged, so the choice still survives the list ↔ detail roundtrip.
+
 ## [1.2.7] — 2026-05-28
 
 ### Fixed
