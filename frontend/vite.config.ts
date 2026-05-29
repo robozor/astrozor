@@ -85,5 +85,19 @@ export default defineConfig({
   build: {
     outDir: "dist",
     sourcemap: true,
+    // `markdownz` (Zooniverse markdown renderer — see ADR-009) pulls in
+    // `markdown-it-imsize`, whose detector.js does
+    //   require('./types/' + type)
+    // at module-load time. Rollup can't statically analyse the path, so
+    // the bundle ships a stub and the page crashes at runtime with
+    // "Could not dynamically require './types/bmp'". Pre-declare the
+    // glob so @rollup/plugin-commonjs bakes all eight format detectors
+    // (bmp/gif/jpg/png/psd/svg/tiff/webp) into the bundle.
+    commonjsOptions: {
+      transformMixedEsModules: true,
+      dynamicRequireTargets: [
+        "node_modules/markdown-it-imsize/lib/imsize/types/*.js",
+      ],
+    },
   },
 });

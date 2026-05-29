@@ -6,6 +6,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning: 
 
 ## [Unreleased]
 
+## [1.2.11] — 2026-05-29
+
+### Fixed
+
+- **SPA crashed on `/citizen-science?p=…` after the v1.2.10 markdownz rollout** — `markdownz` pulls in `markdown-it-imsize` whose `detector.js` does `require('./types/' + type)` at module load. Rollup can't statically analyse the path, so the production bundle shipped a stub and the page died with `Could not dynamically require './types/bmp'` as soon as the description tried to render. The homepage stayed up because that error is caught by the React error boundary on the citizen route. Configured `vite.config.ts` with `build.commonjsOptions.dynamicRequireTargets` so all eight detector files (bmp/gif/jpg/png/psd/svg/tiff/webp) are baked into the bundle.
+
 ## [1.2.10] — 2026-05-29
 
 ### Fixed
