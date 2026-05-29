@@ -51,13 +51,14 @@ jobs:
       - name: Copy .env.example to .env
         run: cp .env.example .env
 
+      # Use Makefile targets so the host-side OS detection (chmod for
+      # bind-mounted entrypoint.sh on Linux/macOS, no-op on Windows) is
+      # exercised the same way as a local dev would run it.
       - name: Build images
-        run: |
-          docker compose -p astrozor --profile build build python-base
-          docker compose -p astrozor build
+        run: make build
 
       - name: Start stack
-        run: docker compose -p astrozor up -d
+        run: make up
 
       - name: Wait for proxy healthz
         run: |

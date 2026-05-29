@@ -17,17 +17,38 @@
 PROJECT ?= astrozor
 COMPOSE = docker compose -p $(PROJECT)
 
+# Host OS detection — affects only the `prep` target below.
+# Linux/macOS bind-mounts honour host file perms, so backend/entrypoint.sh
+# MUST be +x on the host or `tini` exec'ing it inside the container fails
+# with "Permission denied" (exit 126) → restart loop → smoke fails.
+# Windows Docker Desktop ignores host perms on bind-mounts, so chmod is a
+# no-op there; we skip it to keep `make up` silent and fast on Windows.
+ifeq ($(OS),Windows_NT)
+    HOST_OS := windows
+else
+    HOST_OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
+endif
+
 .PHONY: help
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
+.PHONY: prep
+prep: ## Ensure host-side prerequisites for compose (OS-aware)
+ifeq ($(HOST_OS),windows)
+	@echo "prep: host=$(HOST_OS) — Docker Desktop ignores host perms, skipping chmod"
+else
+	@echo "prep: host=$(HOST_OS) — ensuring backend/entrypoint.sh is executable"
+	@chmod +x backend/entrypoint.sh
+endif
+
 .PHONY: build
-build: ## Build all images (python-base, api, frontend, proxy)
+build: prep ## Build all images (python-base, api, frontend, proxy)
 	$(COMPOSE) --profile build build python-base
 	$(COMPOSE) build
 
 .PHONY: up
-up: ## Start stack in detached mode
+up: prep ## Start stack in detached mode
 	$(COMPOSE) up -d
 
 .PHONY: down
